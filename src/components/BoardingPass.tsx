@@ -99,9 +99,9 @@ export function BoardingPass({
                 ))}
               </div>
               <dl className="ticket-fields">
-                <div><dt>{t.passenger}</dt><dd>{localized(invitation.passengerLabel, locale)}</dd></div>
-                <div><dt>{t.flight}</dt><dd>{event.flightCode}</dd></div>
-                <div><dt>{t.eventTime}</dt><dd>{event.time}</dd></div>
+                <div className="ticket-field-passenger"><dt>{t.passenger}</dt><dd>{localized(invitation.passengerLabel, locale)}</dd></div>
+                <div className="ticket-field-flight"><dt>{t.flight}</dt><dd>{event.flightCode}</dd></div>
+                <div className="ticket-field-time"><dt>{t.eventTime}</dt><dd>{event.time}</dd></div>
                 <div className="ticket-field-gate"><dt>{t.gate}</dt><dd>{invitation.hotel}</dd></div>
                 <div><dt>{t.ballroom}</dt><dd>{invitation.ballroom}</dd></div>
                 <div><dt>{t.terminal}</dt><dd>{invitation.terminal}</dd></div>

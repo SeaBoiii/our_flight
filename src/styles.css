@@ -587,18 +587,28 @@ a { color: inherit; }
   cursor: pointer;
 }
 .ticket-scan-action:disabled { cursor: progress; }
+.ticket-scan-action::before,
 .ticket-scan-action::after {
   position: absolute;
-  top: 0;
   right: 2%;
   left: 2%;
-  height: 2px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, transparent, #8fe6df 18%, #fff 50%, #8fe6df 82%, transparent);
-  box-shadow: 0 0 14px rgba(113, 224, 215, 0.9), 0 0 34px rgba(113, 224, 215, 0.44);
   content: "";
   opacity: 0;
   pointer-events: none;
+  will-change: top, opacity;
+}
+.ticket-scan-action::before {
+  top: -24px;
+  height: 52px;
+  background: linear-gradient(180deg, transparent 0%, rgba(255, 31, 42, 0.08) 24%, rgba(255, 31, 42, 0.34) 49%, rgba(255, 31, 42, 0.1) 72%, transparent 100%);
+  filter: blur(1px);
+}
+.ticket-scan-action::after {
+  top: 0;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent 0%, #ff202b 12%, #ff5a61 32%, #fff 50%, #ff5a61 68%, #ff202b 88%, transparent 100%);
+  box-shadow: 0 0 7px 2px rgba(255, 30, 42, 0.96), 0 0 20px 5px rgba(255, 30, 42, 0.62), 0 0 48px 11px rgba(255, 30, 42, 0.32);
 }
 .ticket-scan-instruction {
   display: inline-flex;
@@ -621,19 +631,28 @@ a { color: inherit; }
   height: 10px;
   background: repeating-linear-gradient(90deg, var(--ticket-band-deep) 0 1px, transparent 1px 3px);
 }
-.ticket-stack--scanning .ticket-scan-action::after { animation: ticket-scan-sweep 620ms cubic-bezier(.25,.75,.25,1) both; }
+.ticket-stack--scanning .ticket-scan-action::before { animation: ticket-scan-wash 760ms cubic-bezier(.25,.75,.25,1) both; }
+.ticket-stack--scanning .ticket-scan-action::after { animation: ticket-scan-sweep 760ms cubic-bezier(.25,.75,.25,1) both; }
 .ticket-stack--scanning .boarding-pass { animation: ticket-takeoff 900ms cubic-bezier(.34,.06,.2,1) both; }
-.ticket-stack--scanning .ticket-scan-instruction { animation: ticket-caption-depart 900ms ease both; }
+.ticket-stack--scanning .ticket-scan-instruction { color: #b20f1a; animation: ticket-caption-depart 900ms ease both; }
+.ticket-stack--scanning .ticket-scan-instruction > span { background: repeating-linear-gradient(90deg, #d51824 0 1px, transparent 1px 3px); }
 @keyframes ticket-scan-sweep {
   0% { top: 0; opacity: 0; }
-  12% { opacity: 1; }
-  78% { opacity: 1; }
-  100% { top: calc(100% - 2px); opacity: 0; }
+  8% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { top: calc(100% - 4px); opacity: 0; }
+}
+@keyframes ticket-scan-wash {
+  0% { top: -24px; opacity: 0; }
+  10% { opacity: 1; }
+  86% { opacity: 1; }
+  100% { top: calc(100% - 26px); opacity: 0; }
 }
 @keyframes ticket-takeoff {
-  0%, 48% { opacity: 1; transform: translateY(0) scale(1); }
-  62% { opacity: 1; transform: translateY(-6px) scale(1.01); }
-  100% { opacity: 0; transform: translateY(-16vh) scale(0.97); }
+  0% { opacity: 1; filter: none; transform: translateY(0) scale(1); }
+  12%, 54% { opacity: 1; filter: brightness(1.025) drop-shadow(0 0 15px rgba(255, 31, 42, 0.3)); transform: translateY(0) scale(1); }
+  68% { opacity: 1; filter: none; transform: translateY(-6px) scale(1.01); }
+  100% { opacity: 0; filter: none; transform: translateY(-16vh) scale(0.97); }
 }
 @keyframes ticket-caption-depart {
   0%, 45% { opacity: 1; transform: translateY(0); }
@@ -662,6 +681,7 @@ a { color: inherit; }
 .experience-nav .experience-back {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
   border-color: rgba(211, 221, 219, 0.86);
   background: rgba(251, 250, 247, 0.84);
@@ -673,7 +693,7 @@ a { color: inherit; }
   box-shadow: 0 8px 22px rgba(29, 54, 59, 0.09);
   backdrop-filter: blur(14px);
 }
-.experience-nav svg { width: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.experience-nav svg { display: block; width: 17px; height: 17px; flex: 0 0 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .journey {
   --ticket-y: 0vh;
   --ticket-opacity: 1;
@@ -682,6 +702,7 @@ a { color: inherit; }
   --cabin-scale: 1;
   --cloud-opacity: 0;
   --cloud-x: 0px;
+  --cloud-y: 0px;
   --cloud-clip-top: 21%;
   --cloud-clip-right: 39%;
   --cloud-clip-bottom: 53%;
@@ -696,7 +717,7 @@ a { color: inherit; }
 }
 .journey-stage { position: sticky; top: 0; height: 100svh; overflow: hidden; background: linear-gradient(#fdfcf9, #eaf3f5); isolation: isolate; }
 .journey-cabin, .journey-clouds { position: absolute; inset: 0; }
-.journey-cabin { z-index: -2; opacity: var(--cabin-opacity); transform: scale(var(--cabin-scale)); transform-origin: 51% 34%; }
+.journey-cabin { z-index: -2; opacity: var(--cabin-opacity); transform: translateZ(0) scale(var(--cabin-scale)); transform-origin: 51% 34%; will-change: transform, opacity; }
 .journey-clouds {
   z-index: -1;
   opacity: var(--cloud-opacity);
@@ -711,7 +732,7 @@ a { color: inherit; }
 }
 .journey-cabin picture, .journey-cabin img { display: block; width: 100%; height: 100%; }
 .journey-cabin img { object-fit: cover; object-position: 51% 34%; }
-.journey-clouds picture { position: absolute; inset: -16px; display: block; transform: translate3d(var(--cloud-x), 0, 0); will-change: transform; }
+.journey-clouds picture { position: absolute; inset: -16px; display: block; transform: translate3d(var(--cloud-x), var(--cloud-y), 0); will-change: transform; }
 .journey-clouds img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .journey-clouds::after { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(251,250,247,0.1), rgba(251,250,247,0.32)); content: ""; }
 .journey-ticket { --journey-ticket-scale: 0.78; position: absolute; top: 50%; left: 50%; z-index: 5; width: min(92vw, 880px); opacity: var(--ticket-opacity); transform: translate(-50%, calc(-50% + var(--ticket-y))) scale(var(--journey-ticket-scale)); will-change: transform, opacity; }
@@ -898,68 +919,63 @@ a { color: inherit; }
 }
 
 @media (max-width: 430px) {
-  .ticket-stack { --ticket-stub-width: 100%; --ticket-inline: 14px; gap: 11px; }
+  .ticket-stack { --ticket-stub-width: clamp(72px, 21vw, 84px); --ticket-band-height: 46px; --ticket-inline: 13px; gap: 11px; }
+  .cabin-first.ticket-stack { --ticket-band-height: 46px; gap: 11px; }
   .boarding-pass,
   .ticket-stack.cabin-business .boarding-pass,
-  .ticket-stack.cabin-first .boarding-pass { grid-template-columns: minmax(0, 1fr); border-radius: 15px; }
-  .ticket-class-band { grid-template-columns: minmax(0, 1fr); }
-  .ticket-band-stub { display: none; }
+  .ticket-stack.cabin-first .boarding-pass { grid-template-columns: minmax(0, 1fr) var(--ticket-stub-width); border-radius: 12px; }
+  .ticket-class-band { grid-template-columns: minmax(0, 1fr) var(--ticket-stub-width); }
+  .ticket-band-stub { display: grid; padding-inline: 4px; font-size: 0.46rem; }
   .ticket-band-brand em { display: none; }
-  .ticket-band-brand b { font-size: 0.9rem; }
-  .ticket-band-main > strong { font-size: 0.85rem; }
-  .ticket-stack.cabin-premium-economy .ticket-band-main > strong { font-size: 0.75rem; }
-  .ticket-main { padding: calc(var(--ticket-band-height) + 13px) var(--ticket-inline) 18px; }
-  .ticket-topline { gap: 7px; padding-bottom: 12px; font-size: 0.5rem; letter-spacing: 0.065em; }
-  .ticket-topline span:first-child { max-width: 55%; }
-  .route-row { grid-template-columns: auto minmax(22px, 1fr) minmax(88px, 0.95fr); gap: 7px; padding-block: 17px 15px; }
-  .route-row > div:first-child strong { font-size: 2.12rem; }
-  .route-destination strong { font-size: 0.94rem; line-height: 0.95; }
-  .route-row div > span:last-child { font-size: 0.56rem; }
-  .field-label, .ticket-fields dt { font-size: 0.55rem; }
-  .ticket-event-title { margin-bottom: 13px; padding: 9px 10px; font-size: 0.82rem; }
-  .ticket-fields { gap: 11px 9px; }
-  .ticket-fields dd { font-size: 0.68rem; line-height: 1.3; }
-  .ticket-keepsake-mobile { display: block; margin: 13px 0 0; color: color-mix(in srgb, var(--ticket-ink) 68%, #687376); font-size: 0.52rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; }
+  .ticket-band-brand b { font-size: 0.82rem; }
+  .ticket-band-main { gap: 7px; }
+  .ticket-band-main > strong { font-size: 0.72rem; }
+  .ticket-stack.cabin-premium-economy .ticket-band-main > strong { font-size: 0.63rem; }
+  .ticket-main { padding: calc(var(--ticket-band-height) + 11px) var(--ticket-inline) 14px; }
+  .ticket-topline { gap: 6px; padding-bottom: 9px; font-size: 0.43rem; letter-spacing: 0.055em; }
+  .ticket-topline span:first-child { max-width: 53%; }
+  .route-row { grid-template-columns: auto minmax(18px, 1fr) minmax(78px, 0.95fr); gap: 6px; padding-block: 14px 12px; }
+  .route-row > div:first-child strong { font-size: 1.98rem; }
+  .route-destination strong { font-size: 0.82rem; line-height: 0.95; }
+  .route-row div > span:last-child { margin-top: 3px; font-size: 0.49rem; }
+  .field-label, .ticket-fields dt { font-size: 0.5rem; }
+  .ticket-event-title { margin-bottom: 11px; padding: 7px 8px; border-radius: 4px; font-size: 0.74rem; }
+  .ticket-event-title time { font-size: 0.53rem; }
+  .ticket-fields { gap: 8px 7px; }
+  .ticket-field-passenger,
+  .ticket-field-flight,
+  .ticket-field-time { display: none; }
+  .ticket-fields dd { font-size: 0.61rem; line-height: 1.25; }
+  .ticket-keepsake-mobile { display: block; margin: 10px 0 0; color: color-mix(in srgb, var(--ticket-ink) 68%, #687376); font-size: 0.41rem; font-weight: 800; letter-spacing: 0.065em; text-transform: uppercase; }
   .ticket-stub {
-    display: grid;
-    min-height: 104px;
-    grid-template-columns: auto auto minmax(82px, 1fr) 34px;
-    grid-template-rows: repeat(2, auto);
-    column-gap: 11px;
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
     align-items: center;
-    padding: 43px 14px 11px;
-    border-top: 1px dashed color-mix(in srgb, var(--ticket-band) 34%, #d8d4ca);
-    border-left: 0;
-    font-size: 0.5rem;
-    letter-spacing: 0.09em;
+    justify-content: center;
+    padding: calc(var(--ticket-band-height) + 9px) 6px 9px;
+    border-top: 0;
+    border-left: 1px dashed color-mix(in srgb, var(--ticket-band) 34%, #d8d4ca);
+    font-size: 0.45rem;
+    letter-spacing: 0.08em;
   }
-  .stub-class {
-    position: absolute;
-    inset: 0 0 auto;
-    display: grid;
-    height: 32px;
-    place-items: center;
-    color: #fff;
-    background: linear-gradient(105deg, var(--ticket-band-deep), var(--ticket-band), color-mix(in srgb, var(--ticket-band) 82%, #000));
-    font-family: Georgia, "Times New Roman", serif;
-    font-size: 0.62rem;
-    text-transform: uppercase;
-  }
-  .ticket-stub::before { top: -11px; left: -12px; }
-  .ticket-stub::after { top: -11px; right: -12px; bottom: auto; left: auto; }
-  .stub-flight { grid-column: 1; grid-row: 1 / span 2; margin: 0; font-size: 0.54rem; }
-  .stub-date { grid-column: 2; grid-row: 1; align-self: end; font-size: 2.15rem; }
-  .stub-month { grid-column: 2; grid-row: 2; align-self: start; margin: 1px 0 0; font-size: 0.48rem; }
-  .stub-meta { grid-column: 3; grid-row: 1 / span 2; grid-template-columns: 0.65fr 1.35fr; gap: 5px; margin: 0; }
-  .ticket-stub .stub-meta small { font-size: 0.48rem; }
-  .stub-meta strong { font-size: 0.62rem; }
-  .ticket-stub i { display: block; grid-column: 4; grid-row: 1 / span 2; width: 34px; height: 43px; margin: 0; }
-  .boarding-stamp { right: 10px; bottom: 116px; width: 63px; }
+  .stub-class { display: none; }
+  .ticket-stub::before { top: -11px; left: -11px; }
+  .ticket-stub::after { right: auto; bottom: -11px; left: -11px; }
+  .stub-flight { margin: 0 0 5px; font-size: 0.46rem; }
+  .stub-date { font-size: 2.2rem; }
+  .stub-month { margin-top: 3px; font-size: 0.43rem; text-align: center; }
+  .stub-meta { width: 100%; grid-template-columns: 1fr; gap: 4px; margin-top: 9px; }
+  .ticket-stub .stub-meta small { font-size: 0.32rem; }
+  .stub-meta strong { font-size: 0.48rem; }
+  .ticket-stub i { display: block; width: 34px; height: 42px; margin: 10px 0 0; }
+  .boarding-stamp { right: calc(var(--ticket-stub-width) + 7px); bottom: 8px; width: 58px; }
   .boarding-stamp strong { font-size: 0.95rem; }
   .boarding-stamp span, .boarding-stamp small { font-size: 0.31rem; }
-  .ticket-stack.cabin-first .ticket-main { padding-top: calc(var(--ticket-band-height) + 16px); padding-bottom: 21px; }
+  .ticket-stack.cabin-first .ticket-main { padding-top: calc(var(--ticket-band-height) + 12px); padding-bottom: 16px; }
+  .ticket-stack.cabin-first .route-row { padding-block: 15px 13px; }
   .journey-ticket { --journey-ticket-scale: 0.68; width: 116vw; }
-  .experience-back { width: 44px; padding: 0 !important; }
+  .experience-nav .experience-back { width: 44px; min-width: 44px; height: 44px; min-height: 44px; gap: 0; padding: 0; border-radius: 50%; }
   .experience-back span { display: none; }
 }
 
@@ -969,16 +985,16 @@ a { color: inherit; }
   .gate-route { grid-template-columns: auto minmax(22px, 1fr) minmax(0, 0.9fr); gap: 7px; }
   .gate-route strong:last-child { font-size: 1rem; }
   .boarding-ready { width: min(100% - 20px, 1100px); }
-  .ticket-stack { --ticket-inline: 12px; }
-  .ticket-topline { font-size: 0.48rem; }
-  .route-row { grid-template-columns: auto minmax(18px, 1fr) minmax(82px, 0.98fr); gap: 6px; }
-  .route-row > div:first-child strong { font-size: 1.92rem; }
-  .route-destination strong { font-size: 0.88rem; }
-  .ticket-fields dd { font-size: 0.66rem; }
-  .ticket-stub { grid-template-columns: auto auto minmax(76px, 1fr) 30px; column-gap: 8px; padding-inline: 11px; }
+  .ticket-stack { --ticket-stub-width: 68px; --ticket-inline: 10px; }
+  .ticket-topline { font-size: 0.4rem; }
+  .route-row { grid-template-columns: auto minmax(15px, 1fr) minmax(71px, 0.98fr); gap: 5px; }
+  .route-row > div:first-child strong { font-size: 1.82rem; }
+  .route-destination strong { font-size: 0.75rem; }
+  .ticket-fields dd { font-size: 0.57rem; }
+  .ticket-stub { padding-inline: 5px; }
   .stub-date { font-size: 1.95rem; }
-  .ticket-stub i { width: 30px; }
-  .boarding-stamp { right: 8px; width: 59px; }
+  .ticket-stub i { width: 29px; height: 38px; }
+  .boarding-stamp { right: calc(var(--ticket-stub-width) + 5px); width: 55px; }
   .journey-ticket { width: 120vw; }
 }
 
