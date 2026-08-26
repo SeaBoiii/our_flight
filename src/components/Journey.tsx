@@ -90,6 +90,83 @@ function phase(value: number, start: number, end: number): number {
   return Math.min(1, Math.max(0, (value - start) / (end - start)));
 }
 
+function smoothstep(value: number): number {
+  return value * value * (3 - 2 * value);
+}
+
+function mix(from: number, to: number, amount: number): number {
+  return from + (to - from) * amount;
+}
+
+/**
+ * Maps the photographed window aperture through the cabin image's
+ * object-fit/position and camera scale, then opens that mask to the viewport.
+ * The cloud photograph itself never scales during this transition.
+ */
+function setCloudAperture(
+  section: HTMLElement,
+  viewportWidth: number,
+  viewportHeight: number,
+  cameraScale: number,
+  openingProgress: number,
+): void {
+  const sourceWidth = 1024;
+  const sourceHeight = 1536;
+  const objectPositionX = 0.51;
+  const objectPositionY = 0.34;
+
+  // Inner edge of the real window in the cabin master image.
+  const aperture = {
+    left: sourceWidth * (316 / 768),
+    right: sourceWidth * (468 / 768),
+    top: sourceHeight * (241 / 1152),
+    bottom: sourceHeight * (543 / 1152),
+  };
+
+  const coverScale = Math.max(
+    viewportWidth / sourceWidth,
+    viewportHeight / sourceHeight,
+  );
+  const renderedWidth = sourceWidth * coverScale;
+  const renderedHeight = sourceHeight * coverScale;
+  const offsetX = (viewportWidth - renderedWidth) * objectPositionX;
+  const offsetY = (viewportHeight - renderedHeight) * objectPositionY;
+  const cameraOriginX = viewportWidth * objectPositionX;
+  const cameraOriginY = viewportHeight * objectPositionY;
+  const throughCamera = (coordinate: number, origin: number) =>
+    origin + (coordinate - origin) * cameraScale;
+
+  const apertureLeft = throughCamera(
+    offsetX + aperture.left * coverScale,
+    cameraOriginX,
+  );
+  const apertureRight = throughCamera(
+    offsetX + aperture.right * coverScale,
+    cameraOriginX,
+  );
+  const apertureTop = throughCamera(
+    offsetY + aperture.top * coverScale,
+    cameraOriginY,
+  );
+  const apertureBottom = throughCamera(
+    offsetY + aperture.bottom * coverScale,
+    cameraOriginY,
+  );
+  const opening = smoothstep(openingProgress);
+  const apertureWidth = apertureRight - apertureLeft;
+  const apertureHeight = apertureBottom - apertureTop;
+  const setPixelProperty = (name: string, value: number) => {
+    section.style.setProperty(name, `${value}px`);
+  };
+
+  setPixelProperty('--cloud-clip-left', mix(apertureLeft, 0, opening));
+  setPixelProperty('--cloud-clip-right', mix(viewportWidth - apertureRight, 0, opening));
+  setPixelProperty('--cloud-clip-top', mix(apertureTop, 0, opening));
+  setPixelProperty('--cloud-clip-bottom', mix(viewportHeight - apertureBottom, 0, opening));
+  setPixelProperty('--cloud-clip-radius-x', mix(apertureWidth * 0.48, 0, opening));
+  setPixelProperty('--cloud-clip-radius-y', mix(apertureHeight * 0.18, 0, opening));
+}
+
 export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const t = copy[locale];
@@ -110,21 +187,27 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
       const progress = Math.min(1, Math.max(0, -rect.top / distance));
       const ticketExit = phase(progress, 0.17, 0.37);
       const cabinIn = phase(progress, 0.18, 0.34);
-      const windowProgress = phase(progress, 0.34, 0.74);
-      const cloudsIn = phase(progress, 0.62, 0.84);
-      const cabinOut = phase(progress, 0.64, 0.79);
+      const windowProgress = phase(progress, 0.34, 0.78);
+      const cloudsIn = phase(progress, 0.36, 0.5);
+      const cabinOut = phase(progress, 0.7, 0.84);
+      const cameraScale = 1 + windowProgress * 0.1;
 
       section.style.setProperty('--ticket-y', `${ticketExit * -38}vh`);
       section.style.setProperty('--ticket-opacity', `${1 - ticketExit}`);
       section.style.setProperty('--stamp-opacity', `${phase(progress, 0.03, 0.14) * (1 - ticketExit)}`);
       section.style.setProperty('--cabin-opacity', `${cabinIn * (1 - cabinOut)}`);
-      section.style.setProperty('--cabin-scale', `${1 + windowProgress * 0.13}`);
-      section.style.setProperty('--window-opacity', `${phase(progress, 0.3, 0.43) * (1 - cloudsIn * 0.7)}`);
-      section.style.setProperty('--window-scale', `${0.72 + windowProgress * 3.4}`);
+      section.style.setProperty('--cabin-scale', `${cameraScale}`);
       section.style.setProperty('--cloud-opacity', `${cloudsIn}`);
-      section.style.setProperty('--cloud-x', `${(progress - 0.62) * -28}px`);
+      section.style.setProperty('--cloud-x', `${phase(progress, 0.34, 1) * -12}px`);
       section.style.setProperty('--intro-opacity', `${1 - phase(progress, 0.2, 0.34)}`);
       section.style.setProperty('--reveal-opacity', `${phase(progress, 0.78, 0.94)}`);
+      setCloudAperture(
+        section,
+        window.innerWidth,
+        window.innerHeight,
+        cameraScale,
+        windowProgress,
+      );
     };
 
     const requestUpdate = () => {
@@ -168,13 +251,7 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
           <CabinPicture alt="" eager />
         </div>
         <div className="journey-clouds" aria-hidden="true">
-          <CloudPicture alt="" sizes="(max-width: 799px) 36vw, 260px" />
-        </div>
-
-        <div className="journey-window" aria-hidden="true">
-          <div className="journey-window-frame">
-            <CloudPicture alt="" />
-          </div>
+          <CloudPicture alt="" />
         </div>
 
         <div
