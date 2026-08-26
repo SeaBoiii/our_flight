@@ -28,7 +28,7 @@ The payload contract is:
 }
 ```
 
-Apps Script returns an `HtmlOutput` page which calls `window.parent.postMessage` with a correlated receipt:
+Apps Script returns an `HtmlOutput` page which calls `window.top.postMessage` with a correlated receipt. HtmlService places the returned page inside an additional Google-hosted frame, so `window.parent` points to Google's wrapper rather than the GitHub Pages app:
 
 ```json
 {
@@ -41,7 +41,7 @@ Apps Script returns an `HtmlOutput` page which calls `window.parent.postMessage`
 }
 ```
 
-Failures use `ok: false`, a stable `error` code, and optionally `fields`. The browser must accept a receipt only when the message origin is a Google script/content origin and `type`, `version`, `nonce`, and `responseId` all match. Because a sandbox without `allow-same-origin` gives the iframe an opaque `null` origin, the submission iframe must include `allow-forms allow-scripts allow-same-origin`. This is safe here because the loaded document is cross-origin and receives no same-origin access to the GitHub Pages parent.
+Failures use `ok: false`, a stable `error` code, and optionally `fields`. The browser must accept a receipt only when the message origin is a Google script/content origin and `type`, `version`, `nonce`, and `responseId` all match. The receipt document is nested below the form-target frame by HtmlService, so its message source cannot equal the outer iframe's `contentWindow`; the two unpredictable correlated IDs provide the per-submission binding. Because a sandbox without `allow-same-origin` gives the iframe an opaque `null` origin, the submission iframe must include `allow-forms allow-scripts allow-same-origin`. This is safe here because the loaded document is cross-origin and receives no same-origin access to the GitHub Pages parent.
 
 An iframe load or a timed-out request is never proof of success. The site must keep the draft and response ID until it receives the matching successful receipt.
 
@@ -82,7 +82,7 @@ The four invitation-token hashes must exactly match the four `VITE_INVITE_HASH_*
 7. Test an invalid token, an Economy/Premium submission containing `day21`, a missing party size while attending, a party size supplied while declining, and a message over 500 characters. None may write a row.
 8. Before public release, rotate any temporary raw tokens/passcode, rebuild Pages with the final hashes, set both statuses to `open`, and repeat one controlled end-to-end RSVP.
 
-Changing a Script Property does not require exposing it in Git, but code changes require a new Apps Script deployment version. Keep the Sheet private and do not share its URL with guests.
+Changing a Script Property does not require exposing it in Git, but code changes require a new Apps Script deployment version. After replacing `Code.gs`, edit the existing web-app deployment, select **New version**, and deploy it; keeping the same deployment preserves the existing `/exec` URL. Keep the Sheet private and do not share its URL with guests.
 
 ## Validation and storage behavior
 

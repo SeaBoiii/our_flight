@@ -48,6 +48,15 @@ function isBridgeMessage(value: unknown, nonce: string, responseId: string): val
     ));
 }
 
+export function isTrustedBridgeReceipt(
+  origin: string,
+  value: unknown,
+  nonce: string,
+  responseId: string,
+): boolean {
+  return isGoogleBridgeOrigin(origin) && isBridgeMessage(value, nonce, responseId);
+}
+
 export async function submitRsvp(
   invitationToken: string,
   locale: Locale,
@@ -112,11 +121,10 @@ export async function submitRsvp(
     };
 
     const onMessage = (event: MessageEvent) => {
-      if (
-        event.source !== iframe.contentWindow
-        || !isGoogleBridgeOrigin(event.origin)
-        || !isBridgeMessage(event.data, nonce, draft.responseId)
-      ) return;
+      // Apps Script HtmlService nests the receipt document inside a Google
+      // wrapper frame, so its WindowProxy is not the form target's WindowProxy.
+      // Authenticate the receipt with its Google origin and two correlated IDs.
+      if (!isTrustedBridgeReceipt(event.origin, event.data, nonce, draft.responseId)) return;
       cleanup();
       if (!event.data.ok) {
         const status = event.data.error === 'closed' ? 410 : event.data.error === 'preview' ? 409 : 422;

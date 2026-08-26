@@ -211,7 +211,7 @@ export default function App() {
         <section className="boarding-ready" aria-labelledby="boarding-title">
           <div className="boarding-copy">
             <p className="eyebrow">{t.flightTheme}</p>
-            <h1 ref={boardingHeadingRef} id="boarding-title" tabIndex={-1}>{t.ticketReady}</h1>
+            <h1 ref={boardingHeadingRef} id="boarding-title" className="boarding-title" tabIndex={-1}>{t.ticketReady}</h1>
             <p>Aleem &amp; Nurulain</p>
           </div>
           <BoardingPass

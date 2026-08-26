@@ -3,7 +3,7 @@
  *
  * The public GitHub Pages app posts a regular HTML form into a hidden iframe.
  * This web app validates the opaque invitation token, writes the response, and
- * returns a tiny HTML page that posts a correlated receipt to the parent page.
+ * returns a tiny HTML page that posts a correlated receipt to the top-level page.
  *
  * Required Script Properties:
  *   RSVP_STATUS                       preview | open | closed
@@ -334,7 +334,9 @@ function bridgeHtml_(receipt, properties) {
     .replace(/\u2029/g, '\\u2029');
   const targetOrigin = JSON.stringify(parentOriginForReceipt_(properties));
   const html = '<!doctype html><html><head><meta charset="utf-8"><title>RSVP receipt</title></head>'
-    + '<body><script>window.parent.postMessage(' + safeReceipt + ',' + targetOrigin + ');<\/script></body></html>';
+    // HtmlService renders this page inside an additional Google-hosted frame.
+    // `parent` is therefore the Google wrapper; `top` is the GitHub Pages app.
+    + '<body><script>window.top.postMessage(' + safeReceipt + ',' + targetOrigin + ');<\/script></body></html>';
   return HtmlService.createHtmlOutput(html)
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width,initial-scale=1');
