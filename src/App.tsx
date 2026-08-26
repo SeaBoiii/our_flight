@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { BoardingPass } from './components/BoardingPass';
+import { LanguageToggle } from './components/LanguageToggle';
 import { copy } from './copy';
 import {
   classForToken,
@@ -15,7 +16,6 @@ import {
   readReducedMotion,
   readSession,
   saveLocale,
-  saveReducedMotion,
   saveSession,
 } from './storage';
 import type { Invitation, Locale } from './types';
@@ -44,6 +44,16 @@ export default function App() {
     document.documentElement.lang = locale === 'ms' ? 'ms-SG' : 'en-SG';
     saveLocale(locale);
   }, [locale]);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined;
+    const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const syncMotionPreference = (event: MediaQueryListEvent) => {
+      setReducedMotion(event.matches);
+    };
+    motionPreference.addEventListener('change', syncMotionPreference);
+    return () => motionPreference.removeEventListener('change', syncMotionPreference);
+  }, []);
 
   useEffect(() => {
     const onHashChange = () => {
@@ -116,12 +126,6 @@ export default function App() {
   }, [boarded, invitation]);
 
   const toggleLocale = () => setLocale((current) => current === 'en' ? 'ms' : 'en');
-  const toggleMotion = () => {
-    setReducedMotion((current) => {
-      saveReducedMotion(!current);
-      return !current;
-    });
-  };
 
   const handleUnlock = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -186,7 +190,6 @@ export default function App() {
             setBoarded(false);
             window.scrollTo({ top: 0, behavior: 'auto' });
           }}
-          onToggleMotion={toggleMotion}
           onToggleLocale={toggleLocale}
         />
       </Suspense>
@@ -200,12 +203,7 @@ export default function App() {
       <header className="site-header">
         <img src={logo} alt="Aleem and Nurulain" />
         <div className="header-actions">
-          {invitation ? (
-            <button type="button" aria-pressed={reducedMotion} onClick={toggleMotion}>
-              {reducedMotion ? t.reducedMotionOn : t.reduceMotion}
-            </button>
-          ) : null}
-          <button type="button" lang={locale === 'en' ? 'ms' : 'en'} onClick={toggleLocale}>{t.language}</button>
+          <LanguageToggle locale={locale} label={t.language} onToggle={toggleLocale} />
         </div>
       </header>
 

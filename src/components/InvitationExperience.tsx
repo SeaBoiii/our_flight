@@ -4,6 +4,7 @@ import { copy } from '../copy';
 import type { Invitation, Locale } from '../types';
 import { localized } from '../types';
 import { Journey } from './Journey';
+import { LanguageToggle } from './LanguageToggle';
 import { RsvpForm } from './RsvpForm';
 
 type InvitationExperienceProps = {
@@ -13,7 +14,6 @@ type InvitationExperienceProps = {
   locale: Locale;
   reducedMotion: boolean;
   onBack: () => void;
-  onToggleMotion: () => void;
   onToggleLocale: () => void;
 };
 
@@ -26,7 +26,6 @@ export default function InvitationExperience({
   locale,
   reducedMotion,
   onBack,
-  onToggleMotion,
   onToggleLocale,
 }: InvitationExperienceProps) {
   const t = copy[locale];
@@ -80,28 +79,14 @@ export default function InvitationExperience({
     }
   };
 
-  const skipJourney = () => {
-    const invitationSection = document.getElementById('invitation');
-    invitationSection?.focus({ preventScroll: true });
-    invitationSection?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth' });
-  };
-
-  const toggleMotion = () => {
-    onToggleMotion();
-  };
-
   return (
     <main ref={experienceRef} className={`experience cabin-${invitation.cabinClass}`} tabIndex={-1} aria-label={t.journeyLabel}>
-      <nav className="journey-controls" aria-label={t.controls}>
-        <button type="button" aria-label={t.back} onClick={onBack}>
+      <nav className="experience-nav" aria-label={t.controls}>
+        <button className="experience-back" type="button" aria-label={t.back} onClick={onBack}>
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 12H6m5-5-5 5 5 5" /></svg>
           <span>{t.back}</span>
         </button>
-        <button type="button" onClick={skipJourney}>{t.skip}</button>
-        <button type="button" aria-pressed={reducedMotion} onClick={toggleMotion}>
-          {reducedMotion ? t.reducedMotionOn : t.reduceMotion}
-        </button>
-        <button type="button" lang={locale === 'en' ? 'ms' : 'en'} onClick={onToggleLocale}>{t.language}</button>
+        <LanguageToggle locale={locale} label={t.language} onToggle={onToggleLocale} />
       </nav>
 
       <Journey invitation={invitation} locale={locale} reducedMotion={reducedMotion} />

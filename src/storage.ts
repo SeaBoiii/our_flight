@@ -3,7 +3,6 @@ import { sha256Hex } from './invitations';
 
 const SESSION_KEY = 'our-flight:access';
 const LOCALE_KEY = 'our-flight:language';
-const MOTION_KEY = 'our-flight:motion';
 
 export type SavedSession = {
   unlocked: true;
@@ -59,16 +58,8 @@ export function saveLocale(locale: 'en' | 'ms'): void {
 }
 
 export function readReducedMotion(): boolean {
-  try {
-    const saved = storage('local')?.getItem(MOTION_KEY);
-    if (saved === 'reduce') return true;
-    if (saved === 'full') return false;
-  } catch { /* Use the operating-system preference. */ }
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-
-export function saveReducedMotion(reduced: boolean): void {
-  try { storage('local')?.setItem(MOTION_KEY, reduced ? 'reduce' : 'full'); } catch { /* Active for this visit. */ }
+  return typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 function draftKey(fingerprint: string): string {
