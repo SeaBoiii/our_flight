@@ -30,8 +30,8 @@ describe('static invitation configuration', () => {
     expect(event.calendarSegments[0].title).toEqual({ en: "Groom's Reception", ms: 'Walimatul Urus' });
     expect(event.programme.map((item) => item.title.en)).toEqual([
       'Guest arrival',
-      "Groom's march-in",
       'Kompang procession',
+      "Groom's march-in",
       'Cake cutting',
     ]);
     expect(event.programme.every((item) => item.time === '--:--')).toBe(true);
