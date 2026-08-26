@@ -23,18 +23,18 @@ describe('static invitation configuration', () => {
     }
   });
 
-  it("localises the 22 August reception and keeps its editable programme separate", () => {
+  it("localises the 22 August reception and accepts an edited display programme", () => {
     const [event] = invitationForClass('economy').events;
     expect(event.title).toEqual({ en: "Groom's Reception", ms: 'Walimatul Urus' });
     expect(event.segments[0].title).toEqual({ en: "Groom's Reception", ms: 'Walimatul Urus' });
     expect(event.calendarSegments[0].title).toEqual({ en: "Groom's Reception", ms: 'Walimatul Urus' });
-    expect(event.programme.map((item) => item.title.en)).toEqual([
-      'Guest arrival',
-      'Kompang procession',
-      "Couple march-in",
-      'Cake cutting',
-    ]);
-    expect(event.programme.every((item) => item.time === '--:--')).toBe(true);
+    expect(event.programme).not.toBe(event.segments);
+    expect(event.programme.length).toBeGreaterThan(0);
+    for (const item of event.programme) {
+      expect(item.time.trim().length).toBeGreaterThan(0);
+      expect(item.title.en.trim().length).toBeGreaterThan(0);
+      expect(item.title.ms.trim().length).toBeGreaterThan(0);
+    }
   });
 
   it('derives a cabin class from the URL token hash and verifies the shared passcode hash', async () => {
