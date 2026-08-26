@@ -10,7 +10,7 @@ describe('BoardingPass', () => {
     expect(container.querySelectorAll('.full-ticket')).toHaveLength(2);
     expect(screen.getByText('Nikah')).toBeTruthy();
     expect(screen.getByText("Bride's Reception")).toBeTruthy();
-    expect(screen.getByText('Walimatul Urus')).toBeTruthy();
+    expect(screen.getByText("Groom's Reception")).toBeTruthy();
     expect(screen.getAllByText('AN2108').length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText('AN2208').length).toBeGreaterThanOrEqual(2);
   });
@@ -22,6 +22,12 @@ describe('BoardingPass', () => {
     expect(screen.getAllByText('AN2208').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText('Crowne Plaza at Changi Airport')).toBeTruthy();
     expect(screen.getAllByText('Chengal').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('keeps Walimatul Urus in the Malay ticket', () => {
+    render(<BoardingPass invitation={invitationWith()} locale="ms" />);
+    expect(screen.getByText('Walimatul Urus')).toBeTruthy();
+    expect(screen.queryByText("Groom's Reception")).toBeNull();
   });
 
   it('provides a working boarding action', () => {

@@ -203,7 +203,6 @@ a { color: inherit; }
 .gate-copy h1,
 .boarding-copy h1,
 .section-heading h2,
-.travel-section h2,
 .rsvp-section h2 {
   margin: 0;
   font-family: Georgia, "Times New Roman", serif;
@@ -745,39 +744,75 @@ a { color: inherit; }
 .invitation-reveal::after { right: -12%; bottom: 3%; box-shadow: -160px -10px 0 rgba(255,255,255,0.7); }
 .invitation-card { position: relative; z-index: 1; width: min(100%, 780px); padding: clamp(34px, 7vw, 82px) clamp(22px, 7vw, 76px); border: 1px solid #e4e0d6; border-radius: 30px; background: rgba(255, 254, 250, 0.94); box-shadow: var(--shadow); text-align: center; }
 .invitation-logo { width: 120px; margin: 0 auto 28px; }
-.bismillah { margin: 0 0 14px; color: var(--accent-deep); font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.25rem, 4vw, 1.65rem); }
+.bismillah { margin: 0 0 14px; color: var(--accent-deep); font-family: "Noto Naskh Arabic", "Traditional Arabic", "Segoe UI", Tahoma, serif; font-size: clamp(1.55rem, 5vw, 2.1rem); line-height: 1.8; }
 .salam { margin: 0 0 28px; color: var(--muted); font-size: 0.8rem; font-weight: 750; letter-spacing: 0.035em; }
 .formal-copy, .blessing { max-width: 600px; margin: 24px auto; color: var(--muted); font-family: Georgia, "Times New Roman", serif; font-size: clamp(1rem, 3.5vw, 1.2rem); line-height: 1.7; }
 .invitation-card h1 { margin: 24px 0; color: var(--accent-deep); font-family: Georgia, "Times New Roman", serif; font-size: clamp(3.1rem, 12vw, 6.6rem); font-weight: 400; letter-spacing: -0.065em; line-height: 0.86; }
 .invitation-card h1 span { display: block; margin: 10px 0 6px; color: var(--metal); font-size: 0.6em; font-style: italic; }
 
+.our-story-section { position: relative; overflow: hidden; padding: clamp(90px, 16vw, 150px) 22px; background: radial-gradient(circle at 8% 16%, rgba(223, 241, 245, 0.72), transparent 34%), radial-gradient(circle at 92% 88%, rgba(240, 225, 190, 0.34), transparent 30%), var(--ivory); text-align: center; }
+.our-story-section::before { position: absolute; left: 50%; top: 0; width: 1px; height: 62px; background: linear-gradient(transparent, var(--metal)); content: ""; }
+.our-story-inner { position: relative; width: min(100%, 850px); margin: auto; }
+.our-story-inner > .eyebrow { color: var(--metal); }
+.our-story-inner h2 { margin: 0; color: var(--accent-deep); font-family: Georgia, "Times New Roman", serif; font-size: clamp(3.2rem, 13vw, 6.8rem); font-weight: 400; letter-spacing: -0.065em; line-height: 0.9; }
+.our-story-inner blockquote { position: relative; max-width: 780px; margin: clamp(42px, 9vw, 72px) auto 0; padding: 0 0 clamp(38px, 7vw, 54px); border-bottom: 1px solid color-mix(in srgb, var(--metal) 52%, transparent); }
+.our-story-inner blockquote::after { position: absolute; left: 50%; bottom: -5px; width: 9px; aspect-ratio: 1; border: 1px solid var(--metal); border-radius: 50%; background: var(--ivory); transform: translateX(-50%); content: ""; }
+.our-story-inner blockquote p { margin: 0; color: var(--accent-deep); font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.65rem, 6vw, 3rem); font-style: italic; letter-spacing: -0.025em; line-height: 1.28; }
+.our-story-copy { display: grid; max-width: 650px; gap: 20px; margin: clamp(38px, 8vw, 58px) auto 0; }
+.our-story-copy p { margin: 0; color: var(--muted); font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.03rem, 3.6vw, 1.2rem); line-height: 1.75; }
+.our-story-copy .our-story-closing { margin-top: 10px; color: var(--accent-deep); font-size: clamp(1.15rem, 4.2vw, 1.4rem); }
+
 .itinerary-section, .rsvp-section { width: min(100% - 36px, 1040px); margin: auto; padding: 90px 0; }
 .section-heading { max-width: 690px; margin: 0 auto 38px; text-align: center; }
-.section-heading h2, .travel-section h2, .rsvp-section h2 { font-size: clamp(2.9rem, 11vw, 5.7rem); }
+.section-heading h2, .rsvp-section h2 { font-size: clamp(2.9rem, 11vw, 5.7rem); }
 .section-heading > p:last-child { color: var(--muted); }
 .itinerary-list { display: grid; gap: 20px; }
-.itinerary-card { position: relative; overflow: hidden; padding: 25px 22px; border: 1px solid color-mix(in srgb, var(--accent) 25%, #dedbd2); border-radius: 24px; background: var(--paper); box-shadow: 0 16px 45px rgba(37, 61, 65, 0.075); }
+.itinerary-card { position: relative; overflow: hidden; padding: clamp(24px, 6vw, 38px); border: 1px solid color-mix(in srgb, var(--accent) 25%, #dedbd2); border-radius: 24px; background: var(--paper); box-shadow: 0 16px 45px rgba(37, 61, 65, 0.075); }
 .itinerary-card::before { position: absolute; inset: 0 auto 0 0; width: 5px; background: linear-gradient(var(--accent-deep), var(--metal)); content: ""; }
-.itinerary-card header { display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--accent-deep); font-size: 0.69rem; font-weight: 850; letter-spacing: 0.09em; text-transform: uppercase; }
-.itinerary-card h3 { margin: 26px 0 5px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.8rem, 7vw, 2.8rem); font-weight: 400; letter-spacing: -0.04em; }
-.itinerary-time { margin: 0 0 22px; color: var(--muted); font-weight: 750; }
-.event-segments { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
-.event-segments li { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 0.84rem; }
-.event-segments strong { color: var(--accent-deep); white-space: nowrap; }
+.itinerary-flight { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0; color: var(--muted); font-size: 0.62rem; font-weight: 850; letter-spacing: 0.13em; text-transform: uppercase; }
+.itinerary-flight span:first-child { color: var(--accent-deep); }
+.itinerary-date { margin: 28px 0 26px; font-family: Georgia, "Times New Roman", serif; font-weight: 400; }
+.itinerary-date time { display: grid; gap: 5px; }
+.itinerary-weekday { color: var(--accent-deep); font-size: clamp(1rem, 4vw, 1.35rem); letter-spacing: 0.02em; }
+.itinerary-date-core { display: flex; align-items: center; gap: 15px; color: var(--accent-deep); }
+.itinerary-date-core strong { font-size: clamp(5rem, 20vw, 7.7rem); font-weight: 400; letter-spacing: -0.09em; line-height: 0.72; }
+.itinerary-date-core > span { max-width: 7ch; color: var(--muted); font-size: clamp(1.25rem, 5vw, 1.8rem); line-height: 1.02; }
+.itinerary-event-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+.itinerary-event-heading h4 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.55rem, 6vw, 2.15rem); font-weight: 400; letter-spacing: -0.035em; }
+.itinerary-event-heading p { margin: 0; color: var(--accent-deep); font-size: 0.75rem; font-weight: 800; white-space: nowrap; }
+.event-programme { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.event-programme li { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: baseline; gap: 15px; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 0.84rem; line-height: 1.45; }
+.programme-time { color: var(--accent-deep); font-size: 0.72rem; font-variant-numeric: tabular-nums; font-weight: 850; letter-spacing: 0.06em; }
+.programme-time--placeholder { color: var(--metal); letter-spacing: 0.16em; }
 .venue-fields { display: grid; grid-template-columns: repeat(2, 1fr); margin: 18px 0 0; }
 .venue-fields > div { padding: 12px 12px 12px 0; }
 .venue-fields > div:first-child { grid-column: 1 / -1; }
+.venue-hotel dd { display: grid; justify-items: start; gap: 7px; }
+.venue-logo { width: 110px; height: auto; opacity: 0.82; }
 .itinerary-actions { display: grid; grid-template-columns: 1fr; gap: 9px; margin-top: 15px; }
 .itinerary-actions .button { width: 100%; }
 
-.travel-section { width: min(100% - 36px, 1000px); margin: 20px auto 80px; padding: clamp(28px, 7vw, 66px); border-radius: 28px; color: #fff; background: var(--accent-deep); box-shadow: 0 28px 70px color-mix(in srgb, var(--accent-deep) 25%, transparent); }
+.travel-section { width: min(100% - 36px, 1000px); margin: 20px auto 80px; overflow: hidden; border-radius: 28px; color: #fff; background: var(--accent-deep); box-shadow: 0 28px 70px color-mix(in srgb, var(--accent-deep) 25%, transparent); }
+.travel-section summary { display: flex; min-height: 132px; align-items: center; justify-content: space-between; gap: 22px; padding: 24px clamp(24px, 7vw, 58px); list-style: none; cursor: pointer; }
+.travel-section summary::-webkit-details-marker { display: none; }
+.travel-section summary:focus-visible { outline-color: #fff; outline-offset: -5px; }
 .travel-section .eyebrow { color: color-mix(in srgb, var(--metal) 75%, white); }
-.travel-section h2 { color: #fff; }
-.travel-section address { margin: 20px 0 30px; color: rgba(255,255,255,0.78); font-family: Georgia, "Times New Roman", serif; font-size: 1rem; font-style: normal; line-height: 1.6; }
+.travel-summary-copy { display: grid; min-width: 0; }
+.travel-summary-copy .eyebrow { margin-bottom: 7px; }
+.travel-summary-title { font-family: Georgia, "Times New Roman", serif; font-size: clamp(2.15rem, 9vw, 4.2rem); font-weight: 400; letter-spacing: -0.055em; line-height: 0.96; }
+.travel-summary-venue { margin-top: 9px; color: rgba(255,255,255,0.76); font-size: 0.76rem; line-height: 1.4; }
+.travel-summary-action { margin-top: 5px; color: rgba(255,255,255,0.54); font-size: 0.64rem; font-weight: 750; letter-spacing: 0.05em; text-transform: uppercase; }
+.travel-summary-chevron { position: relative; width: 44px; height: 44px; flex: 0 0 auto; border: 1px solid rgba(255,255,255,0.32); border-radius: 50%; transition: transform 220ms ease, background 220ms ease; }
+.travel-summary-chevron::before, .travel-summary-chevron::after { position: absolute; left: 50%; top: 50%; width: 15px; height: 1.5px; background: #fff; transform: translate(-50%, -50%); content: ""; }
+.travel-summary-chevron::after { transform: translate(-50%, -50%) rotate(90deg); transition: transform 220ms ease; }
+.travel-section[open] .travel-summary-chevron { background: rgba(255,255,255,0.12); transform: rotate(180deg); }
+.travel-section[open] .travel-summary-chevron::after { transform: translate(-50%, -50%) rotate(0deg); }
+.travel-details { padding: 4px clamp(24px, 7vw, 58px) clamp(30px, 7vw, 58px); border-top: 1px solid rgba(255,255,255,0.16); }
+.travel-section address { margin: 28px 0 30px; color: rgba(255,255,255,0.78); font-family: Georgia, "Times New Roman", serif; font-size: 1rem; font-style: normal; line-height: 1.6; }
 .travel-section ul { display: grid; gap: 13px; margin: 0; padding: 0; list-style: none; }
 .travel-section li { position: relative; padding-left: 25px; color: rgba(255,255,255,0.9); font-size: 0.86rem; line-height: 1.6; }
 .travel-section li::before { position: absolute; left: 0; top: 0.62em; width: 9px; height: 1px; background: var(--metal); content: ""; }
-.travel-section > p { margin: 28px 0 0; color: rgba(255,255,255,0.62); font-size: 0.75rem; }
+.travel-details > p { margin: 28px 0 0; color: rgba(255,255,255,0.62); font-size: 0.75rem; }
 
 .rsvp-section { max-width: 800px; }
 .status-callout { display: flex; align-items: flex-start; gap: 14px; margin: 0 0 20px; padding: 18px; border: 1px solid #d8dcd7; border-radius: 18px; color: var(--ink); background: #f5f3ed; }
@@ -833,8 +868,8 @@ a { color: inherit; }
   .journey-ticket { --journey-ticket-scale: 0.84; }
   .experience-nav { right: max(18px, env(safe-area-inset-right)); left: max(18px, env(safe-area-inset-left)); }
   .itinerary-list { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
-  .travel-section { display: grid; grid-template-columns: minmax(230px, 0.8fr) minmax(340px, 1.3fr); gap: 24px 60px; }
-  .travel-section > p { grid-column: 1 / -1; }
+  .travel-details { display: grid; grid-template-columns: minmax(230px, 0.8fr) minmax(340px, 1.3fr); gap: 24px 60px; }
+  .travel-details > p { grid-column: 1 / -1; }
 }
 
 @media (max-width: 639px) {

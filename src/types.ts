@@ -15,6 +15,11 @@ export type CalendarSegment = {
   endLocal: string;
 };
 
+export type ProgrammeItem = {
+  time: string;
+  title: LocalizedText;
+};
+
 export type InvitationEvent = {
   id: 'day21' | 'day22';
   flightCode: 'AN2108' | 'AN2208';
@@ -23,6 +28,7 @@ export type InvitationEvent = {
   title: LocalizedText;
   time: string;
   segments: Array<{ title: LocalizedText; time: string }>;
+  programme: ProgrammeItem[];
   calendarSegments: CalendarSegment[];
 };
 

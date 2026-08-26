@@ -23,6 +23,20 @@ describe('static invitation configuration', () => {
     }
   });
 
+  it("localises the 22 August reception and keeps its editable programme separate", () => {
+    const [event] = invitationForClass('economy').events;
+    expect(event.title).toEqual({ en: "Groom's Reception", ms: 'Walimatul Urus' });
+    expect(event.segments[0].title).toEqual({ en: "Groom's Reception", ms: 'Walimatul Urus' });
+    expect(event.calendarSegments[0].title).toEqual({ en: "Groom's Reception", ms: 'Walimatul Urus' });
+    expect(event.programme.map((item) => item.title.en)).toEqual([
+      'Guest arrival',
+      "Groom's march-in",
+      'Kompang procession',
+      'Cake cutting',
+    ]);
+    expect(event.programme.every((item) => item.time === '--:--')).toBe(true);
+  });
+
   it('derives a cabin class from the URL token hash and verifies the shared passcode hash', async () => {
     const invitationToken = `economy_${'x'.repeat(24)}`;
     const passcode = `shared-${'p'.repeat(16)}`;

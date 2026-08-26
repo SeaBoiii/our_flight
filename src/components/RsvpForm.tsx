@@ -214,7 +214,7 @@ export function RsvpForm({
               <fieldset className="attendance-card" key={inviteEvent.id}>
                 <legend>
                   <span>{localized(inviteEvent.dateLabel, locale)}</span>
-                  {t.attendancePrefix} {localized(inviteEvent.title, locale)}?
+                  {t.attendanceQuestion}
                 </legend>
                 {inviteEvent.segments.length > 1 ? <p className="field-help">{t.oneAnswer}</p> : null}
                 <label className="radio-option">

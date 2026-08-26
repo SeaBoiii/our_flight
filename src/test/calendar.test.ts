@@ -13,11 +13,14 @@ describe('browser calendar files', () => {
     expect(calendar.endsWith('\r\n')).toBe(true);
   });
 
-  it('creates one event for the 22 August Walimatul Urus', () => {
+  it("uses Groom's Reception in English and Walimatul Urus in Malay for 22 August", () => {
     const [event] = invitationWith().events;
-    const calendar = calendarContents(event, 'ms');
-    expect(calendar.match(/BEGIN:VEVENT/g)).toHaveLength(1);
-    expect(calendar).toContain('DTSTART;TZID=Asia/Singapore:20270822T120000');
-    expect(calendar).toContain('DTEND;TZID=Asia/Singapore:20270822T160000');
+    const englishCalendar = calendarContents(event, 'en');
+    const malayCalendar = calendarContents(event, 'ms');
+    expect(englishCalendar.match(/BEGIN:VEVENT/g)).toHaveLength(1);
+    expect(englishCalendar).toContain("Groom's Reception");
+    expect(malayCalendar).toContain('Walimatul Urus');
+    expect(englishCalendar).toContain('DTSTART;TZID=Asia/Singapore:20270822T120000');
+    expect(englishCalendar).toContain('DTEND;TZID=Asia/Singapore:20270822T160000');
   });
 });

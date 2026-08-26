@@ -38,6 +38,10 @@ Use Node.js 22.13 or later.
 
 The exact historical master is `public/monogram-a-and-n.png`. Do not optimise or overwrite it. Display, favicon and social-preview derivatives live beside it.
 
+## Editing the displayed programme
+
+Edit [`src/programme.ts`](src/programme.ts) to change the guest-facing itinerary activities and times. Replace each `--:--` with a confirmed display time and update both the English and Malay descriptions. These programme entries are intentionally separate from the boarding-pass and calendar schedule in `src/invitations.ts`, so changing a march-in or cake-cutting time cannot accidentally alter a guest's calendar file.
+
 ## GitHub Pages deployment
 
 Create or select the GitHub repository first; this workspace does not currently have a GitHub remote or GitHub CLI. Then configure **Settings → Pages → Source: GitHub Actions** and add these Actions secrets:

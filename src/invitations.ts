@@ -6,6 +6,7 @@ import type {
   LocalizedText,
   RsvpStatus,
 } from './types';
+import { programmeByDay } from './programme';
 
 const labels: Record<CabinClass, LocalizedText> = {
   economy: { en: 'Economy', ms: 'Kelas Ekonomi' },
@@ -25,6 +26,7 @@ const day21: InvitationEvent = {
     { title: { en: 'Nikah', ms: 'Nikah' }, time: '10:00–12:00' },
     { title: { en: "Bride's Reception", ms: 'Resepsi Pengantin Perempuan' }, time: '12:00–16:00' },
   ],
+  programme: programmeByDay.day21,
   calendarSegments: [
     { title: { en: 'Nikah', ms: 'Nikah' }, startLocal: '20270821T100000', endLocal: '20270821T120000' },
     { title: { en: "Bride's Reception", ms: 'Resepsi Pengantin Perempuan' }, startLocal: '20270821T120000', endLocal: '20270821T160000' },
@@ -36,13 +38,14 @@ const day22: InvitationEvent = {
   flightCode: 'AN2208',
   dateIso: '2027-08-22',
   dateLabel: { en: 'Sunday, 22 August 2027', ms: 'Ahad, 22 Ogos 2027' },
-  title: { en: 'Walimatul Urus', ms: 'Walimatul Urus' },
+  title: { en: "Groom's Reception", ms: 'Walimatul Urus' },
   time: '12:00–16:00',
   segments: [
-    { title: { en: 'Walimatul Urus', ms: 'Walimatul Urus' }, time: '12:00–16:00' },
+    { title: { en: "Groom's Reception", ms: 'Walimatul Urus' }, time: '12:00–16:00' },
   ],
+  programme: programmeByDay.day22,
   calendarSegments: [
-    { title: { en: 'Walimatul Urus', ms: 'Walimatul Urus' }, startLocal: '20270822T120000', endLocal: '20270822T160000' },
+    { title: { en: "Groom's Reception", ms: 'Walimatul Urus' }, startLocal: '20270822T120000', endLocal: '20270822T160000' },
   ],
 };
 

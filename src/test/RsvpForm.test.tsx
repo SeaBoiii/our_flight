@@ -14,8 +14,23 @@ describe('RSVP preview mode', () => {
       />,
     );
     expect(screen.getByText('RSVP preview')).toBeTruthy();
+    expect(screen.getByText('Will you attend the wedding ceremony?')).toBeTruthy();
     expect(screen.getByLabelText('Your name').closest('fieldset')?.disabled).toBe(true);
     expect((screen.getByRole('button', { name: 'Send RSVP' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('asks the same wedding-ceremony question separately for each invited day', () => {
+    render(
+      <RsvpForm
+        invitation={invitationWith(2)}
+        invitationToken={'c'.repeat(32)}
+        fingerprint="both-days-fingerprint"
+        locale="en"
+      />,
+    );
+    expect(screen.getAllByText('Will you attend the wedding ceremony?')).toHaveLength(2);
+    expect(screen.getByText('Saturday, 21 August 2027')).toBeTruthy();
+    expect(screen.getByText('Sunday, 22 August 2027')).toBeTruthy();
   });
 
   it('shows linked validation errors before any open RSVP request is sent', () => {
