@@ -117,7 +117,7 @@ export function isAllowedOrigin(request: Request): boolean {
   try {
     const candidate = new URL(origin).origin;
     const allowed = new Set([new URL(request.url).origin]);
-    const configuredOrigin = process.env.NEXT_PUBLIC_SITE_ORIGIN;
+    const configuredOrigin = process.env.SITE_ORIGIN;
     if (configuredOrigin) allowed.add(new URL(configuredOrigin).origin);
     return allowed.has(candidate);
   } catch {
