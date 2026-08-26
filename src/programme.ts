@@ -16,8 +16,8 @@ export const programmeByDay = {
   ],
   day22: [
     { time: '12:00', title: { en: 'Guest arrival', ms: 'Ketibaan tetamu' } },
-    { time: '--:--', title: { en: "Groom's march-in", ms: 'Perarakan masuk pengantin lelaki' } },
-    { time: '--:--', title: { en: 'Kompang procession', ms: 'Perarakan kompang' } },
-    { time: '--:--', title: { en: 'Cake cutting', ms: 'Acara memotong kek' } },
+    { time: '12:30', title: { en: 'Kompang procession', ms: 'Perarakan kompang' } },
+    { time: '14:30', title: { en: "Couple march-in", ms: 'Perarakan masuk pengantin lelaki' } },
+    { time: '15:00', title: { en: 'Cake cutting', ms: 'Acara memotong kek' } },
   ],
 } satisfies Record<InvitationEvent['id'], ProgrammeItem[]>;
