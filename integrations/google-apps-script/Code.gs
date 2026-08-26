@@ -1,13 +1,31 @@
 /**
  * Bound Google Apps Script for the private Aleem & Nurulain RSVP workbook.
- * Run setupWorkbook() once, set the INGEST_SECRET Script Property, then deploy
- * doPost as a web app that executes as the workbook owner.
+ *
+ * The public GitHub Pages app posts a regular HTML form into a hidden iframe.
+ * This web app validates the opaque invitation token, writes the response, and
+ * returns a tiny HTML page that posts a correlated receipt to the parent page.
+ *
+ * Required Script Properties:
+ *   RSVP_STATUS                       preview | open | closed
+ *   PARENT_ORIGIN                     e.g. https://account.github.io
+ *   INVITE_TOKEN_HASH_ECONOMY         lowercase SHA-256 hex
+ *   INVITE_TOKEN_HASH_PREMIUM         lowercase SHA-256 hex
+ *   INVITE_TOKEN_HASH_BUSINESS        lowercase SHA-256 hex
+ *   INVITE_TOKEN_HASH_FIRST           lowercase SHA-256 hex
+ *
+ * setupWorkbook() records SPREADSHEET_ID automatically. Never store raw
+ * invitation tokens or the wedding passcode in Script Properties.
  */
 
 const RESPONSES_SHEET = 'Responses';
 const SUMMARY_SHEET = 'Summary';
-const INGEST_SECRET_PROPERTY = 'INGEST_SECRET';
 const SPREADSHEET_ID_PROPERTY = 'SPREADSHEET_ID';
+const RSVP_STATUS_PROPERTY = 'RSVP_STATUS';
+const PARENT_ORIGIN_PROPERTY = 'PARENT_ORIGIN';
+const BRIDGE_TYPE = 'our-flight:rsvp-result';
+const BRIDGE_VERSION = 1;
+const MAX_PAYLOAD_LENGTH = 16384;
+const PUBLIC_RESPONSE_COLUMNS = 12;
 const RESPONSE_HEADERS = [
   'Response ID',
   'Submitted at',
@@ -21,10 +39,20 @@ const RESPONSE_HEADERS = [
   '22 Aug attendance',
   '22 Aug party size',
   'Message',
+  'Invitation token hash',
+  'Payload digest',
+];
+const INVITATIONS = [
+  { cabinClass: 'economy', scope: 'day22', property: 'INVITE_TOKEN_HASH_ECONOMY' },
+  { cabinClass: 'premium-economy', scope: 'day22', property: 'INVITE_TOKEN_HASH_PREMIUM' },
+  { cabinClass: 'business', scope: 'both-days', property: 'INVITE_TOKEN_HASH_BUSINESS' },
+  { cabinClass: 'first', scope: 'both-days', property: 'INVITE_TOKEN_HASH_FIRST' },
 ];
 
 function setupWorkbook() {
   const workbook = SpreadsheetApp.getActiveSpreadsheet();
+  if (!workbook) throw new Error('Bind this script to the private RSVP spreadsheet before setup.');
+
   workbook.setSpreadsheetTimeZone('Asia/Singapore');
   PropertiesService.getScriptProperties().setProperty(SPREADSHEET_ID_PROPERTY, workbook.getId());
 
@@ -34,6 +62,7 @@ function setupWorkbook() {
     const firstSheetIsBlank = firstSheet.getLastRow() === 0 && firstSheet.getLastColumn() === 0;
     responses = firstSheetIsBlank ? firstSheet.setName(RESPONSES_SHEET) : workbook.insertSheet(RESPONSES_SHEET);
   }
+
   let summary = workbook.getSheetByName(SUMMARY_SHEET);
   if (!summary) summary = workbook.insertSheet(SUMMARY_SHEET);
 
@@ -43,115 +72,336 @@ function setupWorkbook() {
   SpreadsheetApp.flush();
 }
 
+/**
+ * Safe, secret-free configuration check. Run it in the editor after entering
+ * Script Properties. It throws on a missing or malformed value and logs only
+ * non-sensitive status information.
+ */
+function verifyConfiguration() {
+  const properties = PropertiesService.getScriptProperties();
+  const spreadsheetId = properties.getProperty(SPREADSHEET_ID_PROPERTY);
+  if (!spreadsheetId) throw new Error('Run setupWorkbook() first.');
+  if (!SpreadsheetApp.openById(spreadsheetId).getSheetByName(RESPONSES_SHEET)) {
+    throw new Error('Responses sheet is missing. Run setupWorkbook() again.');
+  }
+
+  const status = rsvpStatus_(properties);
+  configuredParentOrigin_(properties);
+  configuredInvitations_(properties);
+  console.log('Configuration valid. RSVP status: %s. Four invitation classes configured.', status);
+  return { ok: true, rsvpStatus: status, invitationClasses: 4 };
+}
+
 function doPost(event) {
+  let nonce = '';
+  let responseId = '';
+
   try {
-    const secret = PropertiesService.getScriptProperties().getProperty(INGEST_SECRET_PROPERTY);
-    if (!secret) return json_({ ok: false, error: 'not_configured' });
+    const parameters = event && event.parameter ? event.parameter : {};
+    if (String(parameters.bridgeVersion || '') !== String(BRIDGE_VERSION)) {
+      throw validationError_('unsupported_bridge', ['bridgeVersion']);
+    }
 
-    const rawPayload = (event && event.postData && event.postData.contents) || '{}';
-    if (rawPayload.length > 16384) return json_({ ok: false, error: 'request_too_large' });
-    const payload = JSON.parse(rawPayload);
-    if (!payload || payload.secret !== secret) return json_({ ok: false, error: 'unauthorized' });
+    nonce = requiredUuid_(parameters.nonce, 'nonce');
+    const payloadText = typeof parameters.payload === 'string' ? parameters.payload : '';
+    if (!payloadText || payloadText.length > MAX_PAYLOAD_LENGTH) {
+      throw validationError_(payloadText ? 'request_too_large' : 'invalid_submission', ['payload']);
+    }
 
-    const record = normalizeSubmission_(payload.submission);
-    const lock = LockService.getScriptLock();
-    if (!lock.tryLock(10000)) return json_({ ok: false, error: 'busy' });
-
+    let payload;
     try {
-      const spreadsheetId = PropertiesService.getScriptProperties().getProperty(SPREADSHEET_ID_PROPERTY);
-      if (!spreadsheetId) throw new Error('Spreadsheet ID is missing. Run setupWorkbook() first.');
-      const sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName(RESPONSES_SHEET);
-      if (!sheet) throw new Error('Responses sheet is missing. Run setupWorkbook() first.');
+      payload = JSON.parse(payloadText);
+    } catch (error) {
+      throw validationError_('invalid_submission', ['payload']);
+    }
 
-      const existingRow = findResponseRow_(sheet, record[0]);
-      const now = new Date();
-      let duplicate = false;
+    // Validate the response ID before the status gate so preview/closed replies
+    // remain correlated and the browser can report them without timing out.
+    responseId = requiredUuid_(payload && payload.responseId, 'responseId');
 
-      if (existingRow) {
-        duplicate = true;
-        const originalSubmittedAt = sheet.getRange(existingRow, 2).getValue();
-        record[1] = originalSubmittedAt || record[1];
-        record[2] = now;
-        sheet.getRange(existingRow, 1, 1, RESPONSE_HEADERS.length).setValues([record]);
-      } else {
-        record[2] = now;
-        sheet.appendRow(record);
-      }
+    const properties = PropertiesService.getScriptProperties();
+    const status = rsvpStatus_(properties);
+    if (status !== 'open') throw validationError_(status, []);
 
-      return json_({ ok: true, duplicate: duplicate });
+    // A valid parent origin is required before accepting writes. postMessage
+    // still falls back to "*" for configuration-error receipts only.
+    configuredParentOrigin_(properties);
+    const invitations = configuredInvitations_(properties);
+    const submission = normalizeSubmission_(payload, invitations);
+
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(10000)) throw validationError_('busy', []);
+
+    let result;
+    try {
+      result = storeSubmission_(submission, properties);
     } finally {
       lock.releaseLock();
     }
+
+    return bridgeHtml_({
+      type: BRIDGE_TYPE,
+      version: BRIDGE_VERSION,
+      nonce: nonce,
+      responseId: responseId,
+      ok: true,
+      duplicate: result.duplicate,
+    }, properties);
   } catch (error) {
-    console.error(error);
-    return json_({ ok: false, error: 'invalid_submission' });
+    console.error(error && error.stack ? error.stack : error);
+    const code = error && error.publicCode ? error.publicCode : 'server_error';
+    const fields = error && Array.isArray(error.fields) ? error.fields : [];
+    return bridgeHtml_({
+      type: BRIDGE_TYPE,
+      version: BRIDGE_VERSION,
+      nonce: nonce,
+      responseId: responseId,
+      ok: false,
+      error: code,
+      fields: fields,
+    }, PropertiesService.getScriptProperties());
   }
 }
 
-function normalizeSubmission_(submission) {
-  if (!submission || typeof submission !== 'object') throw new Error('Missing submission');
-
-  const cabinClasses = ['economy', 'premium-economy', 'business', 'first'];
-  const scopes = ['day22', 'both-days'];
-  const responseId = requiredText_(submission.responseId, 80, 'responseId');
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(responseId)) {
-    throw new Error('Invalid responseId');
+function normalizeSubmission_(payload, invitations) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw validationError_('invalid_submission', ['payload']);
   }
-  const cabinClass = requiredChoice_(submission.cabinClass, cabinClasses, 'cabinClass');
-  const scope = requiredChoice_(submission.scope, scopes, 'scope');
-  const expectedScope = cabinClass === 'business' || cabinClass === 'first' ? 'both-days' : 'day22';
-  if (scope !== expectedScope) throw new Error('Cabin class and invitation scope do not match');
+  if (payload.version !== BRIDGE_VERSION) {
+    throw validationError_('invalid_submission', ['version']);
+  }
 
-  const language = requiredChoice_(submission.locale, ['en', 'ms'], 'locale');
-  const inviteeName = safeSheetText_(requiredText_(submission.inviteeName, 100, 'inviteeName'));
-  const message = submission.message == null ? '' : safeSheetText_(requiredText_(submission.message, 500, 'message'));
-  const day21 = scope === 'both-days' ? normalizeEvent_(submission.day21, 'day21') : { attendance: '', partySize: '' };
-  if (scope === 'day22' && submission.day21 != null) throw new Error('21 August response is not allowed');
-  const day22 = normalizeEvent_(submission.day22, 'day22');
-  const submittedAt = new Date(submission.submittedAt);
-  if (Number.isNaN(submittedAt.getTime())) throw new Error('Invalid submittedAt');
+  if (typeof payload.token !== 'string' || !/^[A-Za-z0-9_-]{20,160}$/.test(payload.token)) {
+    throw validationError_('invalid_token', ['token']);
+  }
+  const token = payload.token;
+  const tokenHash = sha256Hex_(token);
+  const invitation = invitations.find(function (candidate) {
+    return timingSafeEqual_(candidate.tokenHash, tokenHash);
+  });
+  if (!invitation) throw validationError_('invalid_token', ['token']);
 
-  return [
-    safeSheetText_(responseId),
-    submittedAt,
-    new Date(),
-    cabinClass,
-    scope,
-    language,
-    inviteeName,
-    day21.attendance,
-    day21.partySize,
-    day22.attendance,
-    day22.partySize,
-    message,
-  ];
+  const responseId = requiredUuid_(payload.responseId, 'responseId');
+  const locale = requiredChoice_(payload.locale, ['en', 'ms'], 'locale');
+  const inviteeName = requiredText_(payload.inviteeName, 100, 'inviteeName');
+  const message = optionalText_(payload.message, 500, 'message');
+  const responses = normalizeResponses_(payload.responses, invitation.scope);
+
+  const canonical = {
+    version: BRIDGE_VERSION,
+    tokenHash: tokenHash,
+    responseId: responseId,
+    locale: locale,
+    inviteeName: inviteeName,
+    message: message,
+    responses: responses,
+  };
+
+  return {
+    responseId: responseId,
+    cabinClass: invitation.cabinClass,
+    scope: invitation.scope,
+    locale: locale,
+    inviteeName: inviteeName,
+    message: message,
+    responses: responses,
+    tokenHash: tokenHash,
+    digest: sha256Hex_(JSON.stringify(canonical)),
+  };
+}
+
+function normalizeResponses_(value, scope) {
+  if (!Array.isArray(value)) throw validationError_('invalid_submission', ['responses']);
+
+  const expectedIds = scope === 'both-days' ? ['day21', 'day22'] : ['day22'];
+  if (value.length !== expectedIds.length) throw validationError_('invalid_submission', ['responses']);
+
+  const byId = {};
+  value.forEach(function (answer, index) {
+    const prefix = 'responses[' + index + ']';
+    if (!answer || typeof answer !== 'object' || Array.isArray(answer)) {
+      throw validationError_('invalid_submission', [prefix]);
+    }
+    const eventId = requiredChoice_(answer.eventId, expectedIds, prefix + '.eventId');
+    if (byId[eventId]) throw validationError_('invalid_submission', [prefix + '.eventId']);
+    byId[eventId] = normalizeEvent_(answer, eventId);
+  });
+
+  expectedIds.forEach(function (eventId) {
+    if (!byId[eventId]) throw validationError_('invalid_submission', ['responses.' + eventId]);
+  });
+  return expectedIds.map(function (eventId) { return byId[eventId]; });
 }
 
 function normalizeEvent_(value, field) {
-  if (!value || typeof value !== 'object') throw new Error('Missing ' + field);
   const attendance = requiredChoice_(value.attendance, ['attending', 'not-attending'], field + '.attendance');
-  if (attendance === 'not-attending') return { attendance: attendance, partySize: '' };
-  if (typeof value.partySize !== 'number') throw new Error('Invalid ' + field + '.partySize');
-  const partySize = value.partySize;
-  if (!Number.isSafeInteger(partySize) || partySize < 1) throw new Error('Invalid ' + field + '.partySize');
-  return { attendance: attendance, partySize: partySize };
+  if (attendance === 'not-attending') {
+    if (value.partySize !== undefined && value.partySize !== null && value.partySize !== '') {
+      throw validationError_('invalid_submission', [field + '.partySize']);
+    }
+    return { eventId: value.eventId, attendance: attendance };
+  }
+
+  if (typeof value.partySize !== 'number' || !Number.isSafeInteger(value.partySize) || value.partySize < 1) {
+    throw validationError_('invalid_submission', [field + '.partySize']);
+  }
+  return { eventId: value.eventId, attendance: attendance, partySize: value.partySize };
+}
+
+function storeSubmission_(submission, properties) {
+  const spreadsheetId = properties.getProperty(SPREADSHEET_ID_PROPERTY);
+  if (!spreadsheetId) throw validationError_('not_configured', []);
+
+  const sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName(RESPONSES_SHEET);
+  if (!sheet) throw validationError_('not_configured', []);
+  const existingRow = findResponseRow_(sheet, submission.responseId);
+
+  if (existingRow) {
+    const metadata = sheet.getRange(existingRow, PUBLIC_RESPONSE_COLUMNS + 1, 1, 2).getDisplayValues()[0];
+    const sameToken = timingSafeEqual_(String(metadata[0] || '').toLowerCase(), submission.tokenHash);
+    const samePayload = timingSafeEqual_(String(metadata[1] || '').toLowerCase(), submission.digest);
+    if (!sameToken || !samePayload) throw validationError_('idempotency_conflict', ['responseId']);
+    return { duplicate: true };
+  }
+
+  const now = new Date();
+  const answers = {};
+  submission.responses.forEach(function (answer) { answers[answer.eventId] = answer; });
+  const day21 = answers.day21 || {};
+  const day22 = answers.day22 || {};
+  const row = [
+    safeSheetText_(submission.responseId),
+    now,
+    now,
+    submission.cabinClass,
+    submission.scope,
+    submission.locale,
+    safeSheetText_(submission.inviteeName),
+    day21.attendance || '',
+    day21.partySize || '',
+    day22.attendance || '',
+    day22.partySize || '',
+    safeSheetText_(submission.message),
+    submission.tokenHash,
+    submission.digest,
+  ];
+  sheet.appendRow(row);
+  return { duplicate: false };
+}
+
+function configuredInvitations_(properties) {
+  const seen = {};
+  return INVITATIONS.map(function (invitation) {
+    const tokenHash = String(properties.getProperty(invitation.property) || '').trim().toLowerCase();
+    if (!isSha256_(tokenHash) || seen[tokenHash]) throw validationError_('not_configured', []);
+    seen[tokenHash] = true;
+    return {
+      cabinClass: invitation.cabinClass,
+      scope: invitation.scope,
+      tokenHash: tokenHash,
+    };
+  });
+}
+
+function rsvpStatus_(properties) {
+  const value = String(properties.getProperty(RSVP_STATUS_PROPERTY) || 'preview').trim().toLowerCase();
+  if (value !== 'preview' && value !== 'open' && value !== 'closed') {
+    throw validationError_('not_configured', []);
+  }
+  return value;
+}
+
+function configuredParentOrigin_(properties) {
+  const origin = String(properties.getProperty(PARENT_ORIGIN_PROPERTY) || '').trim();
+  if (!/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?$/.test(origin)) {
+    throw validationError_('not_configured', []);
+  }
+  return origin;
+}
+
+function parentOriginForReceipt_(properties) {
+  try {
+    return configuredParentOrigin_(properties);
+  } catch (error) {
+    return '*';
+  }
+}
+
+function bridgeHtml_(receipt, properties) {
+  const safeReceipt = JSON.stringify(receipt)
+    .replace(/</g, '\\u003c')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+  const targetOrigin = JSON.stringify(parentOriginForReceipt_(properties));
+  const html = '<!doctype html><html><head><meta charset="utf-8"><title>RSVP receipt</title></head>'
+    + '<body><script>window.parent.postMessage(' + safeReceipt + ',' + targetOrigin + ');<\/script></body></html>';
+  return HtmlService.createHtmlOutput(html)
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag('viewport', 'width=device-width,initial-scale=1');
 }
 
 function requiredText_(value, maxLength, field) {
-  if (typeof value !== 'string') throw new Error('Invalid ' + field);
+  if (typeof value !== 'string') throw validationError_('invalid_submission', [field]);
   const result = value.trim();
-  if (!result || result.length > maxLength) throw new Error('Invalid ' + field);
+  if (!result || result.length > maxLength) throw validationError_('invalid_submission', [field]);
+  return result;
+}
+
+function optionalText_(value, maxLength, field) {
+  if (value === undefined || value === null || value === '') return '';
+  if (typeof value !== 'string') throw validationError_('invalid_submission', [field]);
+  const result = value.trim();
+  if (result.length > maxLength) throw validationError_('invalid_submission', [field]);
   return result;
 }
 
 function requiredChoice_(value, choices, field) {
-  if (choices.indexOf(value) === -1) throw new Error('Invalid ' + field);
+  if (choices.indexOf(value) === -1) throw validationError_('invalid_submission', [field]);
   return value;
 }
 
+function requiredUuid_(value, field) {
+  if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+    throw validationError_('invalid_submission', [field]);
+  }
+  return value.toLowerCase();
+}
+
+function validationError_(code, fields) {
+  const error = new Error(code);
+  error.publicCode = code;
+  error.fields = fields || [];
+  return error;
+}
+
 function safeSheetText_(value) {
-  const text = String(value);
+  const text = String(value == null ? '' : value);
   return /^[=+\-@]/.test(text) ? "'" + text : text;
+}
+
+function isSha256_(value) {
+  return /^[a-f0-9]{64}$/.test(value);
+}
+
+function sha256Hex_(value) {
+  return Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    String(value),
+    Utilities.Charset.UTF_8
+  ).map(function (byte) {
+    return ((byte + 256) % 256).toString(16).padStart(2, '0');
+  }).join('');
+}
+
+function timingSafeEqual_(left, right) {
+  const a = String(left || '');
+  const b = String(right || '');
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let index = 0; index < a.length; index += 1) {
+    mismatch |= a.charCodeAt(index) ^ b.charCodeAt(index);
+  }
+  return mismatch === 0;
 }
 
 function findResponseRow_(sheet, responseId) {
@@ -167,6 +417,7 @@ function findResponseRow_(sheet, responseId) {
 
 function formatResponsesSheet_(sheet) {
   const width = RESPONSE_HEADERS.length;
+  if (sheet.getMaxColumns() < width) sheet.insertColumnsAfter(sheet.getMaxColumns(), width - sheet.getMaxColumns());
   sheet.getRange(1, 1, 1, width).setValues([RESPONSE_HEADERS]);
   sheet.setFrozenRows(1);
   sheet.setTabColor('#17606a');
@@ -187,9 +438,11 @@ function formatResponsesSheet_(sheet) {
   sheet.setColumnWidths(8, 4, 145);
   sheet.setColumnWidth(12, 330);
   sheet.getRange(1, 1, sheet.getMaxRows(), width).setVerticalAlignment('middle');
+
   const existingFilter = sheet.getFilter();
   if (existingFilter) existingFilter.remove();
-  sheet.getRange(1, 1, sheet.getMaxRows(), width).createFilter();
+  sheet.getRange(1, 1, sheet.getMaxRows(), PUBLIC_RESPONSE_COLUMNS).createFilter();
+  sheet.hideColumns(PUBLIC_RESPONSE_COLUMNS + 1, width - PUBLIC_RESPONSE_COLUMNS);
 }
 
 function formatSummarySheet_(sheet) {
@@ -251,8 +504,4 @@ function formatSummarySheet_(sheet) {
   sheet.setColumnWidths(2, 5, 145);
   sheet.setRowHeight(1, 42);
   sheet.getRange('A1:F13').setVerticalAlignment('middle');
-}
-
-function json_(value) {
-  return ContentService.createTextOutput(JSON.stringify(value)).setMimeType(ContentService.MimeType.JSON);
 }

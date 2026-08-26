@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ApiFailure, downloadCalendar } from '../api';
+import { downloadCalendar } from '../calendar';
 import { copy } from '../copy';
 import type { Invitation, Locale } from '../types';
 import { localized } from '../types';
@@ -8,28 +8,26 @@ import { RsvpForm } from './RsvpForm';
 
 type InvitationExperienceProps = {
   invitation: Invitation;
-  accessToken: string;
+  invitationToken: string;
   fingerprint: string;
   locale: Locale;
   reducedMotion: boolean;
   onBack: () => void;
   onToggleMotion: () => void;
   onToggleLocale: () => void;
-  onSessionExpired: () => void;
 };
 
 const mapUrl = 'https://www.google.com/maps/search/?api=1&query=Crowne+Plaza+Changi+Airport%2C+75+Airport+Boulevard%2C+Singapore+819664';
 
 export default function InvitationExperience({
   invitation,
-  accessToken,
+  invitationToken,
   fingerprint,
   locale,
   reducedMotion,
   onBack,
   onToggleMotion,
   onToggleLocale,
-  onSessionExpired,
 }: InvitationExperienceProps) {
   const t = copy[locale];
   const [calendarBusy, setCalendarBusy] = useState<string | null>(null);
@@ -37,20 +35,45 @@ export default function InvitationExperience({
   const experienceRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => experienceRef.current?.focus({ preventScroll: true }));
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
+    let settleFrame = 0;
+    let settleTimer = 0;
+    const resetScroll = () => {
+      const root = document.documentElement;
+      const previousBehavior = root.style.scrollBehavior;
+      root.style.scrollBehavior = 'auto';
+      window.scrollTo(0, 0);
+      root.scrollTop = 0;
+      document.body.scrollTop = 0;
+      root.style.scrollBehavior = previousBehavior;
+    };
+    const frame = window.requestAnimationFrame(() => {
+      resetScroll();
+      experienceRef.current?.focus({ preventScroll: true });
+      // A second frame wins over scroll anchoring when the 360svh sticky
+      // journey is replaced by the shorter reduced-motion reading order.
+      settleFrame = window.requestAnimationFrame(() => {
+        resetScroll();
+        settleTimer = window.setTimeout(() => {
+          resetScroll();
+          experienceRef.current?.focus();
+        }, 80);
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.cancelAnimationFrame(settleFrame);
+      window.clearTimeout(settleTimer);
+    };
+  }, [reducedMotion]);
 
-  const handleCalendar = async (eventId: string, href: string) => {
+  const handleCalendar = (eventId: string) => {
     setCalendarBusy(eventId);
     setCalendarError(null);
     try {
-      await downloadCalendar(accessToken, href);
-    } catch (error) {
-      if (error instanceof ApiFailure && error.status === 401) {
-        onSessionExpired();
-        return;
-      }
+      const event = invitation.events.find((candidate) => candidate.id === eventId);
+      if (!event) throw new Error('Unknown calendar event');
+      downloadCalendar(event, locale);
+    } catch {
       setCalendarError(eventId);
     } finally {
       setCalendarBusy(null);
@@ -65,10 +88,6 @@ export default function InvitationExperience({
 
   const toggleMotion = () => {
     onToggleMotion();
-    window.requestAnimationFrame(() => {
-      window.scrollTo({ top: 0, behavior: 'auto' });
-      experienceRef.current?.focus({ preventScroll: true });
-    });
   };
 
   return (
@@ -89,7 +108,7 @@ export default function InvitationExperience({
 
       <section id="invitation" className="invitation-reveal" tabIndex={-1}>
         <div className="invitation-card">
-          <img className="invitation-logo" src={`${import.meta.env.BASE_URL}an-monogram.svg`} alt="Aleem and Nurulain" />
+          <img className="invitation-logo" src={`${import.meta.env.BASE_URL}monogram-a-and-n-display.png`} alt="Aleem and Nurulain" />
           <p className="bismillah">{t.bismillah}</p>
           <p className="salam">{t.salam}</p>
           <p className="formal-copy">{t.formalInvite}</p>
@@ -132,7 +151,7 @@ export default function InvitationExperience({
                   className="button button-secondary"
                   type="button"
                   disabled={calendarBusy === event.id}
-                  onClick={() => handleCalendar(event.id, event.calendarHref)}
+                  onClick={() => handleCalendar(event.id)}
                 >
                   {calendarBusy === event.id ? t.calendarBusy : t.calendar}
                 </button>
@@ -169,14 +188,13 @@ export default function InvitationExperience({
 
       <RsvpForm
         invitation={invitation}
-        accessToken={accessToken}
+        invitationToken={invitationToken}
         fingerprint={fingerprint}
         locale={locale}
-        onSessionExpired={onSessionExpired}
       />
 
       <footer className="site-footer">
-        <img src={`${import.meta.env.BASE_URL}an-monogram.svg`} alt="" />
+        <img src={`${import.meta.env.BASE_URL}monogram-a-and-n-display.png`} alt="" />
         <p>{t.footer}</p>
       </footer>
     </main>

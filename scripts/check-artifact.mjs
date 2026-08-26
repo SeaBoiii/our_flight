@@ -1,20 +1,43 @@
-import { gzipSync } from 'node:zlib';
-import { readFile, readdir, stat } from 'node:fs/promises';
-import { basename, join, relative } from 'node:path';
+import { execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { access, readFile, readdir, stat } from 'node:fs/promises';
+import { basename, extname, join, relative, resolve } from 'node:path';
+import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import { gzipSync } from 'node:zlib';
 
-const root = fileURLToPath(new URL('../dist/', import.meta.url));
-const forbidden = [
-  '21 August',
-  '21 Ogos',
-  'Nikah',
-  'AN2108',
-  'both-days',
-  'PASSCODE_HASH',
-  'ACCESS_TOKEN_SIGNING_SECRET',
-  'APPS_SCRIPT_URL',
-  'APPS_SCRIPT_SHARED_SECRET',
-  'INVITE_TOKEN_',
+const execFileAsync = promisify(execFile);
+const workspace = fileURLToPath(new URL('../', import.meta.url));
+const root = resolve(workspace, process.env.ARTIFACT_DIR || 'dist');
+const originalMonogramSha256 = '1002106cac61fb895c9b2f85fefbb464ba9cdf23c64571ddccb66c96fce4f734';
+const textExtensions = new Set(['.css', '.env', '.gs', '.html', '.js', '.json', '.jsx', '.md', '.mjs', '.ts', '.tsx', '.txt', '.yaml', '.yml']);
+
+const artifactPatterns = [
+  { label: 'legacy private API route', pattern: /\/api\/v1\/(?:unlock|invitation|rsvp|calendar)/i },
+  { label: 'legacy private API configuration', pattern: /VITE_API_ORIGIN/i },
+  { label: 'server-only signing secret name', pattern: /(?:ACCESS_TOKEN_SIGNING_SECRET|SESSION_SIGNING_SECRET)/i },
+  { label: 'server-only ingestion secret name', pattern: /(?:APPS_SCRIPT_SHARED_SECRET|INGEST_SECRET)/i },
+  { label: 'Google spreadsheet identifier', pattern: /docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]{20,}/i },
+  { label: 'raw invitation hash route', pattern: /#\/i\/[A-Za-z0-9_-]{20,160}/i },
+];
+
+const sourceSecretPatterns = [
+  {
+    label: 'raw passcode assignment',
+    pattern: /(?:WEDDING_PASSCODE|VITE_PASSCODE)(?!_HASH)\s*[:=]\s*["'`][^"'`\r\n]{4,}["'`]/i,
+  },
+  {
+    label: 'raw invitation-token assignment',
+    pattern: /(?:INVITE_TOKEN_(?:ECONOMY|PREMIUM|BUSINESS|FIRST)|(?:invite|invitation)Token)\s*[:=]\s*["'`][A-Za-z0-9_-]{20,160}["'`]/i,
+  },
+  {
+    label: 'hard-coded server secret',
+    pattern: /(?:INGEST_SECRET|APPS_SCRIPT_SHARED_SECRET|SESSION_SIGNING_SECRET)\s*[:=]\s*["'`][A-Za-z0-9_+/=-]{20,}["'`]/i,
+  },
+  {
+    label: 'Google spreadsheet identifier',
+    pattern: /docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]{20,}/i,
+  },
 ];
 
 async function filesIn(directory) {
@@ -26,48 +49,132 @@ async function filesIn(directory) {
   return nested.flat();
 }
 
+async function exists(path) {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function trackedSourceFiles() {
+  try {
+    const { stdout } = await execFileAsync('git', ['ls-files'], { cwd: workspace, encoding: 'utf8' });
+    return stdout
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((name) => join(workspace, name))
+      .filter((path) => textExtensions.has(extname(path).toLowerCase()));
+  } catch {
+    return [];
+  }
+}
+
+async function localReleaseValues() {
+  const releaseFile = join(workspace, '.private', 'invite-access.txt');
+  if (!(await exists(releaseFile))) return [];
+  const text = await readFile(releaseFile, 'utf8');
+  const values = [];
+  for (const line of text.split(/\r?\n/)) {
+    const match = /^\s*(?:Initial shared passcode|Economy token|Premium Economy token|Business token|First Class token)\s*:\s*(\S+)\s*$/i.exec(line);
+    if (match?.[1]) values.push(match[1]);
+    for (const route of line.matchAll(/#\/i\/([A-Za-z0-9_-]{20,160})/g)) values.push(route[1]);
+  }
+  return [...new Set(values.filter((value) => value.length >= 4))];
+}
+
+function hash(bytes) {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
 const files = await filesIn(root);
 const failures = [];
+const releaseValues = await localReleaseValues();
 
 for (const file of files) {
   const name = relative(root, file).replaceAll('\\', '/');
   if (name.endsWith('.map')) failures.push(`Source map present: ${name}`);
+  if (/an-monogram\.svg$/i.test(name)) failures.push(`Obsolete geometric monogram present: ${name}`);
+
   const bytes = await readFile(file);
-  const text = bytes.toString('utf8').normalize('NFKC').toLowerCase();
-  for (const phrase of forbidden) {
-    const normalized = phrase.normalize('NFKC').toLowerCase();
-    const found = phrase === 'Nikah'
-      ? /(^|[^a-z])nikah([^a-z]|$)/.test(text)
-      : text.includes(normalized);
-    if (found) {
-      failures.push(`Restricted literal found in ${name}: ${phrase}`);
-    }
+  for (const value of releaseValues) {
+    if (bytes.includes(Buffer.from(value))) failures.push(`A private release value is present in ${name}.`);
+  }
+  if (!textExtensions.has(extname(file).toLowerCase())) continue;
+  const text = bytes.toString('utf8').normalize('NFKC');
+  for (const { label, pattern } of artifactPatterns) {
+    if (pattern.test(text)) failures.push(`${label} found in ${name}.`);
   }
 }
 
-const indexHtml = await readFile(new URL('../dist/index.html', import.meta.url), 'utf8');
-const initialAssets = [...indexHtml.matchAll(/(?:src|href)="([^"]+\.(?:js|css|svg))"/g)]
+for (const file of await trackedSourceFiles()) {
+  const name = relative(workspace, file).replaceAll('\\', '/');
+  if (name.startsWith('src/test/')) continue;
+  const text = (await readFile(file, 'utf8')).normalize('NFKC');
+  for (const value of releaseValues) {
+    if (text.includes(value)) failures.push(`A private release value is present in tracked source ${name}.`);
+  }
+  for (const { label, pattern } of sourceSecretPatterns) {
+    if (pattern.test(text)) failures.push(`${label} found in tracked source ${name}.`);
+  }
+}
+
+for (const monogramPath of [
+  join(workspace, 'public', 'monogram-a-and-n.png'),
+  join(root, 'monogram-a-and-n.png'),
+]) {
+  if (!(await exists(monogramPath))) {
+    failures.push(`Original A&N monogram missing: ${relative(workspace, monogramPath)}.`);
+    continue;
+  }
+  const bytes = await readFile(monogramPath);
+  if (hash(bytes) !== originalMonogramSha256) {
+    failures.push(`Original A&N monogram was modified: ${relative(workspace, monogramPath)}.`);
+  }
+  if (bytes.readUInt32BE(16) !== 768 || bytes.readUInt32BE(20) !== 512) {
+    failures.push(`Original A&N monogram dimensions changed: ${relative(workspace, monogramPath)}.`);
+  }
+}
+
+for (const requiredAsset of ['favicon.png', 'monogram-a-and-n-display.png', 'og.jpg']) {
+  if (!(await exists(join(root, requiredAsset)))) failures.push(`Required brand asset missing: ${requiredAsset}.`);
+}
+
+const indexHtml = await readFile(join(root, 'index.html'), 'utf8');
+if (/__[A-Z][A-Z0-9_]+__|%BASE_URL%/.test(indexHtml)) failures.push('Unresolved build placeholder found in index.html.');
+if (/journey\/(?:cabin|clouds)-/i.test(indexHtml)) failures.push('Cinematic assets must not be loaded by the locked-page HTML.');
+if (!/rel="icon"[^>]+favicon\.png/.test(indexHtml)) failures.push('The restored A&N favicon is not referenced by index.html.');
+
+const initialAssetNames = [...indexHtml.matchAll(/(?:src|href)="([^"]+\.(?:js|css|png))"/g)]
   .map((match) => basename(match[1]));
+for (const brandAsset of ['monogram-a-and-n.png', 'monogram-a-and-n-display.png']) {
+  if (files.some((file) => basename(file) === brandAsset)) initialAssetNames.push(brandAsset);
+}
+const uniqueInitialAssets = [...new Set(initialAssetNames)];
 let initialBytes = Buffer.byteLength(indexHtml);
-for (const asset of initialAssets) {
+for (const asset of uniqueInitialAssets) {
   const match = files.find((file) => basename(file) === asset);
   if (match) initialBytes += (await stat(match)).size;
 }
-if (initialBytes > 500 * 1024) failures.push(`Initial transfer estimate is ${initialBytes} bytes (limit 512000)`);
+if (initialBytes > 500 * 1024) failures.push(`Initial transfer estimate is ${initialBytes} bytes (limit 512000).`);
 
-const initialScript = initialAssets.find((asset) => asset.endsWith('.js'));
-if (!initialScript) failures.push('Initial JavaScript asset was not found in index.html');
-if (initialScript) {
-  const match = files.find((file) => basename(file) === initialScript);
-  if (match) {
-    const gzipBytes = gzipSync(await readFile(match)).length;
-    if (gzipBytes > 150 * 1024) failures.push(`Initial JavaScript is ${gzipBytes} gzip bytes (limit 153600)`);
-  }
+const initialScripts = uniqueInitialAssets.filter((asset) => asset.endsWith('.js'));
+if (!initialScripts.length) failures.push('Initial JavaScript asset was not found in index.html.');
+let initialScriptGzipBytes = 0;
+for (const script of initialScripts) {
+  const match = files.find((file) => basename(file) === script);
+  if (match) initialScriptGzipBytes += gzipSync(await readFile(match)).length;
+}
+if (initialScriptGzipBytes > 150 * 1024) {
+  failures.push(`Initial JavaScript is ${initialScriptGzipBytes} gzip bytes (limit 153600).`);
 }
 
 if (failures.length) {
-  console.error(failures.join('\n'));
+  console.error([...new Set(failures)].join('\n'));
   process.exit(1);
 }
 
-console.log(`Artifact check passed: ${files.length} files, ${initialBytes} estimated initial bytes.`);
+console.log(
+  `Artifact check passed: ${files.length} files, ${initialBytes} estimated initial bytes, ${initialScriptGzipBytes} gzip JS bytes.`,
+);

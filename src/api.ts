@@ -1,7 +1,12 @@
-import type { Invitation, Locale, RsvpDraft } from './types';
+import { appsScriptUrl } from './invitations';
+import type { Locale, RsvpDraft, RsvpReceipt } from './types';
 
-type UnlockResponse = { invitation: Invitation; accessToken: string; expiresAt: string };
-type InvitationResponse = { invitation: Invitation; expiresAt: string };
+type BridgeMessage = RsvpReceipt & {
+  type: 'our-flight:rsvp-result';
+  version: 1;
+  nonce: string;
+  responseId: string;
+};
 
 export class ApiFailure extends Error {
   status: number;
@@ -16,89 +21,117 @@ export class ApiFailure extends Error {
   }
 }
 
-function apiOrigin(): string {
-  const configured = import.meta.env.VITE_API_ORIGIN as string | undefined;
-  if (configured) return configured.replace(/\/$/, '');
-  if (import.meta.env.DEV) return 'http://localhost:3000';
-  throw new Error('VITE_API_ORIGIN is required for production builds');
-}
-
-async function request(path: string, init: RequestInit, accessToken?: string): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 12_000);
-  const headers = new Headers(init.headers);
-  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
+export function isGoogleBridgeOrigin(origin: string): boolean {
   try {
-    return await fetch(`${apiOrigin()}${path}`, {
-      ...init,
-      headers,
-      credentials: 'omit',
-      cache: 'no-store',
-      signal: controller.signal,
-    });
-  } finally {
-    window.clearTimeout(timeout);
+    const url = new URL(origin);
+    return url.protocol === 'https:' && (
+      url.hostname === 'script.google.com'
+      || url.hostname === 'script.googleusercontent.com'
+      || url.hostname.endsWith('.googleusercontent.com')
+    );
+  } catch {
+    return false;
   }
 }
 
-async function json<T>(response: Response): Promise<T> {
-  const body = await response.json().catch(() => ({})) as { error?: string; fields?: string[] };
-  if (!response.ok) throw new ApiFailure(response.status, body.error ?? 'request_failed', body.fields ?? []);
-  return body as T;
-}
-
-export async function unlockInvitation(token: string, passcode: string): Promise<UnlockResponse> {
-  const response = await request('/api/v1/unlock', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token, passcode }),
-  });
-  return json<UnlockResponse>(response);
-}
-
-export async function restoreInvitation(accessToken: string): Promise<InvitationResponse> {
-  const response = await request('/api/v1/invitation', { method: 'GET' }, accessToken);
-  return json<InvitationResponse>(response);
+function isBridgeMessage(value: unknown, nonce: string, responseId: string): value is BridgeMessage {
+  if (!value || typeof value !== 'object') return false;
+  const message = value as Partial<BridgeMessage>;
+  return message.type === 'our-flight:rsvp-result'
+    && message.version === 1
+    && message.nonce === nonce
+    && message.responseId === responseId
+    && typeof message.ok === 'boolean'
+    && (message.fields === undefined || (
+      Array.isArray(message.fields)
+      && message.fields.every((field) => typeof field === 'string')
+    ));
 }
 
 export async function submitRsvp(
-  accessToken: string,
+  invitationToken: string,
   locale: Locale,
   draft: RsvpDraft,
 ): Promise<{ ok: true; duplicate: boolean }> {
-  const response = await request('/api/v1/rsvp', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      responseId: draft.responseId,
-      locale,
-      inviteeName: draft.inviteeName,
-      message: draft.message || undefined,
-      responses: draft.responses.map((answer) => ({
-        eventId: answer.eventId,
-        attendance: answer.attendance,
-        partySize: answer.attendance === 'attending' ? Number(answer.partySize) : undefined,
-      })),
-    }),
-  }, accessToken);
-  return json<{ ok: true; duplicate: boolean }>(response);
-}
+  const endpoint = appsScriptUrl();
+  if (!endpoint) throw new ApiFailure(503, 'not_configured');
 
-export async function downloadCalendar(accessToken: string, path: string): Promise<void> {
-  const response = await request(path, { method: 'GET' }, accessToken);
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({})) as { error?: string };
-    throw new ApiFailure(response.status, body.error ?? 'calendar_failed');
-  }
-  const blob = await response.blob();
-  const disposition = response.headers.get('content-disposition') ?? '';
-  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? 'aleem-nurulain-event.ics';
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+  const nonce = crypto.randomUUID();
+  const frameName = `our-flight-rsvp-${nonce}`;
+  const iframe = document.createElement('iframe');
+  iframe.name = frameName;
+  iframe.title = 'RSVP submission response';
+  iframe.hidden = true;
+  // `allow-same-origin` preserves the Google response origin so the receipt can
+  // be authenticated. The response is still isolated in its own cross-origin frame.
+  iframe.setAttribute('sandbox', 'allow-forms allow-scripts allow-same-origin');
+
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = endpoint;
+  form.target = frameName;
+  form.enctype = 'application/x-www-form-urlencoded';
+  form.hidden = true;
+
+  const bridgeVersion = document.createElement('input');
+  bridgeVersion.type = 'hidden';
+  bridgeVersion.name = 'bridgeVersion';
+  bridgeVersion.value = '1';
+
+  const nonceField = document.createElement('input');
+  nonceField.type = 'hidden';
+  nonceField.name = 'nonce';
+  nonceField.value = nonce;
+
+  const payloadField = document.createElement('input');
+  payloadField.type = 'hidden';
+  payloadField.name = 'payload';
+  payloadField.value = JSON.stringify({
+    version: 1,
+    token: invitationToken,
+    responseId: draft.responseId,
+    locale,
+    inviteeName: draft.inviteeName,
+    message: draft.message || undefined,
+    responses: draft.responses.map((answer) => ({
+      eventId: answer.eventId,
+      attendance: answer.attendance,
+      partySize: answer.attendance === 'attending' ? Number(answer.partySize) : undefined,
+    })),
+  });
+
+  form.append(bridgeVersion, nonceField, payloadField);
+  document.body.append(iframe, form);
+
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      window.removeEventListener('message', onMessage);
+      window.clearTimeout(timeout);
+      form.remove();
+      iframe.remove();
+    };
+
+    const onMessage = (event: MessageEvent) => {
+      if (
+        event.source !== iframe.contentWindow
+        || !isGoogleBridgeOrigin(event.origin)
+        || !isBridgeMessage(event.data, nonce, draft.responseId)
+      ) return;
+      cleanup();
+      if (!event.data.ok) {
+        const status = event.data.error === 'closed' ? 410 : event.data.error === 'preview' ? 409 : 422;
+        reject(new ApiFailure(status, event.data.error ?? 'submission_rejected', event.data.fields ?? []));
+        return;
+      }
+      resolve({ ok: true, duplicate: Boolean(event.data.duplicate) });
+    };
+
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new ApiFailure(0, 'unconfirmed'));
+    }, 30_000);
+
+    window.addEventListener('message', onMessage);
+    form.requestSubmit();
+  });
 }

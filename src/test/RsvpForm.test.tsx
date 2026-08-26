@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { RsvpForm } from '../components/RsvpForm';
 import { invitationWith } from './fixtures';
 
@@ -8,10 +8,9 @@ describe('RSVP preview mode', () => {
     render(
       <RsvpForm
         invitation={invitationWith()}
-        accessToken="preview-access-token"
+        invitationToken={'a'.repeat(32)}
         fingerprint="preview-fingerprint"
         locale="en"
-        onSessionExpired={vi.fn()}
       />,
     );
     expect(screen.getByText('RSVP preview')).toBeTruthy();
@@ -20,15 +19,13 @@ describe('RSVP preview mode', () => {
   });
 
   it('shows linked validation errors before any open RSVP request is sent', () => {
-    const invitation = invitationWith();
-    invitation.rsvpStatus = 'open';
+    const invitation = invitationWith(1, 'open');
     render(
       <RsvpForm
         invitation={invitation}
-        accessToken="open-access-token"
+        invitationToken={'b'.repeat(32)}
         fingerprint="open-fingerprint"
         locale="en"
-        onSessionExpired={vi.fn()}
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Send RSVP' }));

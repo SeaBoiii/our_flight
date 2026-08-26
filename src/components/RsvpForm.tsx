@@ -7,14 +7,13 @@ import { localized } from '../types';
 
 type RsvpFormProps = {
   invitation: Invitation;
-  accessToken: string;
+  invitationToken: string;
   fingerprint: string;
   locale: Locale;
-  onSessionExpired: () => void;
 };
 
 type Errors = Record<string, string>;
-type SubmitState = 'idle' | 'sending' | 'success' | 'duplicate' | 'failed';
+type SubmitState = 'idle' | 'sending' | 'success' | 'duplicate' | 'failed' | 'unconfirmed' | 'conflict';
 
 function freshDraft(invitation: Invitation, saved: RsvpDraft | null): RsvpDraft {
   const savedAnswers = new Map(saved?.responses.map((answer) => [answer.eventId, answer]));
@@ -38,10 +37,9 @@ function freshDraft(invitation: Invitation, saved: RsvpDraft | null): RsvpDraft 
 
 export function RsvpForm({
   invitation,
-  accessToken,
+  invitationToken,
   fingerprint,
   locale,
-  onSessionExpired,
 }: RsvpFormProps) {
   const t = copy[locale];
   const [draft, setDraft] = useState<RsvpDraft>(() => freshDraft(invitation, readDraft(fingerprint)));
@@ -100,14 +98,11 @@ export function RsvpForm({
 
     setSubmitState('sending');
     try {
-      const result = await submitRsvp(accessToken, locale, draft);
+      const result = await submitRsvp(invitationToken, locale, draft);
       clearDraft(fingerprint);
       setSubmitState(result.duplicate ? 'duplicate' : 'success');
     } catch (error) {
-      if (error instanceof ApiFailure && error.status === 401) {
-        onSessionExpired();
-        return;
-      }
+      let handledValidation = false;
       if (error instanceof ApiFailure && error.status === 422) {
         const serverErrors: Errors = {};
         for (const field of error.fields) {
@@ -119,11 +114,16 @@ export function RsvpForm({
             else serverErrors[`attendance-${index}`] = t.attendanceError;
           });
         }
-        if (!Object.keys(serverErrors).length) serverErrors.form = t.review;
-        setErrors(serverErrors);
-        window.requestAnimationFrame(() => summaryRef.current?.focus());
+        if (Object.keys(serverErrors).length) {
+          handledValidation = true;
+          setErrors(serverErrors);
+          window.requestAnimationFrame(() => summaryRef.current?.focus());
+        }
       }
-      setSubmitState('failed');
+      if (error instanceof ApiFailure && error.code === 'unconfirmed') setSubmitState('unconfirmed');
+      else if (error instanceof ApiFailure && error.code === 'idempotency_conflict') setSubmitState('conflict');
+      else if (handledValidation) setSubmitState('idle');
+      else setSubmitState('failed');
     }
   };
 
@@ -140,7 +140,11 @@ export function RsvpForm({
       ? t.duplicate
       : submitState === 'failed'
         ? t.failed
-        : '';
+        : submitState === 'unconfirmed'
+          ? t.unconfirmed
+          : submitState === 'conflict'
+            ? t.conflict
+            : '';
 
   const errorTarget = (field: string): string => {
     if (field === 'inviteeName') return 'invitee-name';

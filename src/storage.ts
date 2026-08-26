@@ -1,11 +1,12 @@
 import type { RsvpDraft } from './types';
+import { sha256Hex } from './invitations';
 
 const SESSION_KEY = 'our-flight:access';
 const LOCALE_KEY = 'our-flight:language';
 const MOTION_KEY = 'our-flight:motion';
 
 export type SavedSession = {
-  accessToken: string;
+  unlocked: true;
   expiresAt: string;
   fingerprint: string;
 };
@@ -23,18 +24,14 @@ export function invitationTokenFromHash(hash = window.location.hash): string | n
   return match?.[1] ?? null;
 }
 
-export async function fingerprintToken(token: string): Promise<string> {
-  const bytes = new TextEncoder().encode(token);
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
-}
+export const fingerprintToken = sha256Hex;
 
 export function readSession(): SavedSession | null {
   try {
     const value = storage('session')?.getItem(SESSION_KEY);
     if (!value) return null;
     const parsed = JSON.parse(value) as Partial<SavedSession>;
-    if (typeof parsed.accessToken !== 'string' || typeof parsed.expiresAt !== 'string' || typeof parsed.fingerprint !== 'string') return null;
+    if (parsed.unlocked !== true || typeof parsed.expiresAt !== 'string' || typeof parsed.fingerprint !== 'string') return null;
     return parsed as SavedSession;
   } catch {
     return null;
@@ -45,7 +42,7 @@ export function saveSession(value: SavedSession): void {
   try {
     storage('session')?.setItem(SESSION_KEY, JSON.stringify(value));
   } catch {
-    // A storage quota failure should not block the current in-memory session.
+    // The current in-memory visit remains available when storage is blocked.
   }
 }
 
@@ -66,7 +63,7 @@ export function readReducedMotion(): boolean {
     const saved = storage('local')?.getItem(MOTION_KEY);
     if (saved === 'reduce') return true;
     if (saved === 'full') return false;
-  } catch { /* Use the operating system preference. */ }
+  } catch { /* Use the operating-system preference. */ }
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 

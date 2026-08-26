@@ -4,15 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#fbfaf7" />
+    <meta name="color-scheme" content="light" />
     <meta name="referrer" content="no-referrer" />
     <meta name="robots" content="noindex, nofollow, noarchive" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src __STYLE_POLICY__; img-src 'self' data: blob:; connect-src 'self' __API_ORIGIN__; object-src 'none'; base-uri 'self'; form-action 'self'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src __STYLE_POLICY__; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; connect-src __CONNECT_POLICY__; frame-src __FRAME_SOURCES__; object-src 'none'; base-uri 'self'; form-action __FORM_ACTION__" />
     <meta name="description" content="A private wedding invitation from Aleem &amp; Nurulain." />
     <meta property="og:title" content="Aleem &amp; Nurulain - Wedding Invitation" />
     <meta property="og:description" content="August 2027 - Crowne Plaza Changi Airport" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="__PUBLIC_SITE_URL__" />
     <meta property="og:image" content="__PUBLIC_SITE_URL__og.jpg" />
+    <meta property="og:image:secure_url" content="__PUBLIC_SITE_URL__og.jpg" />
     <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -22,7 +24,8 @@
     <meta name="twitter:description" content="August 2027 - Crowne Plaza Changi Airport" />
     <meta name="twitter:image" content="__PUBLIC_SITE_URL__og.jpg" />
     <meta name="twitter:image:alt" content="Aleem and Nurulain - Our Flight wedding invitation" />
-    <link rel="icon" href="%BASE_URL%favicon.svg" type="image/svg+xml" />
+    <link rel="canonical" href="__PUBLIC_SITE_URL__" />
+    <link rel="icon" href="%BASE_URL%favicon.png" type="image/png" />
     <title>Aleem &amp; Nurulain - Wedding Invitation</title>
   </head>
   <body>

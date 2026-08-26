@@ -93,6 +93,7 @@ function phase(value: number, start: number, end: number): number {
 export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const t = copy[locale];
+  const logo = `${import.meta.env.BASE_URL}monogram-a-and-n-display.png`;
 
   useEffect(() => {
     if (reducedMotion) return undefined;
@@ -176,7 +177,10 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
           </div>
         </div>
 
-        <div className="journey-ticket" aria-hidden="true">
+        <div
+          className={`journey-ticket${invitation.events.length > 1 ? ' journey-ticket--multiple' : ''}`}
+          aria-hidden="true"
+        >
           <BoardingPass invitation={invitation} locale={locale} compact stamped />
         </div>
 
@@ -187,9 +191,7 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
         </div>
 
         <div className="journey-reveal" aria-hidden="true">
-          <span>A</span>
-          <i />
-          <span>N</span>
+          <img src={logo} alt="" />
           <p>{t.throughWindow}</p>
         </div>
       </div>

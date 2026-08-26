@@ -17,20 +17,27 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
-      VITE_API_ORIGIN: ${{ vars.API_ORIGIN }}
+      WEDDING_PASSCODE_HASH: ${{ secrets.WEDDING_PASSCODE_HASH }}
+      INVITE_TOKEN_HASH_ECONOMY: ${{ secrets.INVITE_TOKEN_HASH_ECONOMY }}
+      INVITE_TOKEN_HASH_PREMIUM: ${{ secrets.INVITE_TOKEN_HASH_PREMIUM }}
+      INVITE_TOKEN_HASH_BUSINESS: ${{ secrets.INVITE_TOKEN_HASH_BUSINESS }}
+      INVITE_TOKEN_HASH_FIRST: ${{ secrets.INVITE_TOKEN_HASH_FIRST }}
+      RSVP_STATUS: ${{ vars.RSVP_STATUS || 'preview' }}
+      APPS_SCRIPT_URL: ${{ vars.APPS_SCRIPT_URL }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.13.0
           cache: npm
       - run: npm ci
       - run: npm run lint
       - run: npm test
       - run: npm run build
       - run: npm run check:artifact
-      - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist
@@ -40,6 +47,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: build
     steps:
       - name: Deploy

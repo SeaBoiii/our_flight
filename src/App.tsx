@@ -1,7 +1,12 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { ApiFailure, restoreInvitation, unlockInvitation } from './api';
 import { BoardingPass } from './components/BoardingPass';
 import { copy } from './copy';
+import {
+  classForToken,
+  invitationConfigurationReady,
+  invitationForClass,
+  verifyPasscode,
+} from './invitations';
 import {
   clearSession,
   fingerprintToken,
@@ -17,14 +22,14 @@ import type { Invitation, Locale } from './types';
 
 const InvitationExperience = lazy(() => import('./components/InvitationExperience'));
 
-type GateError = 'empty' | 'invalid' | 'connection' | 'expired' | null;
+type GateError = 'empty' | 'invalid' | 'configuration' | 'expired' | null;
+const SESSION_MINUTES = 30;
 
 export default function App() {
   const [locale, setLocale] = useState<Locale>(readLocale);
   const [reducedMotion, setReducedMotion] = useState(readReducedMotion);
   const [linkToken, setLinkToken] = useState(invitationTokenFromHash);
   const [fingerprint, setFingerprint] = useState('');
-  const [accessToken, setAccessToken] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [passcode, setPasscode] = useState('');
@@ -47,7 +52,6 @@ export default function App() {
       clearSession();
       setLinkToken(nextToken);
       setFingerprint('');
-      setAccessToken('');
       setExpiresAt('');
       setInvitation(null);
       setPasscode('');
@@ -61,31 +65,26 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!linkToken) {
-      return undefined;
-    }
+    if (!linkToken) return undefined;
 
     const restore = async () => {
-      const nextFingerprint = await fingerprintToken(linkToken);
-      if (cancelled) return;
-      setFingerprint(nextFingerprint);
-      const saved = readSession();
-      if (!saved || saved.fingerprint !== nextFingerprint || Date.parse(saved.expiresAt) <= Date.now()) {
-        if (saved) clearSession();
-        return;
-      }
-
       setRestoring(true);
       try {
-        const response = await restoreInvitation(saved.accessToken);
+        const [nextFingerprint, cabinClass] = await Promise.all([
+          fingerprintToken(linkToken),
+          classForToken(linkToken),
+        ]);
         if (cancelled) return;
-        setAccessToken(saved.accessToken);
-        setExpiresAt(response.expiresAt);
-        setInvitation(response.invitation);
-      } catch (error) {
-        if (cancelled) return;
-        clearSession();
-        if (!(error instanceof ApiFailure && error.status === 401)) setGateError('connection');
+        setFingerprint(nextFingerprint);
+        const saved = readSession();
+        const savedExpired = Boolean(saved && saved.fingerprint === nextFingerprint && Date.parse(saved.expiresAt) <= Date.now());
+        if (!cabinClass || !saved || saved.fingerprint !== nextFingerprint || savedExpired) {
+          if (saved) clearSession();
+          if (savedExpired) setGateError('expired');
+          return;
+        }
+        setExpiresAt(saved.expiresAt);
+        setInvitation(invitationForClass(cabinClass));
       } finally {
         if (!cancelled) setRestoring(false);
       }
@@ -96,7 +95,6 @@ export default function App() {
 
   const expireSession = useCallback(() => {
     clearSession();
-    setAccessToken('');
     setExpiresAt('');
     setInvitation(null);
     setBoarded(false);
@@ -132,26 +130,34 @@ export default function App() {
       setGateError('empty');
       return;
     }
+    if (!invitationConfigurationReady()) {
+      setGateError('configuration');
+      return;
+    }
+
     setUnlocking(true);
     setGateError(null);
     const submittedToken = linkToken;
     try {
-      const nextFingerprint = fingerprint || await fingerprintToken(linkToken);
-      const response = await unlockInvitation(linkToken, passcode);
+      const [nextFingerprint, cabinClass, passcodeValid] = await Promise.all([
+        fingerprint || fingerprintToken(linkToken),
+        classForToken(linkToken),
+        verifyPasscode(passcode),
+      ]);
       if (invitationTokenFromHash() !== submittedToken) return;
+      if (!cabinClass || !passcodeValid) {
+        setGateError('invalid');
+        return;
+      }
+      const nextExpiry = new Date(Date.now() + SESSION_MINUTES * 60_000).toISOString();
       setFingerprint(nextFingerprint);
-      setAccessToken(response.accessToken);
-      setExpiresAt(response.expiresAt);
-      setInvitation(response.invitation);
+      setExpiresAt(nextExpiry);
+      setInvitation(invitationForClass(cabinClass));
       setPasscode('');
-      saveSession({
-        accessToken: response.accessToken,
-        expiresAt: response.expiresAt,
-        fingerprint: nextFingerprint,
-      });
+      saveSession({ unlocked: true, expiresAt: nextExpiry, fingerprint: nextFingerprint });
       window.scrollTo({ top: 0, behavior: 'auto' });
-    } catch (error) {
-      setGateError(error instanceof ApiFailure && error.status === 401 ? 'invalid' : 'connection');
+    } catch {
+      setGateError('configuration');
     } finally {
       setUnlocking(false);
     }
@@ -163,16 +169,16 @@ export default function App() {
       ? t.invalidInvitation
       : gateError === 'expired'
         ? t.expired
-        : gateError === 'connection'
-          ? t.connectionError
+        : gateError === 'configuration'
+          ? t.configurationError
           : '';
 
-  if (invitation && accessToken && fingerprint && boarded) {
+  if (invitation && linkToken && fingerprint && boarded) {
     return (
       <Suspense fallback={<div className="page-loading" role="status">{t.checking}</div>}>
         <InvitationExperience
           invitation={invitation}
-          accessToken={accessToken}
+          invitationToken={linkToken}
           fingerprint={fingerprint}
           locale={locale}
           reducedMotion={reducedMotion}
@@ -182,16 +188,17 @@ export default function App() {
           }}
           onToggleMotion={toggleMotion}
           onToggleLocale={toggleLocale}
-          onSessionExpired={expireSession}
         />
       </Suspense>
     );
   }
 
+  const logo = `${import.meta.env.BASE_URL}monogram-a-and-n-display.png`;
+
   return (
     <main className={invitation ? `boarding-page cabin-${invitation.cabinClass}` : 'gate-page'}>
       <header className="site-header">
-        <img src={`${import.meta.env.BASE_URL}an-monogram.svg`} alt="Aleem and Nurulain" />
+        <img src={logo} alt="Aleem and Nurulain" />
         <div className="header-actions">
           {invitation ? (
             <button type="button" aria-pressed={reducedMotion} onClick={toggleMotion}>
@@ -228,7 +235,7 @@ export default function App() {
               <strong>CROWNE PLAZA</strong>
             </div>
             <p>CHANGI AIRPORT &middot; SINGAPORE</p>
-            <img src={`${import.meta.env.BASE_URL}an-monogram.svg`} alt="" />
+            <img src={logo} alt="" />
           </div>
           <div className="gate-copy">
             <p className="eyebrow">{t.flightTheme}</p>
