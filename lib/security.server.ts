@@ -3,16 +3,20 @@ import { scopeForClass } from './invitation.server';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
+const ACCESS_TOKEN_SECONDS = 60 * 30;
+const SIGNATURE_PREFIX = 'our-flight-access-v1.';
 
-export const SESSION_COOKIE = 'our_flight_session';
-const SESSION_SECONDS = 60 * 60 * 12;
-
-type SessionPayload = {
+export type AccessTokenPayload = {
+  v: 1;
   cabinClass: CabinClass;
   scope: InvitationScope;
-  inviteTokenHash: string;
+  iat: number;
   exp: number;
 };
+
+function isCabinClass(value: unknown): value is CabinClass {
+  return value === 'economy' || value === 'premium-economy' || value === 'business' || value === 'first';
+}
 
 function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = '';
@@ -21,6 +25,7 @@ function bytesToBase64Url(bytes: Uint8Array): string {
 }
 
 function base64UrlToBytes(value: string): Uint8Array {
+  if (!/^[A-Za-z0-9_-]+$/.test(value)) throw new Error('Invalid base64url value');
   const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
   const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
   const binary = atob(padded);
@@ -51,7 +56,7 @@ function inviteHashes(): Array<[CabinClass, string | undefined]> {
 }
 
 export async function classForToken(token: string): Promise<CabinClass | null> {
-  if (!token || token.length > 160) return null;
+  if (!/^[A-Za-z0-9_-]{20,160}$/.test(token)) return null;
   const tokenHash = await sha256Hex(token);
   for (const [cabinClass, configuredHash] of inviteHashes()) {
     if (configuredHash && constantTimeEqual(tokenHash, configuredHash)) return cabinClass;
@@ -65,9 +70,9 @@ export async function validatePasscode(passcode: string): Promise<boolean> {
   return constantTimeEqual(await sha256Hex(passcode), configuredHash);
 }
 
-async function sign(value: string): Promise<string> {
+async function sign(encodedPayload: string): Promise<string> {
   const secret = process.env.SESSION_SIGNING_SECRET;
-  if (!secret) throw new Error('SESSION_SIGNING_SECRET is not configured');
+  if (!secret || secret.length < 32) throw new Error('SESSION_SIGNING_SECRET is not configured securely');
   const key = await crypto.subtle.importKey(
     'raw',
     encoder.encode(secret),
@@ -75,52 +80,69 @@ async function sign(value: string): Promise<string> {
     false,
     ['sign'],
   );
-  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(value));
+  const signature = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    encoder.encode(`${SIGNATURE_PREFIX}${encodedPayload}`),
+  );
   return bytesToBase64Url(new Uint8Array(signature));
 }
 
-export async function createSession(cabinClass: CabinClass, inviteToken: string): Promise<string> {
-  const payload: SessionPayload = {
+export async function createAccessToken(cabinClass: CabinClass): Promise<{ token: string; expiresAt: string }> {
+  const now = Math.floor(Date.now() / 1000);
+  const payload: AccessTokenPayload = {
+    v: 1,
     cabinClass,
     scope: scopeForClass(cabinClass),
-    inviteTokenHash: await sha256Hex(inviteToken),
-    exp: Math.floor(Date.now() / 1000) + SESSION_SECONDS,
+    iat: now,
+    exp: now + ACCESS_TOKEN_SECONDS,
   };
   const encodedPayload = bytesToBase64Url(encoder.encode(JSON.stringify(payload)));
-  return `${encodedPayload}.${await sign(encodedPayload)}`;
+  return {
+    token: `${encodedPayload}.${await sign(encodedPayload)}`,
+    expiresAt: new Date(payload.exp * 1000).toISOString(),
+  };
 }
 
-export async function readSession(value?: string): Promise<SessionPayload | null> {
-  if (!value) return null;
+export async function readAccessToken(value?: string): Promise<AccessTokenPayload | null> {
+  if (!value || value.length > 1024) return null;
   const [encodedPayload, signature, extra] = value.split('.');
-  if (!encodedPayload || !signature || extra) return null;
-  const expectedSignature = await sign(encodedPayload);
-  if (!constantTimeEqual(signature, expectedSignature)) return null;
+  if (!encodedPayload || !signature || extra || !/^[A-Za-z0-9_-]+$/.test(signature)) return null;
   try {
-    const payload = JSON.parse(decoder.decode(base64UrlToBytes(encodedPayload))) as SessionPayload;
-    if (payload.exp <= Math.floor(Date.now() / 1000)) return null;
+    const expectedSignature = await sign(encodedPayload);
+    if (!constantTimeEqual(signature, expectedSignature)) return null;
+    const payload = JSON.parse(decoder.decode(base64UrlToBytes(encodedPayload))) as AccessTokenPayload;
+    const now = Math.floor(Date.now() / 1000);
+    if (payload.v !== 1) return null;
+    if (!isCabinClass(payload.cabinClass)) return null;
+    if (!Number.isSafeInteger(payload.iat) || !Number.isSafeInteger(payload.exp)) return null;
+    if (payload.iat > now + 60 || payload.exp <= now || payload.exp - payload.iat !== ACCESS_TOKEN_SECONDS) return null;
     if (scopeForClass(payload.cabinClass) !== payload.scope) return null;
-    if (!payload.inviteTokenHash || payload.inviteTokenHash.length !== 64) return null;
     return payload;
   } catch {
     return null;
   }
 }
 
-export function sessionMaxAge(): number {
-  return SESSION_SECONDS;
+export function bearerFromRequest(request: Request): string | null {
+  const header = request.headers.get('authorization');
+  if (!header) return null;
+  const match = /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/.exec(header);
+  return match?.[1] ?? null;
 }
 
-export function isAllowedOrigin(request: Request): boolean {
-  const origin = request.headers.get('origin');
-  if (!origin) return false;
+export async function authenticateRequest(request: Request): Promise<AccessTokenPayload | null> {
   try {
-    const candidate = new URL(origin).origin;
-    const allowed = new Set([new URL(request.url).origin]);
-    const configuredOrigin = process.env.SITE_ORIGIN;
-    if (configuredOrigin) allowed.add(new URL(configuredOrigin).origin);
-    return allowed.has(candidate);
+    return await readAccessToken(bearerFromRequest(request) ?? undefined);
   } catch {
-    return false;
+    return null;
   }
+}
+
+export function accessTokenIsConfigured(): boolean {
+  return Boolean(process.env.SESSION_SIGNING_SECRET && process.env.SESSION_SIGNING_SECRET.length >= 32);
+}
+
+export function accessTokenSeconds(): number {
+  return ACCESS_TOKEN_SECONDS;
 }

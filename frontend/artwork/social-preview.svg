@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fffefa"/>
+      <stop offset="0.62" stop-color="#f8f7f2"/>
+      <stop offset="1" stop-color="#e8f2f3"/>
+    </linearGradient>
+    <linearGradient id="route" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#153d46"/>
+      <stop offset="1" stop-color="#cfad64"/>
+    </linearGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="22"/></filter>
+  </defs>
+  <rect width="1200" height="630" fill="url(#sky)"/>
+  <g fill="#fff" opacity=".82" filter="url(#blur)">
+    <ellipse cx="118" cy="105" rx="210" ry="72"/>
+    <ellipse cx="330" cy="62" rx="180" ry="64"/>
+    <ellipse cx="1015" cy="535" rx="260" ry="84"/>
+    <ellipse cx="790" cy="590" rx="230" ry="68"/>
+  </g>
+  <path d="M0 0h1200" stroke="#153d46" stroke-width="10"/>
+  <path d="M0 10h1200" stroke="#cfad64" stroke-width="2"/>
+
+  <g transform="translate(74 62) scale(.5)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M24 87 60 22l36 65M40 61h40" stroke="#153d46" stroke-width="8"/>
+    <path d="M124 88V24l62 64V24" stroke="#153d46" stroke-width="8"/>
+    <path d="M76 78c18-23 40-27 53-14 9 10 2 24-12 24-17 0-17-25 1-34 17-9 39-3 68 23" stroke="#cfad64" stroke-width="4"/>
+    <path d="m184 77 12 1-8 9" stroke="#cfad64" stroke-width="4"/>
+  </g>
+  <text x="206" y="99" fill="#55747b" font-family="Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="5">OUR FLIGHT</text>
+  <text x="1124" y="98" fill="#55747b" font-family="Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="3" text-anchor="end">AUGUST 2027</text>
+
+  <g transform="translate(76 190)">
+    <text x="0" y="0" fill="#153d46" font-family="Georgia, 'Times New Roman', serif" font-size="79" letter-spacing="-3">Aleem</text>
+    <text x="208" y="0" fill="#cfad64" font-family="Georgia, 'Times New Roman', serif" font-size="58" font-style="italic">&amp;</text>
+    <text x="270" y="0" fill="#153d46" font-family="Georgia, 'Times New Roman', serif" font-size="79" letter-spacing="-4">Nurulain</text>
+    <text x="4" y="54" fill="#6b8186" font-family="Arial, sans-serif" font-size="17" font-weight="600" letter-spacing="4">A CLOUD-BOUND CELEBRATION</text>
+  </g>
+
+  <g transform="translate(76 395)">
+    <text x="0" y="49" fill="#153d46" font-family="Georgia, 'Times New Roman', serif" font-size="64" letter-spacing="-3">SIN</text>
+    <path d="M125 28h318" stroke="#8cabb1" stroke-width="2" stroke-dasharray="8 10"/>
+    <circle cx="286" cy="28" r="7" fill="#fffefa" stroke="#cfad64" stroke-width="3"/>
+    <path d="m430 19 14 9-14 9" fill="none" stroke="#cfad64" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="475" y="28" fill="#153d46" font-family="Arial, sans-serif" font-size="31" font-weight="750" letter-spacing="-1">CROWNE PLAZA</text>
+    <text x="477" y="58" fill="#6b8186" font-family="Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="4">CHANGI AIRPORT · SINGAPORE</text>
+  </g>
+
+  <g transform="translate(900 178)">
+    <rect width="224" height="244" rx="28" fill="#fffefa" stroke="#d9ddd7" stroke-width="2"/>
+    <path d="M0 56h224" stroke="#d9ddd7"/>
+    <text x="24" y="35" fill="#55747b" font-family="Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="3">BOARDING PASS</text>
+    <text x="24" y="101" fill="#55747b" font-family="Arial, sans-serif" font-size="10" font-weight="700" letter-spacing="2">PASSENGER</text>
+    <text x="24" y="128" fill="#153d46" font-family="Georgia, 'Times New Roman', serif" font-size="23">Honoured Guest</text>
+    <text x="24" y="172" fill="#55747b" font-family="Arial, sans-serif" font-size="10" font-weight="700" letter-spacing="2">DESTINATION</text>
+    <text x="24" y="200" fill="#153d46" font-family="Arial, sans-serif" font-size="18" font-weight="700">Our celebration</text>
+    <path d="M24 220h176" stroke="#cfad64" stroke-width="2"/>
+  </g>
+  <text x="1124" y="570" fill="#6b8186" font-family="Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="3" text-anchor="end">WEDDING INVITATION · SINGAPORE</text>
+</svg>

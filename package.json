@@ -9,7 +9,8 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "start": "vinext start",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern frontend",
+    "test": "vitest run"
   },
   "dependencies": {
     "next": "^16.3.3",
@@ -31,6 +32,7 @@
     "react-server-dom-webpack": "^19.2.8",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
+    "vitest": "^4.0.18",
     "vinext": "^1.0.0-beta.8",
     "vite": "^8.2.2",
     "wrangler": "^4.126.0"

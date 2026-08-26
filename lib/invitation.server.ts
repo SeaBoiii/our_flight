@@ -4,6 +4,7 @@ import type {
   InvitationEvent,
   InvitationScope,
   LocalizedText,
+  RsvpStatus,
 } from './types';
 
 const labels: Record<CabinClass, LocalizedText> = {
@@ -15,6 +16,7 @@ const labels: Record<CabinClass, LocalizedText> = {
 
 const day21: InvitationEvent = {
   id: 'day21',
+  flightCode: 'AN2108',
   dateIso: '2027-08-21',
   dateLabel: { en: 'Saturday, 21 August 2027', ms: 'Sabtu, 21 Ogos 2027' },
   title: {
@@ -29,11 +31,12 @@ const day21: InvitationEvent = {
       time: '12:00 – 16:00',
     },
   ],
-  calendarHref: '/api/calendar/day21',
+  calendarHref: '/api/v1/calendar/day21',
 };
 
 const day22: InvitationEvent = {
   id: 'day22',
+  flightCode: 'AN2208',
   dateIso: '2027-08-22',
   dateLabel: { en: 'Sunday, 22 August 2027', ms: 'Ahad, 22 Ogos 2027' },
   title: { en: 'Walimatul Urus', ms: 'Walimatul Urus' },
@@ -41,11 +44,20 @@ const day22: InvitationEvent = {
   segments: [
     { title: { en: 'Wedding Reception', ms: 'Majlis Walimatul Urus' }, time: '12:00 – 16:00' },
   ],
-  calendarHref: '/api/calendar/day22',
+  calendarHref: '/api/v1/calendar/day22',
 };
 
 export function scopeForClass(cabinClass: CabinClass): InvitationScope {
   return cabinClass === 'business' || cabinClass === 'first' ? 'both-days' : 'day22';
+}
+
+export function resolveRsvpStatus(): RsvpStatus {
+  const configured = process.env.RSVP_STATUS;
+  if (configured === 'closed') return 'closed';
+  if (configured === 'open' && process.env.APPS_SCRIPT_URL && process.env.APPS_SCRIPT_SHARED_SECRET) {
+    return 'open';
+  }
+  return 'preview';
 }
 
 export function getInvitation(cabinClass: CabinClass): Invitation {
@@ -56,6 +68,15 @@ export function getInvitation(cabinClass: CabinClass): Invitation {
     scope,
     flightCode: scope === 'both-days' ? 'AN2108 · AN2208' : 'AN2208',
     events: scope === 'both-days' ? [day21, day22] : [day22],
+    passengerLabel: { en: 'Honoured Guest', ms: 'Tetamu Yang Dihormati' },
+    hotel: 'Crowne Plaza at Changi Airport',
+    ballroom: 'Chengal',
+    terminal: '3',
+    rsvpStatus: resolveRsvpStatus(),
+    rsvpDeadline: {
+      en: 'Kindly respond by Sunday, 8 August 2027.',
+      ms: 'Sila sahkan kehadiran selewat-lewatnya Ahad, 8 Ogos 2027.',
+    },
   };
 }
 

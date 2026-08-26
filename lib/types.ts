@@ -7,6 +7,7 @@ export type CabinClass =
 export type InvitationScope = 'day22' | 'both-days';
 export type Locale = 'en' | 'ms';
 export type Attendance = 'attending' | 'not-attending';
+export type RsvpStatus = 'preview' | 'open' | 'closed';
 
 export type LocalizedText = {
   en: string;
@@ -20,6 +21,7 @@ export type EventSegment = {
 
 export type InvitationEvent = {
   id: 'day21' | 'day22';
+  flightCode: string;
   dateIso: string;
   dateLabel: LocalizedText;
   title: LocalizedText;
@@ -34,11 +36,40 @@ export type Invitation = {
   scope: InvitationScope;
   flightCode: string;
   events: InvitationEvent[];
+  passengerLabel: LocalizedText;
+  hotel: string;
+  ballroom: string;
+  terminal: string;
+  rsvpStatus: RsvpStatus;
+  rsvpDeadline: LocalizedText;
+};
+
+export type UnlockResponse = {
+  invitation: Invitation;
+  accessToken: string;
+  expiresAt: string;
+};
+
+export type InvitationResponse = {
+  invitation: Invitation;
+  expiresAt: string;
 };
 
 export type EventRsvp = {
   attendance: Attendance;
   partySize?: number;
+};
+
+export type EventRsvpAnswer = EventRsvp & {
+  eventId: string;
+};
+
+export type RsvpSubmissionRequest = {
+  responseId: string;
+  locale: Locale;
+  inviteeName: string;
+  responses: EventRsvpAnswer[];
+  message?: string;
 };
 
 export type RsvpSubmissionInput = {
@@ -55,4 +86,3 @@ export type StoredRsvpSubmission = RsvpSubmissionInput & {
   scope: InvitationScope;
   submittedAt: string;
 };
-

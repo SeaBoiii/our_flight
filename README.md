@@ -1,36 +1,53 @@
-# Aleem & Nurulain · Our Flight
+# Aleem & Nurulain - Our Flight
 
-A mobile-first English/Malay wedding invitation and RSVP website with four private cabin links: Economy, Premium Economy, Business, and First Class.
+This workspace contains two deliberately separate deployables:
+
+- `frontend/` is a standalone Vite/React site for a separate public GitHub Pages repository.
+- The workspace root is a Vinext/Sites API service. It owns invitation scope, credential hashes, signed access tokens, calendar files, and Google Sheets delivery.
+
+GitHub Pages links use `#/i/<opaque-token>`, so the invitation token remains in the browser fragment and is not sent to GitHub. The frontend sends it only to `POST /api/v1/unlock` after the guest enters the shared passcode.
+
+## Security model
+
+The API derives cabin class and event scope from server-held token hashes. Successful check-in returns a 30-minute signed bearer token; no invitation cookie is used. The browser keeps that bearer token in `sessionStorage`, while unfinished RSVP values and the idempotency ID are kept locally under a hash-derived key.
+
+The API accepts only the exact configured `FRONTEND_ORIGIN`, including preflight checks. The public package contains no class-token mapping, passcode material, signing secret, Apps Script endpoint, ingestion secret, or private two-day itinerary literals.
 
 ## Invitation matrix
 
-- Economy and Premium Economy: Walimatul Urus on Sunday, 22 August 2027, 12:00–16:00.
-- Business and First Class: Nikah and Bride's Reception on Saturday, 21 August 2027, 10:00–16:00, plus the 22 August Walimatul Urus.
+- Economy and Premium Economy receive the Sunday, 22 August 2027 Walimatul Urus, 12:00-16:00.
+- Business and First Class receive Saturday, 21 August 2027 (Nikah 10:00-12:00 and Bride's Reception 12:00-16:00) and the Sunday celebration.
 - Every event is at Chengal Ballroom, Crowne Plaza Changi Airport, 75 Airport Boulevard, Singapore 819664.
 
-Cabin scope is resolved only from a server-held hash of the opaque URL token. A signed, secure session cookie is issued after the shared passcode succeeds. One-day guests cannot request the 21 August invitation, calendar, or RSVP fields.
+## Backend development
 
-## Local development
-
-This Sites project requires Node.js 22.13 or later.
+The Sites service requires Node.js 22.13 or later.
 
 ```sh
-npm install
+npm ci
 npm run dev
 npm run lint
+npm test
 npm run build
 ```
 
-Copy `.env.example` to `.env.local` and provide only hashes/secrets there. Never commit raw invitation tokens, the passcode, the session secret, or the Apps Script endpoint.
+Copy `.env.example` to `.env.local` and provide only hashes and secrets there. Keep `RSVP_STATUS=preview` until Google response storage has been authorized and verified. Never commit raw invitation tokens, the passcode, signing secret, or Apps Script endpoint.
 
-The initial page is intentionally lightweight: the passcode gate and journey use HTML/CSS, system fonts, and no initial atmospheric bitmap. There is no autoplay audio, analytics, advertising, email, or phone-number collection.
+Versioned routes:
 
-## RSVP delivery
+- `POST /api/v1/unlock`
+- `GET /api/v1/invitation`
+- `POST /api/v1/rsvp`
+- `GET /api/v1/calendar/:day`
 
-The private Google workbook has `Responses` and `Summary` tabs. Its bound Apps Script accepts server-to-server requests, revalidates the invitation matrix, escapes spreadsheet-formula prefixes, and upserts by response ID so network retries do not duplicate rows.
+The root page is intentionally only a generic, non-indexed API status screen.
 
-Follow [integrations/google-apps-script/README.md](integrations/google-apps-script/README.md) for the one-time Google authorization and web-app deployment. Production must use `RSVP_DEMO_MODE=false`.
+## Frontend development and GitHub Pages
 
-## Brand selection
+See [frontend/README.md](frontend/README.md). The Pages workflow uses Node 22, runs lint/tests/build, scans the output for restricted literals and budgets, then publishes the static artifact. Configure the repository variable `API_ORIGIN` with the final Sites API origin before the workflow can build.
 
-The unlinked `/brand` route compares the transparent `A & A` and `A & N` marks on light and dark ticket mockups. Once selected, replace the temporary typographic `A & N` mark consistently before the final public release.
+## Google RSVP delivery
+
+The private workbook has formatted `Responses` and `Summary` tabs. Its bound Apps Script revalidates invitation scope, escapes spreadsheet-formula prefixes, and upserts by response ID so a poor-network retry cannot create a duplicate row.
+
+Follow [integrations/google-apps-script/README.md](integrations/google-apps-script/README.md) for the one-time authorization and web-app deployment. Only after the test response and retry have been verified should the backend setting change to `RSVP_STATUS=open`.

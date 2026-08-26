@@ -1,0 +1,184 @@
+import { useEffect, useRef, useState } from 'react';
+import { ApiFailure, downloadCalendar } from '../api';
+import { copy } from '../copy';
+import type { Invitation, Locale } from '../types';
+import { localized } from '../types';
+import { Journey } from './Journey';
+import { RsvpForm } from './RsvpForm';
+
+type InvitationExperienceProps = {
+  invitation: Invitation;
+  accessToken: string;
+  fingerprint: string;
+  locale: Locale;
+  reducedMotion: boolean;
+  onBack: () => void;
+  onToggleMotion: () => void;
+  onToggleLocale: () => void;
+  onSessionExpired: () => void;
+};
+
+const mapUrl = 'https://www.google.com/maps/search/?api=1&query=Crowne+Plaza+Changi+Airport%2C+75+Airport+Boulevard%2C+Singapore+819664';
+
+export default function InvitationExperience({
+  invitation,
+  accessToken,
+  fingerprint,
+  locale,
+  reducedMotion,
+  onBack,
+  onToggleMotion,
+  onToggleLocale,
+  onSessionExpired,
+}: InvitationExperienceProps) {
+  const t = copy[locale];
+  const [calendarBusy, setCalendarBusy] = useState<string | null>(null);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
+  const experienceRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => experienceRef.current?.focus({ preventScroll: true }));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  const handleCalendar = async (eventId: string, href: string) => {
+    setCalendarBusy(eventId);
+    setCalendarError(null);
+    try {
+      await downloadCalendar(accessToken, href);
+    } catch (error) {
+      if (error instanceof ApiFailure && error.status === 401) {
+        onSessionExpired();
+        return;
+      }
+      setCalendarError(eventId);
+    } finally {
+      setCalendarBusy(null);
+    }
+  };
+
+  const skipJourney = () => {
+    const invitationSection = document.getElementById('invitation');
+    invitationSection?.focus({ preventScroll: true });
+    invitationSection?.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth' });
+  };
+
+  const toggleMotion = () => {
+    onToggleMotion();
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+      experienceRef.current?.focus({ preventScroll: true });
+    });
+  };
+
+  return (
+    <main ref={experienceRef} className={`experience cabin-${invitation.cabinClass}`} tabIndex={-1} aria-label={t.journeyLabel}>
+      <nav className="journey-controls" aria-label={t.controls}>
+        <button type="button" aria-label={t.back} onClick={onBack}>
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 12H6m5-5-5 5 5 5" /></svg>
+          <span>{t.back}</span>
+        </button>
+        <button type="button" onClick={skipJourney}>{t.skip}</button>
+        <button type="button" aria-pressed={reducedMotion} onClick={toggleMotion}>
+          {reducedMotion ? t.reducedMotionOn : t.reduceMotion}
+        </button>
+        <button type="button" lang={locale === 'en' ? 'ms' : 'en'} onClick={onToggleLocale}>{t.language}</button>
+      </nav>
+
+      <Journey invitation={invitation} locale={locale} reducedMotion={reducedMotion} />
+
+      <section id="invitation" className="invitation-reveal" tabIndex={-1}>
+        <div className="invitation-card">
+          <img className="invitation-logo" src={`${import.meta.env.BASE_URL}an-monogram.svg`} alt="Aleem and Nurulain" />
+          <p className="bismillah">{t.bismillah}</p>
+          <p className="salam">{t.salam}</p>
+          <p className="formal-copy">{t.formalInvite}</p>
+          <h1>Aleem <span>&amp;</span> Nurulain</h1>
+          <p className="blessing">{t.blessing}</p>
+        </div>
+      </section>
+
+      <section className="itinerary-section" aria-labelledby="itinerary-title">
+        <div className="section-heading">
+          <p className="eyebrow">{localized(invitation.cabinLabel, locale)}</p>
+          <h2 id="itinerary-title">{t.itinerary}</h2>
+          <p>{t.singaporeTime}</p>
+        </div>
+
+        <div className="itinerary-list">
+          {invitation.events.map((event) => (
+            <article className="itinerary-card" key={event.id}>
+              <header>
+                <span>{event.flightCode}</span>
+                <time dateTime={event.dateIso}>{localized(event.dateLabel, locale)}</time>
+              </header>
+              <h3>{localized(event.title, locale)}</h3>
+              <p className="itinerary-time">{event.time}</p>
+              <ul className="event-segments">
+                {event.segments.map((segment, index) => (
+                  <li key={`${event.id}-${index}`}>
+                    <span>{localized(segment.title, locale)}</span>
+                    <strong>{segment.time}</strong>
+                  </li>
+                ))}
+              </ul>
+              <dl className="venue-fields">
+                <div><dt>{t.hotel}</dt><dd>{invitation.hotel}</dd></div>
+                <div><dt>{t.ballroom}</dt><dd>{invitation.ballroom}</dd></div>
+                <div><dt>{t.terminal}</dt><dd>{invitation.terminal}</dd></div>
+              </dl>
+              <div className="itinerary-actions">
+                <button
+                  className="button button-secondary"
+                  type="button"
+                  disabled={calendarBusy === event.id}
+                  onClick={() => handleCalendar(event.id, event.calendarHref)}
+                >
+                  {calendarBusy === event.id ? t.calendarBusy : t.calendar}
+                </button>
+                <a
+                  className="button button-secondary"
+                  href={mapUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`${t.directions} (${t.newTab})`}
+                >
+                  {t.directions}
+                </a>
+              </div>
+              {calendarError === event.id ? <p className="field-error" role="alert">{t.calendarFailed}</p> : null}
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="travel-section" aria-labelledby="travel-title">
+        <div>
+          <p className="eyebrow">{t.venue}</p>
+          <h2 id="travel-title">{t.gettingHere}</h2>
+          <address>{invitation.hotel}<br />{t.address}</address>
+        </div>
+        <ul>
+          <li>{t.travelMrt}</li>
+          <li>{t.travelJewel}</li>
+          <li>{t.travelCar}</li>
+          <li>{t.travelParking}</li>
+        </ul>
+        <p>{t.travelTime}</p>
+      </section>
+
+      <RsvpForm
+        invitation={invitation}
+        accessToken={accessToken}
+        fingerprint={fingerprint}
+        locale={locale}
+        onSessionExpired={onSessionExpired}
+      />
+
+      <footer className="site-footer">
+        <img src={`${import.meta.env.BASE_URL}an-monogram.svg`} alt="" />
+        <p>{t.footer}</p>
+      </footer>
+    </main>
+  );
+}
