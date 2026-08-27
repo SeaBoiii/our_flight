@@ -215,7 +215,10 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
           <CloudPicture alt="" />
         </div>
 
-        <div className="journey-ticket" aria-hidden="true">
+        <div
+          className={`journey-ticket${invitation.events.length > 1 ? ' journey-ticket--multiple' : ''}`}
+          aria-hidden="true"
+        >
           <BoardingPass invitation={invitation} locale={locale} compact stamped />
         </div>
 
