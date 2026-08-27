@@ -141,6 +141,17 @@ for (const requiredAsset of ['favicon.png', 'monogram-a-and-n-display.png', 'og.
   if (!(await exists(join(root, requiredAsset)))) failures.push(`Required brand asset missing: ${requiredAsset}.`);
 }
 
+const cloudVideoPath = join(root, 'journey', 'clouds-ping-pong.mp4');
+const cloudPosterPath = join(root, 'journey', 'clouds-video-poster.webp');
+if (!(await exists(cloudVideoPath))) {
+  failures.push('Required cloud video missing: journey/clouds-ping-pong.mp4.');
+} else if ((await stat(cloudVideoPath)).size > 10 * 1024 * 1024) {
+  failures.push('Cloud video exceeds the 10 MiB mobile delivery budget.');
+}
+if (!(await exists(cloudPosterPath))) {
+  failures.push('Required cloud video poster missing: journey/clouds-video-poster.webp.');
+}
+
 const indexHtml = await readFile(join(root, 'index.html'), 'utf8');
 if (/__[A-Z][A-Z0-9_]+__|%BASE_URL%/.test(indexHtml)) failures.push('Unresolved build placeholder found in index.html.');
 if (/journey\/(?:cabin|clouds)-/i.test(indexHtml)) failures.push('Cinematic assets must not be loaded by the locked-page HTML.');

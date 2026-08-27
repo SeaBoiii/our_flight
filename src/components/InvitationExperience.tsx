@@ -245,6 +245,24 @@ export default function InvitationExperience({
       <footer className="site-footer">
         <img src={`${import.meta.env.BASE_URL}monogram-a-and-n-display.png`} alt="" />
         <p>{t.footer}</p>
+        <small className="video-credit">
+          Video by{' '}
+          <a
+            href="https://pixabay.com/users/vimeo-free-videos-1283884/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=video&amp;utm_content=1154"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Vimeo-Free-Videos
+          </a>
+          {' '}from{' '}
+          <a
+            href="https://pixabay.com/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=video&amp;utm_content=1154"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Pixabay
+          </a>
+        </small>
       </footer>
     </main>
   );

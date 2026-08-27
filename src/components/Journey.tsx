@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { copy } from '../copy';
 import { getWindowAperture, getWindowExitScale } from '../journeyMotion';
 import type { Invitation, Locale } from '../types';
@@ -36,29 +36,38 @@ function CabinPicture({ alt, eager = false }: { alt: string; eager?: boolean }) 
   );
 }
 
-function CloudPicture({ alt, sizes = '100vw' }: { alt: string; sizes?: string }) {
+function CloudPoster({ alt }: { alt: string }) {
   const base = import.meta.env.BASE_URL;
   return (
-    <picture>
-      <source
-        type="image/avif"
-        srcSet={`${base}journey/clouds-480.avif 480w, ${base}journey/clouds-768.avif 768w, ${base}journey/clouds-1280.avif 1280w`}
-        sizes={sizes}
-      />
-      <source
-        type="image/webp"
-        srcSet={`${base}journey/clouds-480.webp 480w, ${base}journey/clouds-768.webp 768w, ${base}journey/clouds-1280.webp 1280w`}
-        sizes={sizes}
-      />
-      <img
-        src={`${base}journey/clouds-768.webp`}
-        width="1280"
-        height="853"
-        loading="lazy"
-        decoding="async"
-        alt={alt}
-      />
-    </picture>
+    <img
+      src={`${base}journey/clouds-video-poster.webp`}
+      width="1280"
+      height="720"
+      loading="lazy"
+      decoding="async"
+      alt={alt}
+    />
+  );
+}
+
+function CloudVideo({ videoRef }: { videoRef: RefObject<HTMLVideoElement | null> }) {
+  const base = import.meta.env.BASE_URL;
+  return (
+    <video
+      ref={videoRef}
+      className="journey-cloud-video"
+      autoPlay
+      loop
+      muted
+      playsInline
+      preload="metadata"
+      poster={`${base}journey/clouds-video-poster.webp`}
+      aria-hidden="true"
+      tabIndex={-1}
+      disablePictureInPicture
+    >
+      <source src={`${base}journey/clouds-ping-pong.mp4`} type="video/mp4" />
+    </video>
   );
 }
 
@@ -76,7 +85,7 @@ function ReducedJourney({ invitation, locale }: Omit<JourneyProps, 'reducedMotio
       </figure>
       <figure className="static-scene static-window-scene">
         <div className="static-window-frame">
-          <CloudPicture alt={t.cloudsAlt} sizes="(max-width: 799px) 70vw, 350px" />
+          <CloudPoster alt={t.cloudsAlt} />
         </div>
         <figcaption>{t.throughWindow}</figcaption>
       </figure>
@@ -126,6 +135,7 @@ function setCloudAperture(
 
 export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
   const sectionRef = useRef<HTMLElement>(null);
+  const cloudVideoRef = useRef<HTMLVideoElement>(null);
   const t = copy[locale];
   const logo = `${import.meta.env.BASE_URL}monogram-a-and-n-display.png`;
 
@@ -179,9 +189,12 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
       listening = true;
       window.addEventListener('scroll', requestUpdate, { passive: true });
       window.addEventListener('resize', requestUpdate, { passive: true });
+      const video = cloudVideoRef.current;
+      if (video?.paused) void video.play().catch(() => undefined);
       requestUpdate();
     };
     const removeListeners = () => {
+      cloudVideoRef.current?.pause();
       if (!listening) return;
       listening = false;
       window.removeEventListener('scroll', requestUpdate);
@@ -212,7 +225,7 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
           <CabinPicture alt="" eager />
         </div>
         <div className="journey-clouds" aria-hidden="true">
-          <CloudPicture alt="" />
+          <CloudVideo videoRef={cloudVideoRef} />
         </div>
 
         <div className="journey-ticket" aria-hidden="true">
