@@ -246,21 +246,21 @@ export default function InvitationExperience({
         <img src={`${import.meta.env.BASE_URL}monogram-a-and-n-display.png`} alt="" />
         <p>{t.footer}</p>
         <small className="video-credit">
-          Video by{' '}
+          Video:{' '}
           <a
-            href="https://pixabay.com/users/vimeo-free-videos-1283884/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=video&amp;utm_content=1154"
+            href="https://mixkit.co/free-stock-video/clouds-and-blue-sky-background-2408/"
             target="_blank"
             rel="noreferrer"
           >
-            Vimeo-Free-Videos
+            Clouds and blue sky background
           </a>
           {' '}from{' '}
           <a
-            href="https://pixabay.com/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=video&amp;utm_content=1154"
+            href="https://mixkit.co/"
             target="_blank"
             rel="noreferrer"
           >
-            Pixabay
+            Mixkit
           </a>
         </small>
       </footer>

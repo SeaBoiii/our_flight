@@ -60,9 +60,9 @@ describe('invitation details', () => {
     expect(screen.getByText(/Alight at Changi Airport station/)).toBeTruthy();
   });
 
-  it('credits the cloud video creator and Pixabay', () => {
+  it('credits the cloud video and Mixkit source', () => {
     renderExperience();
-    expect(screen.getByRole('link', { name: 'Vimeo-Free-Videos' }).getAttribute('href')).toContain('users/vimeo-free-videos-1283884');
-    expect(screen.getByRole('link', { name: 'Pixabay' }).getAttribute('href')).toContain('pixabay.com/');
+    expect(screen.getByRole('link', { name: 'Clouds and blue sky background' }).getAttribute('href')).toContain('clouds-and-blue-sky-background-2408');
+    expect(screen.getByRole('link', { name: 'Mixkit' }).getAttribute('href')).toBe('https://mixkit.co/');
   });
 });
