@@ -737,7 +737,6 @@ a { color: inherit; }
 .journey-clouds img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .journey-clouds::after { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(251,250,247,0.1), rgba(251,250,247,0.32)); content: ""; }
 .journey-ticket { --journey-ticket-scale: 0.78; position: absolute; top: 50%; left: 50%; z-index: 5; width: min(92vw, 880px); opacity: var(--ticket-opacity); transform: translate(-50%, calc(-50% + var(--ticket-y))) scale(var(--journey-ticket-scale)); will-change: transform, opacity; }
-.journey-ticket--multiple { --journey-ticket-scale: 0.58; }
 .journey-ticket .ticket-stack { gap: 12px; }
 .journey-ticket .boarding-pass { box-shadow: 0 28px 80px rgba(34, 58, 64, 0.2); }
 .journey-ticket .boarding-stamp { opacity: var(--stamp-opacity); transform: rotate(-11deg) scale(calc(1.2 - var(--stamp-opacity) * 0.2)); }
@@ -889,7 +888,6 @@ a { color: inherit; }
   .gate-copy { text-align: left; }
   .gate-copy h1 { font-size: clamp(4.1rem, 7vw, 5.6rem); }
   .journey-ticket { --journey-ticket-scale: 0.84; }
-  .journey-ticket--multiple { --journey-ticket-scale: 0.62; }
   .experience-nav { right: max(18px, env(safe-area-inset-right)); left: max(18px, env(safe-area-inset-left)); }
   .itinerary-list { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
   .travel-details { display: grid; grid-template-columns: minmax(230px, 0.8fr) minmax(340px, 1.3fr); gap: 24px 60px; }
@@ -978,7 +976,6 @@ a { color: inherit; }
   .ticket-stack.cabin-first .ticket-main { padding-top: calc(var(--ticket-band-height) + 12px); padding-bottom: 16px; }
   .ticket-stack.cabin-first .route-row { padding-block: 15px 13px; }
   .journey-ticket { --journey-ticket-scale: 0.68; width: 116vw; }
-  .journey-ticket--multiple { --journey-ticket-scale: 0.47; }
   .experience-nav .experience-back { width: 44px; min-width: 44px; height: 44px; min-height: 44px; gap: 0; padding: 0; border-radius: 50%; }
   .experience-back span { display: none; }
 }
@@ -1000,7 +997,6 @@ a { color: inherit; }
   .ticket-stub i { width: 29px; height: 38px; }
   .boarding-stamp { right: calc(var(--ticket-stub-width) + 5px); width: 55px; }
   .journey-ticket { width: 120vw; }
-  .journey-ticket--multiple { --journey-ticket-scale: 0.45; }
 }
 
 @media (prefers-reduced-motion: reduce) {
