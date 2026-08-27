@@ -152,15 +152,42 @@ a { color: inherit; }
 .language-toggle { position: relative; }
 
 .gate-page {
+  position: relative;
+  isolation: isolate;
   display: grid;
   height: 100svh;
   min-height: 100svh;
   grid-template-rows: auto minmax(0, 1fr);
   overflow: auto;
-  background:
-    radial-gradient(circle at 12% 8%, #fff 0 12%, transparent 38%),
-    radial-gradient(circle at 92% 85%, #edf6f7 0 10%, transparent 38%),
-    var(--ivory);
+  background: #e8eee9;
+}
+.gate-page::before {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(251, 250, 247, 0.3) 0%, rgba(251, 250, 247, 0.62) 38%, rgba(251, 250, 247, 0.95) 66%, rgba(251, 250, 247, 0.985) 100%);
+  content: "";
+}
+.gate-background {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  pointer-events: none;
+}
+.gate-background img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 35%;
+  filter: saturate(0.82) contrast(0.94);
+}
+.gate-page > .site-header,
+.gate-page > .gate-stage {
+  position: relative;
+  z-index: 2;
 }
 .gate-stage {
   display: grid;
@@ -174,13 +201,16 @@ a { color: inherit; }
 }
 .gate-pass {
   position: relative;
+  width: min(100%, 430px);
   min-height: 340px;
+  justify-self: center;
   overflow: hidden;
   padding: 28px;
   border: 1px solid #e3dfd4;
   border-radius: 27px;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.94);
   box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
   transform: rotate(-0.45deg);
 }
 .gate-pass::before,
@@ -890,6 +920,8 @@ a { color: inherit; }
 }
 
 @media (min-width: 800px) {
+  .gate-page::before { background: linear-gradient(90deg, rgba(251, 250, 247, 0.42) 0%, rgba(251, 250, 247, 0.55) 44%, rgba(251, 250, 247, 0.9) 72%, rgba(251, 250, 247, 0.96) 100%); }
+  .gate-background img { object-position: center; }
   .gate-stage { grid-template-columns: minmax(320px, 480px) minmax(300px, 410px); gap: clamp(46px, 8vw, 100px); }
   .gate-copy { text-align: left; }
   .gate-copy h1 { font-size: clamp(4.1rem, 7vw, 5.6rem); }
@@ -910,10 +942,11 @@ a { color: inherit; }
     padding: clamp(4px, 1svh, 10px) 0 max(clamp(8px, 1.5svh, 14px), env(safe-area-inset-bottom));
   }
   .gate-pass {
-    width: 100%;
-    height: 100%;
+    width: min(84vw, 330px);
+    height: auto;
     min-height: 0;
-    max-height: clamp(190px, 39svh, 340px);
+    max-height: min(34svh, 290px);
+    aspect-ratio: 1.15;
     align-self: center;
     padding: clamp(16px, 3svh, 28px);
   }
@@ -958,7 +991,11 @@ a { color: inherit; }
     gap: clamp(16px, 4vw, 32px);
     padding: 4px 0 max(4px, env(safe-area-inset-bottom));
   }
-  .gate-pass { width: 100%; height: min(100%, 300px); max-height: 340px; min-height: 0; }
+  .gate-pass { width: 100%; height: auto; max-height: min(74svh, 260px); min-height: 0; aspect-ratio: 1.15; }
+  .gate-route { grid-template-columns: auto minmax(22px, 1fr) minmax(0, 0.9fr); gap: 7px; margin-top: clamp(20px, 7svh, 28px); }
+  .gate-route strong:first-child { font-size: clamp(2rem, 9svh, 2.4rem); }
+  .gate-route strong:last-child { font-size: clamp(0.82rem, 3.8svh, 1rem); }
+  .gate-pass > p { font-size: 0.48rem; letter-spacing: 0.12em; }
   .gate-copy h1 { font-size: clamp(2.1rem, 8svh, 2.4rem); }
   .gate-copy > p:not(.eyebrow) { margin: 4px 0; font-size: 0.76rem; line-height: 1.24; }
 }

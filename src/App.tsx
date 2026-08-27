@@ -196,10 +196,26 @@ export default function App() {
     );
   }
 
-  const logo = `${import.meta.env.BASE_URL}monogram-a-and-n-display.png`;
+  const base = import.meta.env.BASE_URL;
+  const logo = `${base}monogram-a-and-n-display.png`;
 
   return (
     <main className={invitation ? `boarding-page cabin-${invitation.cabinClass}` : 'gate-page'}>
+      {!invitation ? (
+        <picture className="gate-background" aria-hidden="true">
+          <source
+            media="(min-width: 800px)"
+            srcSet={`${base}gate/changi-jewel-landscape.webp`}
+            type="image/webp"
+          />
+          <img
+            src={`${base}gate/changi-jewel-portrait.webp`}
+            alt=""
+            decoding="async"
+            fetchPriority="high"
+          />
+        </picture>
+      ) : null}
       <header className="site-header">
         <img src={logo} alt="Aleem and Nurulain" />
         <div className="header-actions">
