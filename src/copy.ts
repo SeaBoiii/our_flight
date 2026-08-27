@@ -4,7 +4,7 @@ export const copy: Record<Locale, Record<string, string>> = {
   en: {
     language: 'Bahasa Melayu',
     flightTheme: 'A cloud-bound celebration',
-    checkIn: 'Invitation check-in',
+    checkIn: 'Invitation check‑in',
     gateBody: 'This invitation is for invited guests. Enter the passcode shared with you to continue.',
     passcode: 'Passcode',
     passcodePlaceholder: 'Enter passcode',

@@ -152,7 +152,11 @@ a { color: inherit; }
 .language-toggle { position: relative; }
 
 .gate-page {
+  display: grid;
+  height: 100svh;
   min-height: 100svh;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: auto;
   background:
     radial-gradient(circle at 12% 8%, #fff 0 12%, transparent 38%),
     radial-gradient(circle at 92% 85%, #edf6f7 0 10%, transparent 38%),
@@ -161,7 +165,8 @@ a { color: inherit; }
 .gate-stage {
   display: grid;
   width: min(100% - 36px, 1010px);
-  min-height: calc(100svh - 90px);
+  height: 100%;
+  min-height: 0;
   align-items: center;
   gap: 42px;
   margin: auto;
@@ -210,7 +215,7 @@ a { color: inherit; }
   letter-spacing: -0.055em;
   line-height: 0.96;
 }
-.gate-copy h1 { font-size: clamp(3.4rem, 17vw, 5.5rem); }
+.gate-copy h1 { font-size: clamp(3.4rem, 17vw, 5.5rem); text-wrap: balance; }
 .gate-copy > p:not(.eyebrow) { margin: 24px 0; color: var(--muted); font-family: Georgia, "Times New Roman", serif; font-size: 1.1rem; line-height: 1.6; }
 .gate-copy form { display: grid; gap: 10px; text-align: left; }
 .gate-copy label,
@@ -893,6 +898,69 @@ a { color: inherit; }
   .itinerary-list { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
   .travel-details { display: grid; grid-template-columns: minmax(230px, 0.8fr) minmax(340px, 1.3fr); gap: 24px 60px; }
   .travel-details > p { grid-column: 1 / -1; }
+}
+
+@media (max-width: 799px) {
+  .gate-page > .site-header { min-height: clamp(60px, 9svh, 76px); }
+  .gate-page > .site-header > img { width: 84px; height: 46px; }
+  .gate-stage {
+    grid-template-rows: minmax(150px, 1fr) auto;
+    align-items: stretch;
+    gap: clamp(10px, 2svh, 18px);
+    padding: clamp(4px, 1svh, 10px) 0 max(clamp(8px, 1.5svh, 14px), env(safe-area-inset-bottom));
+  }
+  .gate-pass {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    max-height: clamp(190px, 39svh, 340px);
+    align-self: center;
+    padding: clamp(16px, 3svh, 28px);
+  }
+  .gate-route { margin-top: clamp(24px, 6.5svh, 62px); }
+  .gate-route strong:first-child { font-size: clamp(2.25rem, 8svh, 4rem); }
+  .gate-route strong:last-child { font-size: clamp(1rem, 3.2svh, 1.5rem); }
+  .gate-pass > img { right: clamp(12px, 3svh, 20px); bottom: clamp(9px, 2svh, 16px); width: clamp(64px, 11svh, 88px); }
+  .gate-copy { width: 100%; justify-self: center; }
+  .gate-copy > .eyebrow { margin-bottom: 8px; }
+  .gate-copy h1 { font-size: clamp(2.7rem, 14vw, 3.75rem); }
+  .gate-copy > p:not(.eyebrow) { margin: clamp(10px, 1.6svh, 16px) 0; font-size: clamp(0.9rem, 3.8vw, 1.02rem); line-height: 1.45; }
+  .gate-copy input { min-height: 50px; }
+  .gate-copy > small { margin-top: clamp(10px, 1.5svh, 14px); }
+}
+
+@media (max-height: 700px) {
+  .gate-page > .site-header { min-height: 52px; padding-top: max(4px, env(safe-area-inset-top)); padding-bottom: 4px; }
+  .gate-page > .site-header > img { width: 68px; height: 38px; }
+  .gate-copy > .eyebrow { margin-bottom: 3px; font-size: 0.54rem; }
+  .gate-copy h1 { font-size: clamp(2.25rem, 8svh, 3rem); line-height: 0.9; }
+  .gate-copy > p:not(.eyebrow) { margin: 6px 0; font-size: 0.82rem; line-height: 1.3; }
+  .gate-copy form { gap: 6px; }
+  .gate-copy label { font-size: 0.65rem; }
+  .gate-copy input { min-height: 44px; padding-block: 9px; }
+  .gate-copy form .button { min-height: 44px; }
+  .gate-copy .gate-error { font-size: 0.68rem; line-height: 1.3; }
+  .gate-copy > small { margin-top: 4px; font-size: 0.56rem; }
+}
+
+@media (min-width: 800px) and (max-height: 650px) {
+  .gate-stage { gap: clamp(24px, 5vw, 50px); padding: 8px 0 12px; }
+  .gate-pass { height: min(100%, 340px); min-height: 0; padding: 22px; }
+  .gate-route { margin-top: clamp(24px, 9svh, 52px); }
+  .gate-pass > img { width: 76px; }
+}
+
+@media (orientation: landscape) and (min-width: 640px) and (max-height: 650px) {
+  .gate-stage {
+    grid-template-columns: minmax(180px, 0.85fr) minmax(280px, 1.15fr);
+    grid-template-rows: minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(16px, 4vw, 32px);
+    padding: 4px 0 max(4px, env(safe-area-inset-bottom));
+  }
+  .gate-pass { width: 100%; height: min(100%, 300px); max-height: 340px; min-height: 0; }
+  .gate-copy h1 { font-size: clamp(2.1rem, 8svh, 2.4rem); }
+  .gate-copy > p:not(.eyebrow) { margin: 4px 0; font-size: 0.76rem; line-height: 1.24; }
 }
 
 @media (max-width: 639px) {
