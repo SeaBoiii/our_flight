@@ -1030,7 +1030,8 @@ a { color: inherit; }
   .ticket-stack.cabin-first .ticket-main { padding-top: calc(var(--ticket-band-height) + 18px); padding-bottom: 24px; }
 }
 
-@media (max-width: 430px) {
+/* Keep the compact two-pass journey through 440px-class flagship phones. */
+@media (max-width: 480px) {
   .ticket-stack { --ticket-stub-width: clamp(72px, 21vw, 84px); --ticket-band-height: 46px; --ticket-inline: 13px; gap: 11px; }
   .cabin-first.ticket-stack { --ticket-band-height: 46px; gap: 11px; }
   .boarding-pass,
