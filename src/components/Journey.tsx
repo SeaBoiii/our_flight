@@ -135,6 +135,7 @@ function setCloudAperture(
 
 export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
   const sectionRef = useRef<HTMLElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
   const cloudVideoRef = useRef<HTMLVideoElement>(null);
   const t = copy[locale];
   const logo = `${import.meta.env.BASE_URL}monogram-a-and-n-display.png`;
@@ -142,7 +143,8 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
   useEffect(() => {
     if (reducedMotion) return undefined;
     const section = sectionRef.current;
-    if (!section) return undefined;
+    const stage = stageRef.current;
+    if (!section || !stage) return undefined;
 
     let raf = 0;
     let listening = false;
@@ -150,7 +152,9 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
     const update = () => {
       raf = 0;
       const rect = section.getBoundingClientRect();
-      const distance = Math.max(1, rect.height - window.innerHeight);
+      const stageWidth = Math.max(1, stage.clientWidth);
+      const stageHeight = Math.max(1, stage.clientHeight);
+      const distance = Math.max(1, rect.height - stageHeight);
       const progress = Math.min(1, Math.max(0, -rect.top / distance));
       const ticketExit = phase(progress, 0.17, 0.37);
       const cabinIn = phase(progress, 0.18, 0.34);
@@ -159,7 +163,7 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
       const cabinOut = phase(progress, 0.77, 0.88);
       const cameraScale = mix(
         1,
-        getWindowExitScale(window.innerWidth, window.innerHeight),
+        getWindowExitScale(stageWidth, stageHeight),
         windowProgress,
       );
 
@@ -169,14 +173,12 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
       section.style.setProperty('--cabin-opacity', `${cabinIn * (1 - cabinOut)}`);
       section.style.setProperty('--cabin-scale', `${cameraScale}`);
       section.style.setProperty('--cloud-opacity', `${cloudsIn}`);
-      section.style.setProperty('--cloud-x', `${phase(progress, 0.34, 1) * -8}px`);
-      section.style.setProperty('--cloud-y', `${phase(progress, 0.34, 1) * -5}px`);
       section.style.setProperty('--intro-opacity', `${1 - phase(progress, 0.2, 0.34)}`);
       section.style.setProperty('--reveal-opacity', `${phase(progress, 0.84, 0.96)}`);
       setCloudAperture(
         section,
-        window.innerWidth,
-        window.innerHeight,
+        stageWidth,
+        stageHeight,
         cameraScale,
       );
     };
@@ -220,7 +222,7 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
 
   return (
     <section ref={sectionRef} className="journey" aria-label={t.journeyLabel}>
-      <div className="journey-stage">
+      <div ref={stageRef} className="journey-stage">
         <div className="journey-cabin" aria-hidden="true">
           <CabinPicture alt="" eager />
         </div>

@@ -28,6 +28,8 @@ describe('airplane-window camera motion', () => {
   it.each([
     [320, 800],
     [390, 844],
+    [430, 932],
+    [440, 956],
     [1440, 900],
   ])('zooms the real window beyond a %sx%s viewport', (width, height) => {
     const exitScale = getWindowExitScale(width, height);

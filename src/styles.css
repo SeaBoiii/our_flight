@@ -742,8 +742,6 @@ a { color: inherit; }
   --cabin-opacity: 0;
   --cabin-scale: 1;
   --cloud-opacity: 0;
-  --cloud-x: 0px;
-  --cloud-y: 0px;
   --cloud-clip-top: 21%;
   --cloud-clip-right: 39%;
   --cloud-clip-bottom: 53%;
@@ -756,7 +754,7 @@ a { color: inherit; }
   height: 360svh;
   background: #eef7f9;
 }
-.journey-stage { position: sticky; top: 0; height: 100svh; overflow: hidden; background: linear-gradient(#fdfcf9, #eaf3f5); isolation: isolate; }
+.journey-stage { position: sticky; top: 0; height: 100vh; height: 100dvh; overflow: hidden; background: linear-gradient(#fdfcf9, #eaf3f5); isolation: isolate; }
 .journey-cabin, .journey-clouds { position: absolute; inset: 0; }
 .journey-cabin { z-index: -2; opacity: var(--cabin-opacity); transform: translateZ(0) scale(var(--cabin-scale)); transform-origin: 51% 34%; will-change: transform, opacity; }
 .journey-clouds {
@@ -773,7 +771,7 @@ a { color: inherit; }
 }
 .journey-cabin picture, .journey-cabin img { display: block; width: 100%; height: 100%; }
 .journey-cabin img { object-fit: cover; object-position: 51% 34%; }
-.journey-cloud-video { position: absolute; inset: -16px; display: block; width: calc(100% + 32px); height: calc(100% + 32px); object-fit: cover; transform: translate3d(var(--cloud-x), var(--cloud-y), 0); pointer-events: none; will-change: transform; }
+.journey-cloud-video { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; transform: none; pointer-events: none; }
 .journey-clouds::after { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(251,250,247,0.1), rgba(251,250,247,0.32)); content: ""; }
 .journey-ticket { --journey-ticket-scale: 0.78; --journey-ticket-lift: 0px; position: absolute; top: 50%; left: 50%; z-index: 5; width: min(92vw, 880px); opacity: var(--ticket-opacity); transform: translate(-50%, calc(-50% + var(--ticket-y) + var(--journey-ticket-lift))) scale(var(--journey-ticket-scale)); will-change: transform, opacity; }
 .journey-ticket .ticket-stack { gap: 12px; }
