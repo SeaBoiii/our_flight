@@ -1,4 +1,5 @@
 import type {
+  AccessCredential,
   CabinClass,
   Invitation,
   InvitationEvent,
@@ -49,7 +50,20 @@ const day22: InvitationEvent = {
   ],
 };
 
-function configuredHashes(): Record<CabinClass, string> {
+const CLASS_CODE_PATTERN = /^[A-Z0-9]{8,12}$/;
+const LEGACY_TOKEN_PATTERN = /^[A-Za-z0-9_-]{20,160}$/;
+const CODE_SEPARATOR_PATTERN = /[\s\u002D\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]+/g;
+
+function configuredClassCodeHashes(): Record<CabinClass, string> {
+  return {
+    economy: import.meta.env.VITE_INVITE_CODE_HASH_ECONOMY ?? '',
+    'premium-economy': import.meta.env.VITE_INVITE_CODE_HASH_PREMIUM ?? '',
+    business: import.meta.env.VITE_INVITE_CODE_HASH_BUSINESS ?? '',
+    first: import.meta.env.VITE_INVITE_CODE_HASH_FIRST ?? '',
+  };
+}
+
+function configuredLegacyTokenHashes(): Record<CabinClass, string> {
   return {
     economy: import.meta.env.VITE_INVITE_HASH_ECONOMY ?? '',
     'premium-economy': import.meta.env.VITE_INVITE_HASH_PREMIUM ?? '',
@@ -75,21 +89,64 @@ export async function sha256Hex(value: string): Promise<string> {
 }
 
 export function invitationConfigurationReady(): boolean {
-  const passcodeHash = import.meta.env.VITE_PASSCODE_HASH ?? '';
-  const hashes = Object.values(configuredHashes());
-  return isSha256(passcodeHash) && hashes.every(isSha256) && new Set(hashes.map((hash) => hash.toLowerCase())).size === 4;
+  const hashes = Object.values(configuredClassCodeHashes());
+  return hashes.every(isSha256) && new Set(hashes.map((hash) => hash.toLowerCase())).size === 4;
 }
 
-export async function classForToken(token: string): Promise<CabinClass | null> {
-  if (!/^[A-Za-z0-9_-]{20,160}$/.test(token)) return null;
-  const tokenHash = await sha256Hex(token);
-  for (const [cabinClass, configuredHash] of Object.entries(configuredHashes()) as Array<[CabinClass, string]>) {
-    if (isSha256(configuredHash) && equalHash(tokenHash, configuredHash.toLowerCase())) return cabinClass;
+export function legacyInvitesEnabled(): boolean {
+  return import.meta.env.VITE_LEGACY_INVITES_ENABLED === 'true';
+}
+
+export function normalizeInvitationCode(value: string): string {
+  return value.normalize('NFKC').trim().toUpperCase().replace(CODE_SEPARATOR_PATTERN, '');
+}
+
+export function isNormalizedInvitationCode(value: string): boolean {
+  return CLASS_CODE_PATTERN.test(value);
+}
+
+export function isLegacyInvitationToken(value: string): boolean {
+  return LEGACY_TOKEN_PATTERN.test(value);
+}
+
+export function legacyInvitationConfigurationReady(): boolean {
+  if (!legacyInvitesEnabled()) return false;
+  const passcodeHash = import.meta.env.VITE_PASSCODE_HASH ?? '';
+  const hashes = Object.values(configuredLegacyTokenHashes());
+  return isSha256(passcodeHash)
+    && hashes.every(isSha256)
+    && new Set(hashes.map((hash) => hash.toLowerCase())).size === 4;
+}
+
+async function classForValue(
+  value: string,
+  hashes: Record<CabinClass, string>,
+): Promise<CabinClass | null> {
+  const valueHash = await sha256Hex(value);
+  for (const [cabinClass, configuredHash] of Object.entries(hashes) as Array<[CabinClass, string]>) {
+    if (isSha256(configuredHash) && equalHash(valueHash, configuredHash.toLowerCase())) return cabinClass;
   }
   return null;
 }
 
-export async function verifyPasscode(passcode: string): Promise<boolean> {
+export async function classForInvitationCode(value: string): Promise<CabinClass | null> {
+  const normalized = normalizeInvitationCode(value);
+  if (!isNormalizedInvitationCode(normalized)) return null;
+  return classForValue(normalized, configuredClassCodeHashes());
+}
+
+export async function classForLegacyToken(token: string): Promise<CabinClass | null> {
+  if (!legacyInvitesEnabled() || !isLegacyInvitationToken(token)) return null;
+  return classForValue(token, configuredLegacyTokenHashes());
+}
+
+export async function classForAccessCredential(credential: AccessCredential): Promise<CabinClass | null> {
+  if (credential.kind === 'class-code') return classForInvitationCode(credential.value);
+  return classForLegacyToken(credential.value);
+}
+
+export async function verifyLegacyPasscode(passcode: string): Promise<boolean> {
+  if (!legacyInvitesEnabled()) return false;
   const configuredHash = import.meta.env.VITE_PASSCODE_HASH ?? '';
   if (!passcode || passcode.length > 160 || !isSha256(configuredHash)) return false;
   return equalHash(await sha256Hex(passcode), configuredHash.toLowerCase());

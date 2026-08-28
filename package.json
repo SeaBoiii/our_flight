@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
+    "hash:code": "node scripts/hash-invitation-code.mjs",
     "check:artifact": "node scripts/check-artifact.mjs"
   },
   "dependencies": {

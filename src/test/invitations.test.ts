@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  classForToken,
+  classForInvitationCode,
+  classForLegacyToken,
   invitationConfigurationReady,
   invitationForClass,
+  legacyInvitationConfigurationReady,
+  normalizeInvitationCode,
   sha256Hex,
-  verifyPasscode,
+  verifyLegacyPasscode,
 } from '../invitations';
 
 afterEach(() => vi.unstubAllEnvs());
@@ -37,18 +40,45 @@ describe('static invitation configuration', () => {
     }
   });
 
-  it('derives a cabin class from the URL token hash and verifies the shared passcode hash', async () => {
-    const invitationToken = `economy_${'x'.repeat(24)}`;
-    const passcode = `shared-${'p'.repeat(16)}`;
+  it('normalises a readable code and derives its cabin class from the configured hash', async () => {
+    const codes = {
+      economy: 'ALPHA123',
+      'premium-economy': 'BRAVO456',
+      business: 'CHARLIE7',
+      first: 'DELTA890',
+    } as const;
+    vi.stubEnv('VITE_INVITE_CODE_HASH_ECONOMY', await sha256Hex(codes.economy));
+    vi.stubEnv('VITE_INVITE_CODE_HASH_PREMIUM', await sha256Hex(codes['premium-economy']));
+    vi.stubEnv('VITE_INVITE_CODE_HASH_BUSINESS', await sha256Hex(codes.business));
+    vi.stubEnv('VITE_INVITE_CODE_HASH_FIRST', await sha256Hex(codes.first));
+
+    expect(invitationConfigurationReady()).toBe(true);
+    expect(normalizeInvitationCode('  alpha-123 ')).toBe(codes.economy);
+    expect(normalizeInvitationCode('ａｌｐｈａ‑１２３')).toBe(codes.economy);
+    await expect(classForInvitationCode('alpha − 123')).resolves.toBe('economy');
+    for (const [cabinClass, code] of Object.entries(codes)) {
+      await expect(classForInvitationCode(code)).resolves.toBe(cabinClass);
+    }
+    await expect(classForInvitationCode('incorrect')).resolves.toBeNull();
+  });
+
+  it('accepts old token and passcode hashes only while compatibility is enabled', async () => {
+    const token = `legacy_${'x'.repeat(24)}`;
+    const passcode = 'old-shared-check-in';
+    vi.stubEnv('VITE_LEGACY_INVITES_ENABLED', 'true');
     vi.stubEnv('VITE_PASSCODE_HASH', await sha256Hex(passcode));
-    vi.stubEnv('VITE_INVITE_HASH_ECONOMY', await sha256Hex(invitationToken));
+    vi.stubEnv('VITE_INVITE_HASH_ECONOMY', await sha256Hex(token));
     vi.stubEnv('VITE_INVITE_HASH_PREMIUM', '2'.repeat(64));
     vi.stubEnv('VITE_INVITE_HASH_BUSINESS', '3'.repeat(64));
     vi.stubEnv('VITE_INVITE_HASH_FIRST', '4'.repeat(64));
 
-    expect(invitationConfigurationReady()).toBe(true);
-    await expect(classForToken(invitationToken)).resolves.toBe('economy');
-    await expect(verifyPasscode(passcode)).resolves.toBe(true);
-    await expect(verifyPasscode('incorrect')).resolves.toBe(false);
+    expect(legacyInvitationConfigurationReady()).toBe(true);
+    await expect(classForLegacyToken(token)).resolves.toBe('economy');
+    await expect(verifyLegacyPasscode(passcode)).resolves.toBe(true);
+    await expect(verifyLegacyPasscode('incorrect')).resolves.toBe(false);
+
+    vi.stubEnv('VITE_LEGACY_INVITES_ENABLED', 'false');
+    expect(legacyInvitationConfigurationReady()).toBe(false);
+    await expect(classForLegacyToken(token)).resolves.toBeNull();
   });
 });

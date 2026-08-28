@@ -261,6 +261,11 @@ a { color: inherit; }
   color: var(--ink);
   background: #fff;
 }
+.gate-copy .invitation-code-input {
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  font-weight: 700;
+}
 .gate-copy input[aria-invalid="true"], .form-field [aria-invalid="true"] { border-color: #a4433f; box-shadow: 0 0 0 3px rgba(164, 67, 63, 0.09); }
 .gate-copy form .button { width: 100%; margin-top: 2px; }
 .gate-error, .field-error { margin: 0; color: #9a3d38; font-size: 0.75rem; line-height: 1.45; }

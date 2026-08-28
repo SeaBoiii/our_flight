@@ -18,8 +18,25 @@ const artifactPatterns = [
   { label: 'server-only signing secret name', pattern: /(?:ACCESS_TOKEN_SIGNING_SECRET|SESSION_SIGNING_SECRET)/i },
   { label: 'server-only ingestion secret name', pattern: /(?:APPS_SCRIPT_SHARED_SECRET|INGEST_SECRET)/i },
   { label: 'Google spreadsheet identifier', pattern: /docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]{20,}/i },
+  { label: 'bare Google spreadsheet identifier', pattern: /(?:SPREADSHEET_ID|VITE_SPREADSHEET_ID)\s*[:=]\s*["'`][A-Za-z0-9_-]{20,}["'`]/i },
   { label: 'raw invitation hash route', pattern: /#\/i\/[A-Za-z0-9_-]{20,160}/i },
 ];
+
+const configuredCodeHashes = new Set([
+  process.env.INVITE_CODE_HASH_ECONOMY,
+  process.env.INVITE_CODE_HASH_PREMIUM,
+  process.env.INVITE_CODE_HASH_BUSINESS,
+  process.env.INVITE_CODE_HASH_FIRST,
+].filter((value) => /^[a-f0-9]{64}$/i.test(value ?? '')).map((value) => value.toLowerCase()));
+const configuredLegacyTokenHashes = new Set([
+  process.env.INVITE_TOKEN_HASH_ECONOMY,
+  process.env.INVITE_TOKEN_HASH_PREMIUM,
+  process.env.INVITE_TOKEN_HASH_BUSINESS,
+  process.env.INVITE_TOKEN_HASH_FIRST,
+].filter((value) => /^[a-f0-9]{64}$/i.test(value ?? '')).map((value) => value.toLowerCase()));
+const configuredPasscodeHash = /^[a-f0-9]{64}$/i.test(process.env.WEDDING_PASSCODE_HASH ?? '')
+  ? process.env.WEDDING_PASSCODE_HASH.toLowerCase()
+  : '';
 
 const sourceSecretPatterns = [
   {
@@ -31,12 +48,20 @@ const sourceSecretPatterns = [
     pattern: /(?:INVITE_TOKEN_(?:ECONOMY|PREMIUM|BUSINESS|FIRST)|(?:invite|invitation)Token)\s*[:=]\s*["'`][A-Za-z0-9_-]{20,160}["'`]/i,
   },
   {
+    label: 'raw invitation-code assignment',
+    pattern: /(?:INVITE_CODE_(?:ECONOMY|PREMIUM|BUSINESS|FIRST)(?!_HASH)|(?:invite|invitation)Code)\s*[:=]\s*["'`][A-Za-z0-9 -]{8,24}["'`]/i,
+  },
+  {
     label: 'hard-coded server secret',
     pattern: /(?:INGEST_SECRET|APPS_SCRIPT_SHARED_SECRET|SESSION_SIGNING_SECRET)\s*[:=]\s*["'`][A-Za-z0-9_+/=-]{20,}["'`]/i,
   },
   {
     label: 'Google spreadsheet identifier',
     pattern: /docs\.google\.com\/spreadsheets\/d\/[A-Za-z0-9_-]{20,}/i,
+  },
+  {
+    label: 'bare Google spreadsheet identifier',
+    pattern: /(?:SPREADSHEET_ID|VITE_SPREADSHEET_ID)\s*[:=]\s*["'`][A-Za-z0-9_-]{20,}["'`]/i,
   },
 ];
 
@@ -72,20 +97,46 @@ async function trackedSourceFiles() {
 }
 
 async function localReleaseValues() {
-  const releaseFile = join(workspace, '.private', 'invite-access.txt');
-  if (!(await exists(releaseFile))) return [];
-  const text = await readFile(releaseFile, 'utf8');
   const values = [];
-  for (const line of text.split(/\r?\n/)) {
-    const match = /^\s*(?:Initial shared passcode|Economy token|Premium Economy token|Business token|First Class token)\s*:\s*(\S+)\s*$/i.exec(line);
-    if (match?.[1]) values.push(match[1]);
-    for (const route of line.matchAll(/#\/i\/([A-Za-z0-9_-]{20,160})/g)) values.push(route[1]);
+  for (const name of ['invite-access.txt', 'class-codes.txt']) {
+    const releaseFile = join(workspace, '.private', name);
+    if (!(await exists(releaseFile))) continue;
+    const text = await readFile(releaseFile, 'utf8');
+    for (const line of text.split(/\r?\n/)) {
+      const match = /^\s*(?:Initial shared passcode|Economy token|Premium Economy token|Business token|First Class token|Economy code|Premium Economy code|Business code|First Class code)\s*:\s*(\S+)\s*$/i.exec(line);
+      if (match?.[1]) values.push(match[1]);
+      for (const route of line.matchAll(/#\/i\/([A-Za-z0-9_-]{20,160})/g)) values.push(route[1]);
+    }
   }
   return [...new Set(values.filter((value) => value.length >= 4))];
 }
 
 function hash(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
+}
+
+function containsConfiguredRawCode(text) {
+  for (const match of text.matchAll(/\bAN(?:[-\s]?[A-Z0-9]){6,12}\b/gi)) {
+    const canonical = match[0].normalize('NFKC').trim().toUpperCase()
+      .replace(/[\s\u002D\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]+/g, '');
+    if (configuredCodeHashes.has(hash(Buffer.from(canonical)))) return true;
+  }
+  return false;
+}
+
+function containsConfiguredLegacyToken(text) {
+  for (const match of text.matchAll(/[A-Za-z0-9_-]{20,160}/g)) {
+    if (configuredLegacyTokenHashes.has(hash(Buffer.from(match[0])))) return true;
+  }
+  return false;
+}
+
+function containsConfiguredPasscode(text) {
+  if (!configuredPasscodeHash) return false;
+  for (const match of text.matchAll(/["'`]([^"'`\\\r\n]{4,160})["'`]/g)) {
+    if (hash(Buffer.from(match[1])) === configuredPasscodeHash) return true;
+  }
+  return false;
 }
 
 const files = await filesIn(root);
@@ -103,6 +154,9 @@ for (const file of files) {
   }
   if (!textExtensions.has(extname(file).toLowerCase())) continue;
   const text = bytes.toString('utf8').normalize('NFKC');
+  if (containsConfiguredRawCode(text)) failures.push(`A raw invitation code is present in ${name}.`);
+  if (containsConfiguredLegacyToken(text)) failures.push(`A raw legacy invitation token is present in ${name}.`);
+  if (containsConfiguredPasscode(text)) failures.push(`The raw legacy passcode is present in ${name}.`);
   for (const { label, pattern } of artifactPatterns) {
     if (pattern.test(text)) failures.push(`${label} found in ${name}.`);
   }
@@ -110,11 +164,14 @@ for (const file of files) {
 
 for (const file of await trackedSourceFiles()) {
   const name = relative(workspace, file).replaceAll('\\', '/');
-  if (name.startsWith('src/test/')) continue;
   const text = (await readFile(file, 'utf8')).normalize('NFKC');
+  if (containsConfiguredRawCode(text)) failures.push(`A raw invitation code is present in tracked source ${name}.`);
+  if (containsConfiguredLegacyToken(text)) failures.push(`A raw legacy invitation token is present in tracked source ${name}.`);
+  if (containsConfiguredPasscode(text)) failures.push(`The raw legacy passcode is present in tracked source ${name}.`);
   for (const value of releaseValues) {
     if (text.includes(value)) failures.push(`A private release value is present in tracked source ${name}.`);
   }
+  if (name.startsWith('src/test/')) continue;
   for (const { label, pattern } of sourceSecretPatterns) {
     if (pattern.test(text)) failures.push(`${label} found in tracked source ${name}.`);
   }

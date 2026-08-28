@@ -3,41 +3,53 @@ import { BoardingPass } from './components/BoardingPass';
 import { LanguageToggle } from './components/LanguageToggle';
 import { copy } from './copy';
 import {
-  classForToken,
+  classForAccessCredential,
   invitationConfigurationReady,
   invitationForClass,
-  verifyPasscode,
+  isLegacyInvitationToken,
+  isNormalizedInvitationCode,
+  legacyInvitationConfigurationReady,
+  legacyInvitesEnabled,
+  normalizeInvitationCode,
+  verifyLegacyPasscode,
 } from './invitations';
 import {
   clearSession,
-  fingerprintToken,
-  invitationTokenFromHash,
+  fingerprintCredential,
+  legacyTokenFromHash,
   readLocale,
   readReducedMotion,
   readSession,
   saveLocale,
   saveSession,
 } from './storage';
-import type { Invitation, Locale } from './types';
+import type { AccessCredential, Invitation, Locale } from './types';
 
 const InvitationExperience = lazy(() => import('./components/InvitationExperience'));
 
 type GateError = 'empty' | 'invalid' | 'configuration' | 'expired' | null;
 const SESSION_MINUTES = 30;
 
+function removeInvitationFragment(): void {
+  if (!window.location.hash) return;
+  window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+}
+
 export default function App() {
   const [locale, setLocale] = useState<Locale>(readLocale);
   const [reducedMotion, setReducedMotion] = useState(readReducedMotion);
-  const [linkToken, setLinkToken] = useState(invitationTokenFromHash);
+  const [legacyToken, setLegacyToken] = useState(() => legacyInvitesEnabled() ? legacyTokenFromHash() : null);
+  const [credential, setCredential] = useState<AccessCredential | null>(null);
   const [fingerprint, setFingerprint] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [invitation, setInvitation] = useState<Invitation | null>(null);
-  const [passcode, setPasscode] = useState('');
+  const [accessInput, setAccessInput] = useState('');
   const [unlocking, setUnlocking] = useState(false);
-  const [restoring, setRestoring] = useState(false);
+  const [restoring, setRestoring] = useState(true);
   const [gateError, setGateError] = useState<GateError>(null);
   const [boarded, setBoarded] = useState(false);
   const boardingHeadingRef = useRef<HTMLHeadingElement>(null);
+  const accessFlowVersionRef = useRef(0);
   const t = copy[locale];
 
   useEffect(() => {
@@ -48,69 +60,102 @@ export default function App() {
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return undefined;
     const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const syncMotionPreference = (event: MediaQueryListEvent) => {
-      setReducedMotion(event.matches);
-    };
+    const syncMotionPreference = (event: MediaQueryListEvent) => setReducedMotion(event.matches);
     motionPreference.addEventListener('change', syncMotionPreference);
     return () => motionPreference.removeEventListener('change', syncMotionPreference);
   }, []);
 
   useEffect(() => {
+    const incomingToken = legacyTokenFromHash();
+    if (incomingToken && !legacyInvitesEnabled()) removeInvitationFragment();
+
+    let cancelled = false;
+    const flowVersion = ++accessFlowVersionRef.current;
+    const restore = async () => {
+      setRestoring(true);
+      try {
+        const saved = readSession();
+        if (!saved) return;
+        const savedExpired = Date.parse(saved.expiresAt) <= Date.now();
+        const legacyUnavailable = saved.credential.kind === 'legacy-token' && !legacyInvitesEnabled();
+        const wrongLegacyLink = Boolean(incomingToken && (
+          saved.credential.kind !== 'legacy-token' || saved.credential.value !== incomingToken
+        ));
+        if (savedExpired || legacyUnavailable || wrongLegacyLink) {
+          if (savedExpired && !incomingToken && saved.credential.kind === 'legacy-token' && legacyInvitesEnabled()) {
+            setLegacyToken(saved.credential.value);
+          }
+          clearSession();
+          if (savedExpired) setGateError('expired');
+          return;
+        }
+
+        const [nextFingerprint, cabinClass] = await Promise.all([
+          fingerprintCredential(saved.credential),
+          classForAccessCredential(saved.credential),
+        ]);
+        if (cancelled || accessFlowVersionRef.current !== flowVersion) return;
+        if (!cabinClass || cabinClass !== saved.cabinClass || nextFingerprint !== saved.fingerprint) {
+          clearSession();
+          return;
+        }
+        setCredential(saved.credential);
+        setFingerprint(nextFingerprint);
+        setExpiresAt(saved.expiresAt);
+        setInvitation(invitationForClass(cabinClass));
+        if (saved.credential.kind === 'legacy-token') {
+          setLegacyToken(null);
+          removeInvitationFragment();
+        }
+      } finally {
+        if (!cancelled && accessFlowVersionRef.current === flowVersion) setRestoring(false);
+      }
+    };
+    void restore();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
     const onHashChange = () => {
-      const nextToken = invitationTokenFromHash();
-      if (nextToken === linkToken) return;
+      const nextToken = legacyTokenFromHash();
+      const legacyEnabled = legacyInvitesEnabled();
+      const rejectedToken = Boolean(nextToken && !legacyEnabled);
+      const effectiveToken = legacyEnabled ? nextToken : null;
+      if (rejectedToken) removeInvitationFragment();
+      if (!rejectedToken && effectiveToken === legacyToken) return;
+      if (!rejectedToken && !effectiveToken && !legacyToken) return;
+      accessFlowVersionRef.current += 1;
       clearSession();
-      setLinkToken(nextToken);
+      setLegacyToken(effectiveToken);
+      setCredential(null);
       setFingerprint('');
       setExpiresAt('');
       setInvitation(null);
-      setPasscode('');
+      setAccessInput('');
+      setUnlocking(false);
+      setRestoring(false);
       setGateError(null);
       setBoarded(false);
       window.scrollTo({ top: 0, behavior: 'auto' });
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
-  }, [linkToken]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!linkToken) return undefined;
-
-    const restore = async () => {
-      setRestoring(true);
-      try {
-        const [nextFingerprint, cabinClass] = await Promise.all([
-          fingerprintToken(linkToken),
-          classForToken(linkToken),
-        ]);
-        if (cancelled) return;
-        setFingerprint(nextFingerprint);
-        const saved = readSession();
-        const savedExpired = Boolean(saved && saved.fingerprint === nextFingerprint && Date.parse(saved.expiresAt) <= Date.now());
-        if (!cabinClass || !saved || saved.fingerprint !== nextFingerprint || savedExpired) {
-          if (saved) clearSession();
-          if (savedExpired) setGateError('expired');
-          return;
-        }
-        setExpiresAt(saved.expiresAt);
-        setInvitation(invitationForClass(cabinClass));
-      } finally {
-        if (!cancelled) setRestoring(false);
-      }
-    };
-    void restore();
-    return () => { cancelled = true; };
-  }, [linkToken]);
+  }, [legacyToken]);
 
   const expireSession = useCallback(() => {
+    accessFlowVersionRef.current += 1;
+    if (credential?.kind === 'legacy-token' && legacyInvitesEnabled()) {
+      setLegacyToken(credential.value);
+    }
     clearSession();
+    setCredential(null);
+    setFingerprint('');
     setExpiresAt('');
     setInvitation(null);
     setBoarded(false);
     setGateError('expired');
     window.scrollTo({ top: 0, behavior: 'auto' });
-  }, []);
+  }, [credential]);
 
   useEffect(() => {
     if (!expiresAt) return undefined;
@@ -129,41 +174,72 @@ export default function App() {
 
   const handleUnlock = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!linkToken) return;
-    if (!passcode) {
+    if (!accessInput.trim()) {
       setGateError('empty');
       return;
     }
-    if (!invitationConfigurationReady()) {
+
+    const isLegacyAttempt = Boolean(legacyToken);
+    if (isLegacyAttempt ? !legacyInvitationConfigurationReady() : !invitationConfigurationReady()) {
       setGateError('configuration');
       return;
     }
 
     setUnlocking(true);
     setGateError(null);
-    const submittedToken = linkToken;
+    const flowVersion = ++accessFlowVersionRef.current;
     try {
-      const [nextFingerprint, cabinClass, passcodeValid] = await Promise.all([
-        fingerprint || fingerprintToken(linkToken),
-        classForToken(linkToken),
-        verifyPasscode(passcode),
+      let nextCredential: AccessCredential;
+      if (legacyToken) {
+        const passcodeValid = isLegacyInvitationToken(legacyToken) && await verifyLegacyPasscode(accessInput);
+        if (accessFlowVersionRef.current !== flowVersion) return;
+        if (!passcodeValid) {
+          setGateError('invalid');
+          return;
+        }
+        nextCredential = { kind: 'legacy-token', value: legacyToken };
+      } else {
+        const normalizedCode = normalizeInvitationCode(accessInput);
+        if (!isNormalizedInvitationCode(normalizedCode)) {
+          setGateError('invalid');
+          return;
+        }
+        nextCredential = { kind: 'class-code', value: normalizedCode };
+      }
+
+      const [nextFingerprint, cabinClass] = await Promise.all([
+        fingerprintCredential(nextCredential),
+        classForAccessCredential(nextCredential),
       ]);
-      if (invitationTokenFromHash() !== submittedToken) return;
-      if (!cabinClass || !passcodeValid) {
+      if (accessFlowVersionRef.current !== flowVersion) return;
+      if (!cabinClass) {
         setGateError('invalid');
         return;
       }
+
       const nextExpiry = new Date(Date.now() + SESSION_MINUTES * 60_000).toISOString();
+      setCredential(nextCredential);
       setFingerprint(nextFingerprint);
       setExpiresAt(nextExpiry);
       setInvitation(invitationForClass(cabinClass));
-      setPasscode('');
-      saveSession({ unlocked: true, expiresAt: nextExpiry, fingerprint: nextFingerprint });
+      setAccessInput('');
+      saveSession({
+        version: 2,
+        unlocked: true,
+        expiresAt: nextExpiry,
+        fingerprint: nextFingerprint,
+        cabinClass,
+        credential: nextCredential,
+      });
+      if (nextCredential.kind === 'legacy-token') {
+        setLegacyToken(null);
+        removeInvitationFragment();
+      }
       window.scrollTo({ top: 0, behavior: 'auto' });
     } catch {
       setGateError('configuration');
     } finally {
-      setUnlocking(false);
+      if (accessFlowVersionRef.current === flowVersion) setUnlocking(false);
     }
   };
 
@@ -177,12 +253,12 @@ export default function App() {
           ? t.configurationError
           : '';
 
-  if (invitation && linkToken && fingerprint && boarded) {
+  if (invitation && credential && fingerprint && boarded) {
     return (
       <Suspense fallback={<div className="page-loading" role="status">{t.checking}</div>}>
         <InvitationExperience
           invitation={invitation}
-          invitationToken={linkToken}
+          accessCredential={credential}
           fingerprint={fingerprint}
           locale={locale}
           reducedMotion={reducedMotion}
@@ -203,17 +279,8 @@ export default function App() {
     <main className={invitation ? `boarding-page cabin-${invitation.cabinClass}` : 'gate-page'}>
       {!invitation ? (
         <picture className="gate-background" aria-hidden="true">
-          <source
-            media="(min-width: 800px)"
-            srcSet={`${base}gate/changi-jewel-landscape.webp`}
-            type="image/webp"
-          />
-          <img
-            src={`${base}gate/changi-jewel-portrait.webp`}
-            alt=""
-            decoding="async"
-            fetchPriority="high"
-          />
+          <source media="(min-width: 800px)" srcSet={`${base}gate/changi-jewel-landscape.webp`} type="image/webp" />
+          <img src={`${base}gate/changi-jewel-portrait.webp`} alt="" decoding="async" fetchPriority="high" />
         </picture>
       ) : null}
       <header className="site-header">
@@ -253,33 +320,34 @@ export default function App() {
           </div>
           <div className="gate-copy">
             <p className="eyebrow">{t.flightTheme}</p>
-            <h1 id="check-in-title">{linkToken ? t.checkIn : t.missingTitle}</h1>
-            <p>{linkToken ? t.gateBody : t.missingBody}</p>
-            {linkToken ? (
-              <form onSubmit={handleUnlock} noValidate>
-                <label htmlFor="invitation-passcode">{t.passcode}</label>
-                <input
-                  id="invitation-passcode"
-                  type="password"
-                  autoComplete="one-time-code"
-                  autoCapitalize="none"
-                  spellCheck="false"
-                  value={passcode}
-                  placeholder={t.passcodePlaceholder}
-                  aria-invalid={Boolean(gateErrorMessage)}
-                  aria-describedby={gateErrorMessage ? 'gate-error' : undefined}
-                  disabled={unlocking || restoring}
-                  onChange={(event) => {
-                    setPasscode(event.target.value);
-                    setGateError(null);
-                  }}
-                />
-                {gateErrorMessage ? <p id="gate-error" className="gate-error" role="alert">{gateErrorMessage}</p> : null}
-                <button className="button button-primary" type="submit" disabled={unlocking || restoring}>
-                  {unlocking || restoring ? t.checking : t.viewInvitation}
-                </button>
-              </form>
-            ) : null}
+            <h1 id="check-in-title">{t.checkIn}</h1>
+            <p>{t.gateBody}</p>
+            <form onSubmit={handleUnlock} noValidate>
+              <label htmlFor="invitation-code">{t.passcode}</label>
+              <input
+                id="invitation-code"
+                className={legacyToken ? undefined : 'invitation-code-input'}
+                type="text"
+                inputMode="text"
+                autoComplete="off"
+                autoCapitalize={legacyToken ? 'none' : 'characters'}
+                spellCheck="false"
+                maxLength={legacyToken ? 160 : 24}
+                value={accessInput}
+                placeholder={t.passcodePlaceholder}
+                aria-invalid={Boolean(gateErrorMessage)}
+                aria-describedby={gateErrorMessage ? 'gate-error' : undefined}
+                disabled={unlocking || restoring}
+                onChange={(event) => {
+                  setAccessInput(event.target.value);
+                  setGateError(null);
+                }}
+              />
+              {gateErrorMessage ? <p id="gate-error" className="gate-error" role="alert">{gateErrorMessage}</p> : null}
+              <button className="button button-primary" type="submit" disabled={unlocking || restoring}>
+                {unlocking || restoring ? t.checking : t.viewInvitation}
+              </button>
+            </form>
             <small>{t.gateDate}</small>
           </div>
         </section>

@@ -1,13 +1,16 @@
-import type { RsvpDraft } from './types';
+import type { AccessCredential, CabinClass, RsvpDraft } from './types';
 import { sha256Hex } from './invitations';
 
 const SESSION_KEY = 'our-flight:access';
 const LOCALE_KEY = 'our-flight:language';
 
 export type SavedSession = {
+  version: 2;
   unlocked: true;
   expiresAt: string;
   fingerprint: string;
+  cabinClass: CabinClass;
+  credential: AccessCredential;
 };
 
 function storage(kind: 'local' | 'session'): Storage | null {
@@ -18,19 +21,35 @@ function storage(kind: 'local' | 'session'): Storage | null {
   }
 }
 
-export function invitationTokenFromHash(hash = window.location.hash): string | null {
+export function legacyTokenFromHash(hash = window.location.hash): string | null {
   const match = /^#\/i\/([A-Za-z0-9_-]{20,160})\/?$/.exec(hash);
   return match?.[1] ?? null;
 }
 
-export const fingerprintToken = sha256Hex;
+export function fingerprintCredential(credential: AccessCredential): Promise<string> {
+  return sha256Hex(credential.value);
+}
 
 export function readSession(): SavedSession | null {
   try {
     const value = storage('session')?.getItem(SESSION_KEY);
     if (!value) return null;
     const parsed = JSON.parse(value) as Partial<SavedSession>;
-    if (parsed.unlocked !== true || typeof parsed.expiresAt !== 'string' || typeof parsed.fingerprint !== 'string') return null;
+    const credentialValid = parsed.credential?.kind === 'class-code'
+      ? typeof parsed.credential.value === 'string' && /^[A-Z0-9]{8,12}$/.test(parsed.credential.value)
+      : parsed.credential?.kind === 'legacy-token'
+        ? typeof parsed.credential.value === 'string' && /^[A-Za-z0-9_-]{20,160}$/.test(parsed.credential.value)
+        : false;
+    if (
+      parsed.version !== 2
+      || parsed.unlocked !== true
+      || typeof parsed.expiresAt !== 'string'
+      || !Number.isFinite(Date.parse(parsed.expiresAt))
+      || typeof parsed.fingerprint !== 'string'
+      || !/^[a-f0-9]{64}$/i.test(parsed.fingerprint)
+      || !['economy', 'premium-economy', 'business', 'first'].includes(parsed.cabinClass ?? '')
+      || !credentialValid
+    ) return null;
     return parsed as SavedSession;
   } catch {
     return null;

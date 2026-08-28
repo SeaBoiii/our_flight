@@ -1,9 +1,11 @@
 import { appsScriptUrl } from './invitations';
-import type { Locale, RsvpDraft, RsvpReceipt } from './types';
+import type { AccessCredential, Locale, RsvpDraft, RsvpReceipt } from './types';
+
+const BRIDGE_VERSION = 2;
 
 type BridgeMessage = RsvpReceipt & {
   type: 'our-flight:rsvp-result';
-  version: 1;
+  version: 2;
   nonce: string;
   responseId: string;
 };
@@ -37,8 +39,8 @@ export function isGoogleBridgeOrigin(origin: string): boolean {
 function isBridgeMessage(value: unknown, nonce: string, responseId: string): value is BridgeMessage {
   if (!value || typeof value !== 'object') return false;
   const message = value as Partial<BridgeMessage>;
-  return message.type === 'our-flight:rsvp-result'
-    && message.version === 1
+  const baseValid = message.type === 'our-flight:rsvp-result'
+    && message.version === BRIDGE_VERSION
     && message.nonce === nonce
     && message.responseId === responseId
     && typeof message.ok === 'boolean'
@@ -46,6 +48,9 @@ function isBridgeMessage(value: unknown, nonce: string, responseId: string): val
       Array.isArray(message.fields)
       && message.fields.every((field) => typeof field === 'string')
     ));
+  if (!baseValid) return false;
+  if (message.ok) return message.duplicate === undefined || typeof message.duplicate === 'boolean';
+  return typeof message.error === 'string';
 }
 
 export function isTrustedBridgeReceipt(
@@ -58,7 +63,7 @@ export function isTrustedBridgeReceipt(
 }
 
 export async function submitRsvp(
-  invitationToken: string,
+  accessCredential: AccessCredential,
   locale: Locale,
   draft: RsvpDraft,
 ): Promise<{ ok: true; duplicate: boolean }> {
@@ -85,7 +90,7 @@ export async function submitRsvp(
   const bridgeVersion = document.createElement('input');
   bridgeVersion.type = 'hidden';
   bridgeVersion.name = 'bridgeVersion';
-  bridgeVersion.value = '1';
+  bridgeVersion.value = String(BRIDGE_VERSION);
 
   const nonceField = document.createElement('input');
   nonceField.type = 'hidden';
@@ -96,8 +101,8 @@ export async function submitRsvp(
   payloadField.type = 'hidden';
   payloadField.name = 'payload';
   payloadField.value = JSON.stringify({
-    version: 1,
-    token: invitationToken,
+    version: BRIDGE_VERSION,
+    credential: accessCredential,
     responseId: draft.responseId,
     locale,
     inviteeName: draft.inviteeName,

@@ -2,12 +2,12 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ApiFailure, submitRsvp } from '../api';
 import { copy } from '../copy';
 import { clearDraft, readDraft, saveDraft } from '../storage';
-import type { Invitation, Locale, RsvpDraft } from '../types';
+import type { AccessCredential, Invitation, Locale, RsvpDraft } from '../types';
 import { localized } from '../types';
 
 type RsvpFormProps = {
   invitation: Invitation;
-  invitationToken: string;
+  accessCredential: AccessCredential;
   fingerprint: string;
   locale: Locale;
 };
@@ -37,7 +37,7 @@ function freshDraft(invitation: Invitation, saved: RsvpDraft | null): RsvpDraft 
 
 export function RsvpForm({
   invitation,
-  invitationToken,
+  accessCredential,
   fingerprint,
   locale,
 }: RsvpFormProps) {
@@ -98,7 +98,7 @@ export function RsvpForm({
 
     setSubmitState('sending');
     try {
-      const result = await submitRsvp(invitationToken, locale, draft);
+      const result = await submitRsvp(accessCredential, locale, draft);
       clearDraft(fingerprint);
       setSubmitState(result.duplicate ? 'duplicate' : 'success');
     } catch (error) {

@@ -4,6 +4,10 @@ export type Attendance = 'attending' | 'not-attending';
 export type CabinClass = 'economy' | 'premium-economy' | 'business' | 'first';
 export type InvitationScope = 'day22' | 'both-days';
 
+export type AccessCredential =
+  | { kind: 'class-code'; value: string }
+  | { kind: 'legacy-token'; value: string };
+
 export type LocalizedText = {
   en: string;
   ms: string;

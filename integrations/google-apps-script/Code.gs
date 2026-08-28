@@ -2,19 +2,20 @@
  * Bound Google Apps Script for the private Aleem & Nurulain RSVP workbook.
  *
  * The public GitHub Pages app posts a regular HTML form into a hidden iframe.
- * This web app validates the opaque invitation token, writes the response, and
+ * This web app validates the access credential, writes the response, and
  * returns a tiny HTML page that posts a correlated receipt to the top-level page.
  *
  * Required Script Properties:
  *   RSVP_STATUS                       preview | open | closed
  *   PARENT_ORIGIN                     e.g. https://account.github.io
- *   INVITE_TOKEN_HASH_ECONOMY         lowercase SHA-256 hex
- *   INVITE_TOKEN_HASH_PREMIUM         lowercase SHA-256 hex
- *   INVITE_TOKEN_HASH_BUSINESS        lowercase SHA-256 hex
- *   INVITE_TOKEN_HASH_FIRST           lowercase SHA-256 hex
+ *   INVITE_CODE_HASH_ECONOMY          lowercase SHA-256 hex
+ *   INVITE_CODE_HASH_PREMIUM          lowercase SHA-256 hex
+ *   INVITE_CODE_HASH_BUSINESS         lowercase SHA-256 hex
+ *   INVITE_CODE_HASH_FIRST            lowercase SHA-256 hex
+ *   LEGACY_INVITES_ENABLED            true | false (defaults to false)
  *
  * setupWorkbook() records SPREADSHEET_ID automatically. Never store raw
- * invitation tokens or the wedding passcode in Script Properties.
+ * invitation codes, legacy tokens, or the wedding passcode in Script Properties.
  */
 
 const RESPONSES_SHEET = 'Responses';
@@ -23,7 +24,8 @@ const SPREADSHEET_ID_PROPERTY = 'SPREADSHEET_ID';
 const RSVP_STATUS_PROPERTY = 'RSVP_STATUS';
 const PARENT_ORIGIN_PROPERTY = 'PARENT_ORIGIN';
 const BRIDGE_TYPE = 'our-flight:rsvp-result';
-const BRIDGE_VERSION = 1;
+const CURRENT_BRIDGE_VERSION = 2;
+const LEGACY_BRIDGE_VERSION = 1;
 const MAX_PAYLOAD_LENGTH = 16384;
 const PUBLIC_RESPONSE_COLUMNS = 12;
 const RESPONSE_HEADERS = [
@@ -39,10 +41,16 @@ const RESPONSE_HEADERS = [
   '22 Aug attendance',
   '22 Aug party size',
   'Message',
-  'Invitation token hash',
+  'Access credential hash',
   'Payload digest',
 ];
-const INVITATIONS = [
+const CODE_INVITATIONS = [
+  { cabinClass: 'economy', scope: 'day22', property: 'INVITE_CODE_HASH_ECONOMY' },
+  { cabinClass: 'premium-economy', scope: 'day22', property: 'INVITE_CODE_HASH_PREMIUM' },
+  { cabinClass: 'business', scope: 'both-days', property: 'INVITE_CODE_HASH_BUSINESS' },
+  { cabinClass: 'first', scope: 'both-days', property: 'INVITE_CODE_HASH_FIRST' },
+];
+const LEGACY_INVITATIONS = [
   { cabinClass: 'economy', scope: 'day22', property: 'INVITE_TOKEN_HASH_ECONOMY' },
   { cabinClass: 'premium-economy', scope: 'day22', property: 'INVITE_TOKEN_HASH_PREMIUM' },
   { cabinClass: 'business', scope: 'both-days', property: 'INVITE_TOKEN_HASH_BUSINESS' },
@@ -87,19 +95,24 @@ function verifyConfiguration() {
 
   const status = rsvpStatus_(properties);
   configuredParentOrigin_(properties);
-  configuredInvitations_(properties);
-  console.log('Configuration valid. RSVP status: %s. Four invitation classes configured.', status);
-  return { ok: true, rsvpStatus: status, invitationClasses: 4 };
+  configuredCodeInvitations_(properties);
+  const legacyEnabled = legacyInvitesEnabled_(properties);
+  if (legacyEnabled) configuredLegacyInvitations_(properties);
+  console.log('Configuration valid. RSVP status: %s. Legacy invitations: %s.', status, legacyEnabled);
+  return { ok: true, rsvpStatus: status, invitationClasses: 4, legacyInvitesEnabled: legacyEnabled };
 }
 
 function doPost(event) {
   let nonce = '';
   let responseId = '';
+  let responseVersion = CURRENT_BRIDGE_VERSION;
+  const properties = PropertiesService.getScriptProperties();
 
   try {
     const parameters = event && event.parameter ? event.parameter : {};
-    if (String(parameters.bridgeVersion || '') !== String(BRIDGE_VERSION)) {
-      throw validationError_('unsupported_bridge', ['bridgeVersion']);
+    const requestedVersion = Number(parameters.bridgeVersion);
+    if (requestedVersion === CURRENT_BRIDGE_VERSION || requestedVersion === LEGACY_BRIDGE_VERSION) {
+      responseVersion = requestedVersion;
     }
 
     nonce = requiredUuid_(parameters.nonce, 'nonce');
@@ -119,15 +132,18 @@ function doPost(event) {
     // remain correlated and the browser can report them without timing out.
     responseId = requiredUuid_(payload && payload.responseId, 'responseId');
 
-    const properties = PropertiesService.getScriptProperties();
+    const legacyRequestAllowed = requestedVersion === LEGACY_BRIDGE_VERSION && legacyInvitesEnabled_(properties);
+    if (requestedVersion !== CURRENT_BRIDGE_VERSION && !legacyRequestAllowed) {
+      throw validationError_('unsupported_bridge', ['bridgeVersion']);
+    }
+
     const status = rsvpStatus_(properties);
     if (status !== 'open') throw validationError_(status, []);
 
     // A valid parent origin is required before accepting writes. postMessage
     // still falls back to "*" for configuration-error receipts only.
     configuredParentOrigin_(properties);
-    const invitations = configuredInvitations_(properties);
-    const submission = normalizeSubmission_(payload, invitations);
+    const submission = normalizeSubmission_(payload, properties, requestedVersion);
 
     const lock = LockService.getScriptLock();
     if (!lock.tryLock(10000)) throw validationError_('busy', []);
@@ -141,7 +157,7 @@ function doPost(event) {
 
     return bridgeHtml_({
       type: BRIDGE_TYPE,
-      version: BRIDGE_VERSION,
+      version: responseVersion,
       nonce: nonce,
       responseId: responseId,
       ok: true,
@@ -153,33 +169,55 @@ function doPost(event) {
     const fields = error && Array.isArray(error.fields) ? error.fields : [];
     return bridgeHtml_({
       type: BRIDGE_TYPE,
-      version: BRIDGE_VERSION,
+      version: responseVersion,
       nonce: nonce,
       responseId: responseId,
       ok: false,
       error: code,
       fields: fields,
-    }, PropertiesService.getScriptProperties());
+    }, properties);
   }
 }
 
-function normalizeSubmission_(payload, invitations) {
+function normalizeSubmission_(payload, properties, bridgeVersion) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     throw validationError_('invalid_submission', ['payload']);
   }
-  if (payload.version !== BRIDGE_VERSION) {
+  if (payload.version !== bridgeVersion) {
     throw validationError_('invalid_submission', ['version']);
   }
 
-  if (typeof payload.token !== 'string' || !/^[A-Za-z0-9_-]{20,160}$/.test(payload.token)) {
-    throw validationError_('invalid_token', ['token']);
+  let credentialKind;
+  let credentialValue;
+  let invitation;
+  if (bridgeVersion === LEGACY_BRIDGE_VERSION) {
+    if (!legacyInvitesEnabled_(properties) || typeof payload.token !== 'string' || !/^[A-Za-z0-9_-]{20,160}$/.test(payload.token)) {
+      throw validationError_('invalid_credential', ['credential']);
+    }
+    credentialKind = 'legacy-token';
+    credentialValue = payload.token;
+    invitation = invitationForCredential_(credentialValue, configuredLegacyInvitations_(properties));
+  } else {
+    const credential = payload.credential;
+    if (!credential || typeof credential !== 'object' || Array.isArray(credential)) {
+      throw validationError_('invalid_credential', ['credential']);
+    }
+    credentialKind = requiredChoice_(credential.kind, ['class-code', 'legacy-token'], 'credential.kind');
+    if (typeof credential.value !== 'string') throw validationError_('invalid_credential', ['credential.value']);
+    if (credentialKind === 'class-code') {
+      credentialValue = normalizeInvitationCode_(credential.value);
+      if (!/^[A-Z0-9]{8,12}$/.test(credentialValue)) throw validationError_('invalid_credential', ['credential']);
+      invitation = invitationForCredential_(credentialValue, configuredCodeInvitations_(properties));
+    } else {
+      if (!legacyInvitesEnabled_(properties) || !/^[A-Za-z0-9_-]{20,160}$/.test(credential.value)) {
+        throw validationError_('invalid_credential', ['credential']);
+      }
+      credentialValue = credential.value;
+      invitation = invitationForCredential_(credentialValue, configuredLegacyInvitations_(properties));
+    }
   }
-  const token = payload.token;
-  const tokenHash = sha256Hex_(token);
-  const invitation = invitations.find(function (candidate) {
-    return timingSafeEqual_(candidate.tokenHash, tokenHash);
-  });
-  if (!invitation) throw validationError_('invalid_token', ['token']);
+  if (!invitation) throw validationError_('invalid_credential', ['credential']);
+  const credentialHash = sha256Hex_(credentialValue);
 
   const responseId = requiredUuid_(payload.responseId, 'responseId');
   const locale = requiredChoice_(payload.locale, ['en', 'ms'], 'locale');
@@ -187,9 +225,20 @@ function normalizeSubmission_(payload, invitations) {
   const message = optionalText_(payload.message, 500, 'message');
   const responses = normalizeResponses_(payload.responses, invitation.scope);
 
-  const canonical = {
-    version: BRIDGE_VERSION,
-    tokenHash: tokenHash,
+  // Preserve the original version-1 digest for all legacy-token requests so a
+  // retry made after the Pages upgrade still matches a row created beforehand.
+  const canonical = credentialKind === 'legacy-token' ? {
+    version: LEGACY_BRIDGE_VERSION,
+    tokenHash: credentialHash,
+    responseId: responseId,
+    locale: locale,
+    inviteeName: inviteeName,
+    message: message,
+    responses: responses,
+  } : {
+    version: CURRENT_BRIDGE_VERSION,
+    credentialKind: credentialKind,
+    credentialHash: credentialHash,
     responseId: responseId,
     locale: locale,
     inviteeName: inviteeName,
@@ -205,7 +254,7 @@ function normalizeSubmission_(payload, invitations) {
     inviteeName: inviteeName,
     message: message,
     responses: responses,
-    tokenHash: tokenHash,
+    credentialHash: credentialHash,
     digest: sha256Hex_(JSON.stringify(canonical)),
   };
 }
@@ -258,9 +307,9 @@ function storeSubmission_(submission, properties) {
 
   if (existingRow) {
     const metadata = sheet.getRange(existingRow, PUBLIC_RESPONSE_COLUMNS + 1, 1, 2).getDisplayValues()[0];
-    const sameToken = timingSafeEqual_(String(metadata[0] || '').toLowerCase(), submission.tokenHash);
+    const sameCredential = timingSafeEqual_(String(metadata[0] || '').toLowerCase(), submission.credentialHash);
     const samePayload = timingSafeEqual_(String(metadata[1] || '').toLowerCase(), submission.digest);
-    if (!sameToken || !samePayload) throw validationError_('idempotency_conflict', ['responseId']);
+    if (!sameCredential || !samePayload) throw validationError_('idempotency_conflict', ['responseId']);
     return { duplicate: true };
   }
 
@@ -282,25 +331,51 @@ function storeSubmission_(submission, properties) {
     day22.attendance || '',
     day22.partySize || '',
     safeSheetText_(submission.message),
-    submission.tokenHash,
+    submission.credentialHash,
     submission.digest,
   ];
   sheet.appendRow(row);
   return { duplicate: false };
 }
 
-function configuredInvitations_(properties) {
+function configuredCodeInvitations_(properties) {
+  return configuredInvitationSet_(properties, CODE_INVITATIONS);
+}
+
+function configuredLegacyInvitations_(properties) {
+  return configuredInvitationSet_(properties, LEGACY_INVITATIONS);
+}
+
+function configuredInvitationSet_(properties, definitions) {
   const seen = {};
-  return INVITATIONS.map(function (invitation) {
-    const tokenHash = String(properties.getProperty(invitation.property) || '').trim().toLowerCase();
-    if (!isSha256_(tokenHash) || seen[tokenHash]) throw validationError_('not_configured', []);
-    seen[tokenHash] = true;
+  return definitions.map(function (invitation) {
+    const credentialHash = String(properties.getProperty(invitation.property) || '').trim().toLowerCase();
+    if (!isSha256_(credentialHash) || seen[credentialHash]) throw validationError_('not_configured', []);
+    seen[credentialHash] = true;
     return {
       cabinClass: invitation.cabinClass,
       scope: invitation.scope,
-      tokenHash: tokenHash,
+      credentialHash: credentialHash,
     };
   });
+}
+
+function invitationForCredential_(value, invitations) {
+  const credentialHash = sha256Hex_(value);
+  return invitations.find(function (candidate) {
+    return timingSafeEqual_(candidate.credentialHash, credentialHash);
+  });
+}
+
+function normalizeInvitationCode_(value) {
+  return String(value).normalize('NFKC').trim().toUpperCase()
+    .replace(/[\s\u002D\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]+/g, '');
+}
+
+function legacyInvitesEnabled_(properties) {
+  const value = String(properties.getProperty('LEGACY_INVITES_ENABLED') || 'false').trim().toLowerCase();
+  if (value !== 'true' && value !== 'false') throw validationError_('not_configured', []);
+  return value === 'true';
 }
 
 function rsvpStatus_(properties) {

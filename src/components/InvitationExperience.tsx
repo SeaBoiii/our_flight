@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { downloadCalendar } from '../calendar';
 import { copy } from '../copy';
-import type { Invitation, Locale } from '../types';
+import type { AccessCredential, Invitation, Locale } from '../types';
 import { localized } from '../types';
 import { crownePlazaLogo } from '../venueLogo';
 import { Journey } from './Journey';
@@ -10,7 +10,7 @@ import { RsvpForm } from './RsvpForm';
 
 type InvitationExperienceProps = {
   invitation: Invitation;
-  invitationToken: string;
+  accessCredential: AccessCredential;
   fingerprint: string;
   locale: Locale;
   reducedMotion: boolean;
@@ -28,7 +28,7 @@ function dateParts(label: string) {
 
 export default function InvitationExperience({
   invitation,
-  invitationToken,
+  accessCredential,
   fingerprint,
   locale,
   reducedMotion,
@@ -237,7 +237,7 @@ export default function InvitationExperience({
 
       <RsvpForm
         invitation={invitation}
-        invitationToken={invitationToken}
+        accessCredential={accessCredential}
         fingerprint={fingerprint}
         locale={locale}
       />

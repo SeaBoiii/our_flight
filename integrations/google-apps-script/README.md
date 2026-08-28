@@ -1,23 +1,21 @@
 # Private Google Sheet RSVP integration
 
-The GitHub Pages app is static, so its Google Apps Script `/exec` URL and the invitation rules are necessarily present in the downloaded application. Apps Script remains the authority for writes: it hashes the supplied opaque invitation token, derives the cabin class and permitted days, validates every RSVP field, and writes only accepted records to the private spreadsheet.
+The GitHub Pages site submits RSVP data to a bound Google Apps Script web app. Apps Script is the write authority: it normalizes and hashes the supplied access credential, derives the cabin class and permitted event days, validates the response, and writes accepted records to the private workbook.
 
-The wedding passcode is **not** sent to Apps Script. It is only a lightweight check-in gate in the public client. Treat each high-entropy invitation token as a class-level write credential and distribute it privately.
+## Browser bridge contract
 
-## How the browser bridge works
+The current client posts a native `application/x-www-form-urlencoded` form into a hidden sandboxed iframe with:
 
-GitHub Pages submits a native `application/x-www-form-urlencoded` form into a hidden, sandboxed iframe. The form has three fields:
-
-- `bridgeVersion=1`
+- `bridgeVersion=2`
 - `nonce=<UUID>`
 - `payload=<JSON>`
 
-The payload contract is:
+The version-2 payload uses an access credential union:
 
 ```json
 {
-  "version": 1,
-  "token": "opaque-invitation-token",
+  "version": 2,
+  "credential": { "kind": "class-code", "value": "SAMPLE88" },
   "responseId": "UUID",
   "locale": "en",
   "inviteeName": "Honoured Guest",
@@ -28,12 +26,14 @@ The payload contract is:
 }
 ```
 
-Apps Script returns an `HtmlOutput` page which calls `window.top.postMessage` with a correlated receipt. HtmlService places the returned page inside an additional Google-hosted frame, so `window.parent` points to Google's wrapper rather than the GitHub Pages app:
+During migration, version-2 requests may use `kind: "legacy-token"`. Existing version-1 browser tabs may still send their original `token` payload only when `LEGACY_INVITES_ENABLED=true`.
+
+Apps Script responds through `window.top.postMessage` because HtmlService nests the receipt page in a Google wrapper frame:
 
 ```json
 {
   "type": "our-flight:rsvp-result",
-  "version": 1,
+  "version": 2,
   "nonce": "same UUID",
   "responseId": "same response UUID",
   "ok": true,
@@ -41,60 +41,62 @@ Apps Script returns an `HtmlOutput` page which calls `window.top.postMessage` wi
 }
 ```
 
-Failures use `ok: false`, a stable `error` code, and optionally `fields`. The browser must accept a receipt only when the message origin is a Google script/content origin and `type`, `version`, `nonce`, and `responseId` all match. The receipt document is nested below the form-target frame by HtmlService, so its message source cannot equal the outer iframe's `contentWindow`; the two unpredictable correlated IDs provide the per-submission binding. Because a sandbox without `allow-same-origin` gives the iframe an opaque `null` origin, the submission iframe must include `allow-forms allow-scripts allow-same-origin`. This is safe here because the loaded document is cross-origin and receives no same-origin access to the GitHub Pages parent.
-
-An iframe load or a timed-out request is never proof of success. The site must keep the draft and response ID until it receives the matching successful receipt.
+The response version matches the accepted request version. The browser accepts a receipt only from an HTTPS Google script/content origin when type, version, nonce, and response ID all match. A timeout or iframe load is never treated as success; the saved draft and response ID remain available for retry.
 
 ## One-time workbook setup
 
 1. Create or open the private **Aleem & Nurulain — RSVP Responses** Google Sheet.
 2. Choose **Extensions → Apps Script**.
-3. Replace the editor contents with [`Code.gs`](./Code.gs). In **Project Settings**, enable the manifest and use [`appsscript.json`](./appsscript.json) if desired.
-4. Run `setupWorkbook()` once and approve the spreadsheet permission. It formats `Responses` and `Summary`, sets `Asia/Singapore`, and records the spreadsheet ID in Script Properties.
-5. In **Project Settings → Script properties**, add all properties in the table below.
-6. Run `verifyConfiguration()`. It validates the setup without logging any hashes or raw tokens.
-7. Choose **Deploy → New deployment → Web app**. Execute as **Me** and grant access to **Anyone**. Copy the canonical URL ending in `/exec` (not a `/dev` test URL).
-8. For local builds, put that URL in `VITE_APPS_SCRIPT_URL`. In GitHub Actions, use the repository variable `APPS_SCRIPT_URL` (the workflow maps it into the build). Keep the corresponding status at `preview` while testing.
+3. Replace the editor contents with [`Code.gs`](./Code.gs). Enable the manifest and use [`appsscript.json`](./appsscript.json) if desired.
+4. Run `setupWorkbook()` once and authorize it. This formats `Responses` and `Summary`, sets `Asia/Singapore`, and records `SPREADSHEET_ID`.
+5. Add the Script Properties below.
+6. Run `verifyConfiguration()`. It validates the setup without logging credential hashes or raw credentials.
+7. Deploy as a **Web app**, execute as **Me**, with access for **Anyone**. Copy the canonical URL ending in `/exec`, not `/dev`.
+8. Keep both RSVP statuses at `preview` until the transition tests pass.
 
 ## Required Script Properties
 
 | Property | Value |
 | --- | --- |
-| `RSVP_STATUS` | Start with `preview`; use `open` only for the release; use `closed` after RSVPs close. |
-| `PARENT_ORIGIN` | Exact Pages origin, for example `https://ACCOUNT.github.io`. Use the origin only—no `/our_flight/` path and no trailing slash. |
-| `INVITE_TOKEN_HASH_ECONOMY` | Lowercase SHA-256 hex of the Economy token. |
-| `INVITE_TOKEN_HASH_PREMIUM` | Lowercase SHA-256 hex of the Premium Economy token. |
-| `INVITE_TOKEN_HASH_BUSINESS` | Lowercase SHA-256 hex of the Business token. |
-| `INVITE_TOKEN_HASH_FIRST` | Lowercase SHA-256 hex of the First Class token. |
+| `RSVP_STATUS` | `preview`, `open`, or `closed`; begin with `preview`. |
+| `PARENT_ORIGIN` | `https://seaboiii.github.io` — origin only, without `/our_flight/` or a trailing slash. |
+| `INVITE_CODE_HASH_ECONOMY` | Lowercase SHA-256 of the normalized Economy code. |
+| `INVITE_CODE_HASH_PREMIUM` | Lowercase SHA-256 of the normalized Premium Economy code. |
+| `INVITE_CODE_HASH_BUSINESS` | Lowercase SHA-256 of the normalized Business code. |
+| `INVITE_CODE_HASH_FIRST` | Lowercase SHA-256 of the normalized First Class code. |
+| `LEGACY_INVITES_ENABLED` | `true` for transition or `false` to reject old links; defaults to `false` when absent. |
 
-`SPREADSHEET_ID` is written by `setupWorkbook()`. Do not add `INGEST_SECRET`, raw invitation tokens, the raw wedding passcode, or a spreadsheet URL to the source code.
+When legacy mode is `true`, retain these additional properties:
 
-The four invitation-token hashes must exactly match the four `VITE_INVITE_HASH_*` values used by the Pages build. All four must be distinct. Economy and Premium Economy tokens accept exactly `day22`; Business and First Class tokens accept exactly `day21` and `day22`.
+- `INVITE_TOKEN_HASH_ECONOMY`
+- `INVITE_TOKEN_HASH_PREMIUM`
+- `INVITE_TOKEN_HASH_BUSINESS`
+- `INVITE_TOKEN_HASH_FIRST`
 
-## Preview, test, and release sequence
+`SPREADSHEET_ID` is written by `setupWorkbook()`. Do not put raw codes, tokens, the shared passcode, spreadsheet URLs, or unrelated secrets into source control.
 
-1. Leave both `RSVP_STATUS` values at `preview`: the Apps Script Property and the Pages repository variable. For a local build, the equivalent client variable is `VITE_RSVP_STATUS`. The full RSVP form remains visible but disabled.
-2. Deploy the Apps Script web app and configure its `/exec` URL in the Pages build.
-3. In a private test deployment, set Apps Script `RSVP_STATUS=open` and set the Pages repository variable `RSVP_STATUS=open` (or `VITE_RSVP_STATUS=open` locally).
-4. Submit one Economy/Premium test and one Business/First test. Confirm the permitted days and cabin classes in `Responses` and the totals in `Summary`.
-5. Retry each unchanged form with the same response ID. It must return `duplicate: true` and create no additional row.
-6. Change a payload while reusing the same response ID. It must return `idempotency_conflict` and leave the original row untouched.
-7. Test an invalid token, an Economy/Premium submission containing `day21`, a missing party size while attending, a party size supplied while declining, and a message over 500 characters. None may write a row.
-8. Before public release, rotate any temporary raw tokens/passcode, rebuild Pages with the final hashes, set both statuses to `open`, and repeat one controlled end-to-end RSVP.
+Class codes are canonicalized with Unicode NFKC, trim, uppercase, and removal of spaces/hyphens before SHA-256. The four `INVITE_CODE_HASH_*` values must exactly match the GitHub Actions secrets and must be distinct. Economy and Premium accept exactly `day22`; Business and First accept exactly `day21` and `day22`.
 
-Changing a Script Property does not require exposing it in Git, but code changes require a new Apps Script deployment version. After replacing `Code.gs`, edit the existing web-app deployment, select **New version**, and deploy it; keeping the same deployment preserves the existing `/exec` URL. Keep the Sheet private and do not share its URL with guests.
+## Preview, validation and release
 
-## Validation and storage behavior
+1. Run `setupWorkbook()` once more after replacing the script; this updates the hidden metadata heading without moving existing rows.
+2. Deploy this updated Apps Script code as a **new version** of the existing web-app deployment, preserving its `/exec` URL.
+3. Set Apps Script and Pages `LEGACY_INVITES_ENABLED=true` for the transition.
+4. Deploy Pages with all four new hashes and the legacy secrets.
+5. Test all four new class codes and at least one old link while RSVP remains in preview.
+6. Temporarily set both RSVP statuses to `open`. Submit a one-day response and a two-day response and confirm class, scope, rows, and Summary totals.
+7. Retry the unchanged payload with the same response ID. It must return `duplicate: true` without adding a row.
+8. Change the payload but reuse the response ID. It must return `idempotency_conflict` and preserve the original row.
+9. Verify that a one-day credential cannot submit `day21`, attending requires a positive safe whole number, declining forbids a party size, and messages over 500 characters are rejected.
+10. Reopen RSVP only after these tests pass.
 
-- The server derives cabin class and invitation scope from the token hash; client-supplied class/scope values are neither required nor trusted.
-- A one-day token must submit exactly `day22`. A two-day token must submit `day21` and `day22` exactly once each.
-- Name and attendance are required. Attending requires a positive safe whole-number party size; declining forbids one. There is no product-level guest maximum.
-- The optional message is limited to 500 characters.
-- User-entered name and message values beginning with `=`, `+`, `-`, or `@` are escaped before spreadsheet insertion.
-- Server timestamps use the spreadsheet's Singapore timezone for display.
-- Two hidden metadata columns store the invitation-token hash and canonical payload digest. The raw token is never written.
-- An identical retry with the same response ID, token hash, and payload digest returns a duplicate receipt without another write. Reusing the response ID for changed content or another token returns `idempotency_conflict`.
+For retirement, change `LEGACY_INVITES_ENABLED` to `false` in Apps Script and Pages, redeploy both, test an old link and stale old session, then delete the four old token-hash properties and five old GitHub Actions secrets.
 
-## Security boundary
+## Storage and safety behavior
 
-This is deliberately a static-site architecture. The Apps Script URL and client-side hashes are discoverable, and a sufficiently technical visitor can inspect the compiled invitation rules. High-entropy tokens, strict server validation, exact-scope derivation, idempotency, and a private workbook limit accidental or malformed submissions; they do not provide household identity verification or server-side secrecy.
+- Class and scope are derived from the credential hash; client-supplied class/scope values are ignored.
+- Formula-leading name and message values are escaped before spreadsheet insertion.
+- The hidden metadata heading is **Access credential hash** and remains in the same column as the previous token-hash metadata. Existing rows are not moved.
+- Legacy requests retain the original version-1 canonical digest so retries can match rows written before the migration.
+- The raw credential is never written to the Sheet.
+- This static architecture limits accidental or malformed submissions but does not provide server-side secrecy or household identity verification.

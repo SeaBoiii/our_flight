@@ -9,7 +9,7 @@ function renderExperience() {
   return render(
     <InvitationExperience
       invitation={invitationWith()}
-      invitationToken={'d'.repeat(32)}
+      accessCredential={{ kind: 'class-code', value: 'ALPHA123' }}
       fingerprint="experience-fingerprint"
       locale="en"
       reducedMotion

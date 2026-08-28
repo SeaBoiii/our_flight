@@ -1,50 +1,76 @@
 # Aleem & Nurulain — Our Flight
 
-A single mobile-first Vite/React wedding invitation for GitHub Pages. It restores the original transparent teal-and-gold A&N artwork and first boarding-pass design, while retaining the cabin-to-window-to-cloud journey.
+A mobile-first Vite/React wedding invitation published as one static GitHub Pages site. Every guest starts at the same URL:
 
-The application has four invitation classes:
+`https://seaboiii.github.io/our_flight/`
 
-| Class | Invitation shown after check-in |
+The A&N monogram, boarding-pass designs, ticket scan, cabin/window/cloud journey, bilingual invitation, itinerary, calendar actions and RSVP are shared across all invitations. The class-specific invitation code determines what the guest receives:
+
+| Cabin class | Invitation scope |
 | --- | --- |
 | Economy | 22 August 2027 |
 | Premium Economy | 22 August 2027 |
 | Business | Separate 21 and 22 August boarding passes |
 | First Class | Separate 21 and 22 August boarding passes |
 
-There is no class switcher. Each guest uses a link shaped like `https://OWNER.github.io/our_flight/#/i/OPAQUE_TOKEN` and the shared passcode. Because the invitation token is in the URL fragment, it is not sent in the GitHub Pages request.
+There is no class selector. Codes are normalized with Unicode NFKC, trimmed, uppercased, and stripped of spaces and hyphens before hashing. A valid session lasts 30 minutes in `sessionStorage`. RSVP drafts use only the credential fingerprint in their local-storage key.
 
 ## Static-site security boundary
 
-This is intentionally one public static application. The browser checks SHA-256 token and passcode hashes and keeps an unlocked session for 30 minutes. The raw distribution tokens and passcode must never be committed, but the compiled rules and their hashes can be inspected or guessed offline by a technically capable visitor. Use long random values and treat this as invitation convenience, not server-grade access control.
+This is intentionally one public static application. It contains the four code hashes and invitation rules, so a technically capable visitor can inspect them or test short codes offline. The codes provide convenient invitation separation, not server-side secrecy or household identity verification. Never commit raw codes, old invitation tokens, the old shared passcode, spreadsheet IDs, or Apps Script secrets.
 
-The previous Sites deployment is not used by this application. Keep its `sites` Git remote private and do not push this restored Pages project to that remote; it remains only an external rollback copy.
+The old Sites deployment is disconnected and remains private only as a rollback copy.
 
 ## Local development
 
 Use Node.js 22.13 or later.
 
 1. Copy `.env.example` to the ignored `.env.local` file.
-2. Add the SHA-256 hex digest of the shared passcode and one different opaque token for each class. The legacy local names `WEDDING_PASSCODE_HASH` and `INVITE_TOKEN_HASH_*` are also accepted.
-3. Keep `VITE_RSVP_STATUS=preview` and leave `VITE_APPS_SCRIPT_URL` blank until Google setup is complete.
-4. Keep raw invitation details only in `.private/invite-access.txt`; `.private/` is ignored by Git.
-5. Install and run the site:
+2. Add the four SHA-256 hashes of the normalized class codes as `VITE_INVITE_CODE_HASH_*`.
+3. Leave `VITE_LEGACY_INVITES_ENABLED=false` unless testing an old link. When it is `true`, also populate the five commented legacy hashes.
+4. Keep `VITE_RSVP_STATUS=preview` and leave `VITE_APPS_SCRIPT_URL` blank until Google setup is complete.
+5. Keep raw release values only in `.private/invite-access.txt`; `.private/` is ignored by Git.
+6. Run:
 
    ```sh
    npm ci
    npm run dev
    ```
 
-6. Open a complete local hash link, for example `http://localhost:5173/#/i/OPAQUE_TOKEN`.
+7. Open `http://localhost:5173/` and enter a class code.
 
-The exact historical master is `public/monogram-a-and-n.png`. Do not optimise or overwrite it. Display, favicon and social-preview derivatives live beside it.
+To hash a code, first canonicalize it exactly as the application does, then calculate SHA-256. This example deliberately uses a placeholder rather than a real invitation code:
+
+```sh
+npm run hash:code -- "YOUR-CLASS-CODE"
+```
+
+Hash old opaque tokens and the old shared passcode without class-code normalization.
+
+The original monogram master is `public/monogram-a-and-n.png`; do not optimise or overwrite it. Display, favicon and social-preview derivatives live beside it.
 
 ## Editing the displayed programme
 
-Edit [`src/programme.ts`](src/programme.ts) to change the guest-facing itinerary activities and times. Replace each `--:--` with a confirmed display time and update both the English and Malay descriptions. These programme entries are intentionally separate from the boarding-pass and calendar schedule in `src/invitations.ts`, so changing a march-in or cake-cutting time cannot accidentally alter a guest's calendar file.
+Edit [`src/programme.ts`](src/programme.ts) to change the guest-facing itinerary activities and times. These entries are intentionally separate from boarding-pass and calendar times in `src/invitations.ts`.
 
-## GitHub Pages deployment
+## GitHub Pages configuration
 
-Create or select the GitHub repository first; this workspace does not currently have a GitHub remote or GitHub CLI. Then configure **Settings → Pages → Source: GitHub Actions** and add these Actions secrets:
+In **Settings → Pages**, select **GitHub Actions** as the source.
+
+Add these Actions secrets:
+
+- `INVITE_CODE_HASH_ECONOMY`
+- `INVITE_CODE_HASH_PREMIUM`
+- `INVITE_CODE_HASH_BUSINESS`
+- `INVITE_CODE_HASH_FIRST`
+
+Add these repository variables:
+
+- `RSVP_STATUS`: begin with `preview`
+- `APPS_SCRIPT_URL`: blank in preview, then the canonical `/exec` URL
+- `LEGACY_INVITES_ENABLED`: set `true` for the transition release; code defaults to `false`
+
+While `LEGACY_INVITES_ENABLED=true`, retain these existing Actions secrets:
 
 - `WEDDING_PASSCODE_HASH`
 - `INVITE_TOKEN_HASH_ECONOMY`
@@ -52,25 +78,24 @@ Create or select the GitHub repository first; this workspace does not currently 
 - `INVITE_TOKEN_HASH_BUSINESS`
 - `INVITE_TOKEN_HASH_FIRST`
 
-Add these repository variables:
+Push to `main` or run **Deploy GitHub Pages** manually. The workflow installs with Node 22, lints, tests, builds, scans the artifact, and deploys `dist/`. Vite derives `/our_flight/` and the public social URL from `GITHUB_REPOSITORY`.
 
-- `RSVP_STATUS`: start with `preview`
-- `APPS_SCRIPT_URL`: leave blank in preview; later use the canonical `https://script.google.com/macros/s/.../exec` URL
+## Google setup and transition rollout
 
-Push to `main` or run **Deploy GitHub Pages** manually. The workflow installs with Node 22, runs lint and tests, builds, scans the artifact for accidental secrets and performance-budget regressions, then deploys `dist/`. Vite derives `/our_flight/` and the social URL from `GITHUB_REPOSITORY`; no path editing is required.
+Follow [`integrations/google-apps-script/README.md`](integrations/google-apps-script/README.md). Deploy the updated Apps Script before deploying Pages so bridge version 2 is available.
 
-## Enabling RSVP after Google setup
+For the transition:
 
-RSVP is deliberately a complete but disabled preview until storage is authorised and tested. Follow [`integrations/google-apps-script/README.md`](integrations/google-apps-script/README.md) to set up the private workbook and public Apps Script receipt bridge.
+1. Keep both RSVP statuses at `preview`.
+2. Add all four new code hashes to Apps Script and GitHub Actions.
+3. Set `LEGACY_INVITES_ENABLED=true` in both Apps Script Properties and GitHub repository variables; retain the old token hashes and shared-passcode hash.
+4. Deploy a new Apps Script version, then deploy Pages.
+5. Test all four new class codes and at least one old hash link.
+6. Open both RSVP statuses only after a confirmed write and idempotent retry.
 
-Only after a real test submission is confirmed in the Sheet:
+To retire old links, set `LEGACY_INVITES_ENABLED=false` in both places, redeploy Apps Script and Pages, verify stale legacy sessions are rejected, and then delete the old token-hash properties/secrets and `WEDDING_PASSCODE_HASH`.
 
-1. Set the Apps Script property `RSVP_STATUS` to `open`.
-2. Set the GitHub repository variable `APPS_SCRIPT_URL` to the deployed `/exec` URL.
-3. Set the repository variable `RSVP_STATUS` to `open`.
-4. Re-run the Pages workflow and test one idempotent retry before sharing links.
-
-GitHub Pages cannot hide the `/exec` URL. Apps Script therefore derives class and allowed event IDs from the submitted invitation token, validates every field, escapes spreadsheet formula prefixes and handles response IDs idempotently. The browser only shows success after a matching `postMessage` receipt arrives from the Google response frame; timeouts remain unconfirmed and retain the saved draft.
+GitHub Pages cannot hide the Apps Script `/exec` URL. Apps Script therefore derives class and allowed event IDs from the submitted credential, validates every field, escapes spreadsheet formula prefixes, and handles response IDs idempotently. The browser shows success only after a matching version-2 receipt arrives from a Google response origin.
 
 ## Commands
 
@@ -78,5 +103,6 @@ GitHub Pages cannot hide the `/exec` URL. Apps Script therefore derives class an
 - `npm run lint` — static analysis
 - `npm test` — unit and contract tests
 - `npm run build` — TypeScript and production build
+- `npm run hash:code -- "YOUR-CLASS-CODE"` — normalize and hash a class code
 - `npm run check:artifact` — secret, branding and performance-budget checks on `dist/`
 - `npm run preview` — serve the production artifact locally

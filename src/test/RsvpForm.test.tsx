@@ -8,7 +8,7 @@ describe('RSVP preview mode', () => {
     render(
       <RsvpForm
         invitation={invitationWith()}
-        invitationToken={'a'.repeat(32)}
+        accessCredential={{ kind: 'class-code', value: 'ALPHA123' }}
         fingerprint="preview-fingerprint"
         locale="en"
       />,
@@ -23,7 +23,7 @@ describe('RSVP preview mode', () => {
     render(
       <RsvpForm
         invitation={invitationWith(2)}
-        invitationToken={'c'.repeat(32)}
+        accessCredential={{ kind: 'class-code', value: 'ALPHA123' }}
         fingerprint="both-days-fingerprint"
         locale="en"
       />,
@@ -38,7 +38,7 @@ describe('RSVP preview mode', () => {
     render(
       <RsvpForm
         invitation={invitation}
-        invitationToken={'b'.repeat(32)}
+        accessCredential={{ kind: 'class-code', value: 'ALPHA123' }}
         fingerprint="open-fingerprint"
         locale="en"
       />,
