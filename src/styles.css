@@ -667,10 +667,10 @@ a { color: inherit; }
   height: 10px;
   background: repeating-linear-gradient(90deg, var(--ticket-band-deep) 0 1px, transparent 1px 3px);
 }
-.ticket-stack--scanning .ticket-scan-action::before { animation: ticket-scan-wash 760ms cubic-bezier(.25,.75,.25,1) both; }
-.ticket-stack--scanning .ticket-scan-action::after { animation: ticket-scan-sweep 760ms cubic-bezier(.25,.75,.25,1) both; }
-.ticket-stack--scanning .boarding-pass { animation: ticket-takeoff 900ms cubic-bezier(.34,.06,.2,1) both; }
-.ticket-stack--scanning .ticket-scan-instruction { color: #b20f1a; animation: ticket-caption-depart 900ms ease both; }
+.ticket-stack--scanning .ticket-scan-action::before { animation: ticket-scan-wash 763.8ms cubic-bezier(.25,.75,.25,1) both; }
+.ticket-stack--scanning .ticket-scan-action::after { animation: ticket-scan-sweep 763.8ms cubic-bezier(.25,.75,.25,1) both; }
+.ticket-stack--scanning .boarding-pass { animation: ticket-takeoff 904.5ms cubic-bezier(.34,.06,.2,1) both; }
+.ticket-stack--scanning .ticket-scan-instruction { color: #b20f1a; animation: ticket-caption-depart 904.5ms ease both; }
 .ticket-stack--scanning .ticket-scan-instruction > span { background: repeating-linear-gradient(90deg, #d51824 0 1px, transparent 1px 3px); }
 @keyframes ticket-scan-sweep {
   0% { top: 0; opacity: 0; }

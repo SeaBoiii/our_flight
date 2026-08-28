@@ -37,7 +37,9 @@ describe('BoardingPass', () => {
     screen.getByRole('button', { name: 'Tap ticket to scan and board' }).click();
     expect(screen.queryByText('Board Flight')).toBeNull();
     expect(onBoard).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(900);
+    vi.advanceTimersByTime(904);
+    expect(onBoard).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
     expect(onBoard).toHaveBeenCalledOnce();
     vi.useRealTimers();
   });

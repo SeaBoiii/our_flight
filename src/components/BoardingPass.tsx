@@ -47,7 +47,7 @@ export function BoardingPass({
     setIsScanning(true);
     const reducedMotion = typeof window.matchMedia === 'function'
       && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    boardingTimer.current = window.setTimeout(onBoard, reducedMotion ? 80 : 900);
+    boardingTimer.current = window.setTimeout(onBoard, reducedMotion ? 80 : 905);
   };
 
   return (
