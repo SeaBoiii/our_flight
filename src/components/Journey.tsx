@@ -228,7 +228,10 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
           <CloudVideo videoRef={cloudVideoRef} />
         </div>
 
-        <div className="journey-ticket" aria-hidden="true">
+        <div
+          className={`journey-ticket journey-ticket--${invitation.cabinClass}`}
+          aria-hidden="true"
+        >
           <BoardingPass invitation={invitation} locale={locale} compact stamped />
         </div>
 

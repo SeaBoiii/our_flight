@@ -20,11 +20,15 @@ describe('reduced-motion journey', () => {
 describe('animated cloud journey', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('uses the silent forward-and-reverse cloud video as a looping background', () => {
+  const stubIntersectionObserver = () => {
     vi.stubGlobal('IntersectionObserver', class {
       observe = vi.fn();
       disconnect = vi.fn();
     });
+  };
+
+  it('uses the silent forward-and-reverse cloud video as a looping background', () => {
+    stubIntersectionObserver();
 
     const { container } = render(
       <Journey invitation={invitationWith()} locale="en" reducedMotion={false} />,
@@ -36,5 +40,24 @@ describe('animated cloud journey', () => {
     expect(video?.muted).toBe(true);
     expect(video?.playsInline).toBe(true);
     expect(video?.querySelector('source')?.getAttribute('src')).toContain('clouds-ping-pong.mp4');
+  });
+
+  it('marks the business and first ticket stacks for their mobile lift', () => {
+    stubIntersectionObserver();
+    const businessInvitation = invitationWith(2);
+    const { container, rerender } = render(
+      <Journey invitation={businessInvitation} locale="en" reducedMotion={false} />,
+    );
+    expect(container.querySelector('.journey-ticket--business')).toBeTruthy();
+
+    const firstInvitation = {
+      ...businessInvitation,
+      cabinClass: 'first' as const,
+      cabinLabel: { en: 'First Class', ms: 'Kelas Pertama' },
+    };
+    rerender(
+      <Journey invitation={firstInvitation} locale="en" reducedMotion={false} />,
+    );
+    expect(container.querySelector('.journey-ticket--first')).toBeTruthy();
   });
 });
