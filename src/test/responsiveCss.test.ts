@@ -13,8 +13,9 @@ describe('large-phone journey layout', () => {
     expect(end).toBeGreaterThan(start);
     expect(largePhoneRules).toContain('.ticket-field-passenger');
     expect(largePhoneRules).toContain('display: none;');
-    expect(largePhoneRules).toContain('.journey-ticket { --journey-ticket-scale: 0.68; width: 116vw; }');
-    expect(largePhoneRules).toContain('.journey-ticket--first');
+    expect(largePhoneRules).toContain('.journey-ticket { --journey-ticket-preferred-scale: 0.68; width: 116vw; }');
+    expect(largePhoneRules).toContain('.ticket-stack.cabin-first');
+    expect(largePhoneRules).not.toContain('--journey-ticket-lift');
     expect(largePhoneRules).toContain('.experience-back span { display: none; }');
   });
 });

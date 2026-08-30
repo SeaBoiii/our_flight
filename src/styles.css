@@ -782,11 +782,13 @@ a { color: inherit; }
 .journey-cabin img { object-fit: cover; object-position: 51% 34%; }
 .journey-cloud-video { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; transform: none; pointer-events: none; }
 .journey-clouds::after { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(251,250,247,0.1), rgba(251,250,247,0.32)); content: ""; }
-.journey-ticket { --journey-ticket-scale: 0.78; --journey-ticket-lift: 0px; position: absolute; top: 50%; left: 50%; z-index: 5; width: min(92vw, 880px); opacity: var(--ticket-opacity); transform: translate(-50%, calc(-50% + var(--ticket-y) + var(--journey-ticket-lift))) scale(var(--journey-ticket-scale)); will-change: transform, opacity; }
+.journey-opening { position: absolute; inset: 0; z-index: 5; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: clamp(16px, 2.5dvh, 30px); padding: max(82px, calc(env(safe-area-inset-top) + 68px)) max(18px, 7vw) max(20px, 4dvh); pointer-events: none; }
+.journey-ticket-slot { position: relative; min-width: 0; min-height: 0; overflow: hidden; overflow: clip; }
+.journey-ticket { --journey-ticket-preferred-scale: 0.78; --journey-ticket-fit-scale: var(--journey-ticket-preferred-scale); position: absolute; top: 50%; left: 50%; width: min(92vw, 880px); opacity: var(--ticket-opacity); transform: translate(-50%, calc(-50% + var(--ticket-y))) scale(var(--journey-ticket-fit-scale)); will-change: transform, opacity; }
 .journey-ticket .ticket-stack { gap: 12px; }
 .journey-ticket .boarding-pass { box-shadow: 0 28px 80px rgba(34, 58, 64, 0.2); }
 .journey-ticket .boarding-stamp { opacity: var(--stamp-opacity); transform: rotate(-11deg) scale(calc(1.2 - var(--stamp-opacity) * 0.2)); }
-.journey-intro { position: absolute; right: 7vw; bottom: 9vh; z-index: 3; max-width: 350px; padding: 22px; color: #173c44; opacity: var(--intro-opacity); text-align: right; text-shadow: 0 1px 10px rgba(255,255,255,0.75); }
+.journey-intro { position: relative; z-index: 3; width: min(100%, 350px); justify-self: end; padding: 0; color: #173c44; opacity: var(--intro-opacity); text-align: right; text-shadow: 0 1px 10px rgba(255,255,255,0.75); }
 .journey-intro h1 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: clamp(2.5rem, 7vw, 5rem); font-weight: 400; letter-spacing: -0.055em; line-height: 0.9; }
 .journey-intro > p:last-child { font-family: Georgia, "Times New Roman", serif; line-height: 1.55; }
 .journey-reveal { position: absolute; top: 50%; left: 50%; z-index: 4; display: grid; width: min(78vw, 430px); justify-items: center; gap: 5px; color: var(--accent-deep); opacity: var(--reveal-opacity); transform: translate(-50%, -50%); text-align: center; text-shadow: 0 2px 20px white; }
@@ -937,7 +939,7 @@ a { color: inherit; }
   .gate-stage { grid-template-columns: minmax(320px, 480px) minmax(300px, 410px); gap: clamp(46px, 8vw, 100px); }
   .gate-copy { text-align: left; }
   .gate-copy h1 { font-size: clamp(4.1rem, 7vw, 5.6rem); }
-  .journey-ticket { --journey-ticket-scale: 0.84; }
+  .journey-ticket { --journey-ticket-preferred-scale: 0.84; }
   .experience-nav { right: max(18px, env(safe-area-inset-right)); left: max(18px, env(safe-area-inset-left)); }
   .itinerary-list { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
   .travel-details { display: grid; grid-template-columns: minmax(230px, 0.8fr) minmax(340px, 1.3fr); gap: 24px 60px; }
@@ -1094,9 +1096,7 @@ a { color: inherit; }
   .boarding-stamp span, .boarding-stamp small { font-size: 0.31rem; }
   .ticket-stack.cabin-first .ticket-main { padding-top: calc(var(--ticket-band-height) + 12px); padding-bottom: 16px; }
   .ticket-stack.cabin-first .route-row { padding-block: 15px 13px; }
-  .journey-ticket { --journey-ticket-scale: 0.68; width: 116vw; }
-  .journey-ticket--business,
-  .journey-ticket--first { --journey-ticket-lift: clamp(-56px, -7svh, -42px); }
+  .journey-ticket { --journey-ticket-preferred-scale: 0.68; width: 116vw; }
   .experience-nav .experience-back { width: 44px; min-width: 44px; height: 44px; min-height: 44px; gap: 0; padding: 0; border-radius: 50%; }
   .experience-back span { display: none; }
 }

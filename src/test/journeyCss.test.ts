@@ -24,4 +24,18 @@ describe('cloud video viewport sizing', () => {
     expect(journey).not.toContain('getWindowExitScale(window.innerWidth');
     expect(journey).not.toContain('rect.height - window.innerHeight');
   });
+
+  it('keeps tickets and welcome copy in separate clipped grid rows', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    const openingRule = css.match(/\.journey-opening\s*\{([^}]*)\}/)?.[1] ?? '';
+    const slotRule = css.match(/\.journey-ticket-slot\s*\{([^}]*)\}/)?.[1] ?? '';
+    const ticketRule = css.match(/\.journey-ticket\s*\{([^}]*)\}/)?.[1] ?? '';
+    const introRule = css.match(/\.journey-intro\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    expect(openingRule).toContain('grid-template-rows: minmax(0, 1fr) auto');
+    expect(slotRule).toContain('min-height: 0');
+    expect(slotRule).toContain('overflow: clip');
+    expect(ticketRule).toContain('scale(var(--journey-ticket-fit-scale))');
+    expect(introRule).toContain('position: relative');
+  });
 });

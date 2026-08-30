@@ -20,6 +20,36 @@ export type WindowAperture = {
   height: number;
 };
 
+export type TicketFitDimensions = {
+  preferredScale: number;
+  slotWidth: number;
+  slotHeight: number;
+  ticketWidth: number;
+  ticketHeight: number;
+};
+
+/**
+ * Fits the complete ticket stack inside its dedicated grid row. The row clips
+ * as a first-paint safeguard; this scale keeps the passes fully readable once
+ * measurements settle without ever enlarging them past their preferred size.
+ */
+export function getTicketFitScale({
+  preferredScale,
+  slotWidth,
+  slotHeight,
+  ticketWidth,
+  ticketHeight,
+}: TicketFitDimensions): number {
+  const dimensions = [preferredScale, slotWidth, slotHeight, ticketWidth, ticketHeight];
+  if (dimensions.some((value) => !Number.isFinite(value) || value <= 0)) return 0;
+
+  return Math.min(
+    preferredScale,
+    slotWidth / ticketWidth,
+    slotHeight / ticketHeight,
+  );
+}
+
 type WindowGeometry = WindowAperture & {
   originX: number;
   originY: number;

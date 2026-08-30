@@ -1,6 +1,10 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 import { copy } from '../copy';
-import { getWindowAperture, getWindowExitScale } from '../journeyMotion';
+import {
+  getTicketFitScale,
+  getWindowAperture,
+  getWindowExitScale,
+} from '../journeyMotion';
 import type { Invitation, Locale } from '../types';
 import { BoardingPass } from './BoardingPass';
 
@@ -136,9 +140,45 @@ function setCloudAperture(
 export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const ticketSlotRef = useRef<HTMLDivElement>(null);
+  const ticketRef = useRef<HTMLDivElement>(null);
   const cloudVideoRef = useRef<HTMLVideoElement>(null);
   const t = copy[locale];
   const logo = `${import.meta.env.BASE_URL}monogram-a-and-n-display.png`;
+
+  useLayoutEffect(() => {
+    if (reducedMotion) return undefined;
+    const slot = ticketSlotRef.current;
+    const ticket = ticketRef.current;
+    if (!slot || !ticket) return undefined;
+
+    const fitTicket = () => {
+      const slotWidth = slot.clientWidth;
+      const slotHeight = slot.clientHeight;
+      const ticketWidth = ticket.offsetWidth;
+      const ticketHeight = ticket.offsetHeight;
+      if (!slotWidth || !slotHeight || !ticketWidth || !ticketHeight) return;
+
+      const preferredScale = Number.parseFloat(
+        window.getComputedStyle(ticket).getPropertyValue('--journey-ticket-preferred-scale'),
+      ) || 1;
+      const fitScale = getTicketFitScale({
+        preferredScale,
+        slotWidth,
+        slotHeight,
+        ticketWidth,
+        ticketHeight,
+      });
+      ticket.style.setProperty('--journey-ticket-fit-scale', `${fitScale}`);
+    };
+
+    fitTicket();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(fitTicket);
+    observer.observe(slot);
+    observer.observe(ticket);
+    return () => observer.disconnect();
+  }, [invitation, locale, reducedMotion]);
 
   useEffect(() => {
     if (reducedMotion) return undefined;
@@ -167,7 +207,7 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
         windowProgress,
       );
 
-      section.style.setProperty('--ticket-y', `${ticketExit * -38}vh`);
+      section.style.setProperty('--ticket-y', `${ticketExit * stageHeight * -0.38}px`);
       section.style.setProperty('--ticket-opacity', `${1 - ticketExit}`);
       section.style.setProperty('--stamp-opacity', `${phase(progress, 0.03, 0.14) * (1 - ticketExit)}`);
       section.style.setProperty('--cabin-opacity', `${cabinIn * (1 - cabinOut)}`);
@@ -230,17 +270,22 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
           <CloudVideo videoRef={cloudVideoRef} />
         </div>
 
-        <div
-          className={`journey-ticket journey-ticket--${invitation.cabinClass}`}
-          aria-hidden="true"
-        >
-          <BoardingPass invitation={invitation} locale={locale} compact stamped />
-        </div>
+        <div className="journey-opening">
+          <div ref={ticketSlotRef} className="journey-ticket-slot">
+            <div
+              ref={ticketRef}
+              className={`journey-ticket journey-ticket--${invitation.cabinClass}`}
+              aria-hidden="true"
+            >
+              <BoardingPass invitation={invitation} locale={locale} compact stamped />
+            </div>
+          </div>
 
-        <div className="journey-intro">
-          <p className="eyebrow">{t.flightTheme}</p>
-          <h1>{t.welcome}</h1>
-          <p>{t.welcomeBody}</p>
+          <div className="journey-intro">
+            <p className="eyebrow">{t.flightTheme}</p>
+            <h1>{t.welcome}</h1>
+            <p>{t.welcomeBody}</p>
+          </div>
         </div>
 
         <div className="journey-reveal" aria-hidden="true">

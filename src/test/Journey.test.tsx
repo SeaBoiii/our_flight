@@ -42,7 +42,7 @@ describe('animated cloud journey', () => {
     expect(video?.querySelector('source')?.getAttribute('src')).toContain('clouds-ping-pong.mp4');
   });
 
-  it('marks the business and first ticket stacks for their mobile lift', () => {
+  it('marks the business and first ticket stacks for responsive fitting', () => {
     stubIntersectionObserver();
     const businessInvitation = invitationWith(2);
     const { container, rerender } = render(
@@ -59,5 +59,21 @@ describe('animated cloud journey', () => {
       <Journey invitation={firstInvitation} locale="en" reducedMotion={false} />,
     );
     expect(container.querySelector('.journey-ticket--first')).toBeTruthy();
+  });
+
+  it('contains the ticket and welcome copy in separate grid rows', () => {
+    stubIntersectionObserver();
+    const { container } = render(
+      <Journey invitation={invitationWith(2)} locale="en" reducedMotion={false} />,
+    );
+    const opening = container.querySelector('.journey-opening');
+    const slot = container.querySelector('.journey-ticket-slot');
+    const ticket = container.querySelector('.journey-ticket');
+    const intro = container.querySelector('.journey-intro');
+
+    expect(opening?.children[0]).toBe(slot);
+    expect(opening?.children[1]).toBe(intro);
+    expect(slot?.contains(ticket)).toBe(true);
+    expect(slot?.contains(intro)).toBe(false);
   });
 });

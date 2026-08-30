@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { getWindowAperture, getWindowExitScale } from '../journeyMotion';
+import {
+  getTicketFitScale,
+  getWindowAperture,
+  getWindowExitScale,
+} from '../journeyMotion';
 
 describe('airplane-window camera motion', () => {
   const pointIsInsideRoundedAperture = (
@@ -54,5 +58,21 @@ describe('airplane-window camera motion', () => {
 
     expect(advanced.width).toBeCloseTo(initial.width * 3);
     expect(advanced.height).toBeCloseTo(initial.height * 3);
+  });
+});
+
+describe('ticket stack viewport fit', () => {
+  it.each([
+    { slotWidth: 394, slotHeight: 570, ticketWidth: 500, ticketHeight: 820, preferredScale: 0.68 },
+    { slotWidth: 404, slotHeight: 594, ticketWidth: 520, ticketHeight: 860, preferredScale: 0.68 },
+    { slotWidth: 357, slotHeight: 390, ticketWidth: 500, ticketHeight: 900, preferredScale: 0.68 },
+    { slotWidth: 324, slotHeight: 330, ticketWidth: 480, ticketHeight: 880, preferredScale: 0.68 },
+  ])('keeps a complete two-pass stack inside a $slotWidth x $slotHeight slot', (dimensions) => {
+    const scale = getTicketFitScale(dimensions);
+
+    expect(scale).toBeGreaterThan(0);
+    expect(scale).toBeLessThanOrEqual(dimensions.preferredScale);
+    expect(dimensions.ticketWidth * scale).toBeLessThanOrEqual(dimensions.slotWidth);
+    expect(dimensions.ticketHeight * scale).toBeLessThanOrEqual(dimensions.slotHeight);
   });
 });
