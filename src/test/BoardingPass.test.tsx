@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { BoardingPass } from '../components/BoardingPass';
+import { invitationForClass } from '../invitations';
 import { invitationWith } from './fixtures';
 
 describe('BoardingPass', () => {
@@ -22,6 +23,15 @@ describe('BoardingPass', () => {
     expect(screen.getAllByText('AN2208').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText('Crowne Plaza at Changi Airport')).toBeTruthy();
     expect(screen.getAllByText('Chengal').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('renders a bride reception-only pass without Nikah', () => {
+    render(<BoardingPass invitation={invitationForClass('economy', 'bride')} locale="en" />);
+
+    expect(screen.getByText("Bride's Reception")).toBeTruthy();
+    expect(screen.getAllByText('12:00–16:00').length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('Nikah')).toBeNull();
+    expect(screen.queryByText('10:00–16:00')).toBeNull();
   });
 
   it('keeps Walimatul Urus in the Malay ticket', () => {

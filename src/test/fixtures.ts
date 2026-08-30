@@ -44,6 +44,7 @@ export function invitationWith(eventCount = 1, rsvpStatus: RsvpStatus = 'preview
   const cabinClass = eventCount === 2 ? 'business' : 'economy';
 
   return {
+    side: 'groom',
     cabinClass,
     cabinLabel: cabinClass === 'business'
       ? { en: 'Business', ms: 'Kelas Perniagaan' }

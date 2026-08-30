@@ -2,13 +2,15 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import InvitationExperience from '../components/InvitationExperience';
 import { copy } from '../copy';
+import { invitationForClass } from '../invitations';
+import type { Invitation } from '../types';
 import { invitationWith } from './fixtures';
 
-function renderExperience() {
+function renderExperience(invitation: Invitation = invitationWith()) {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
   return render(
     <InvitationExperience
-      invitation={invitationWith()}
+      invitation={invitation}
       accessCredential={{ kind: 'class-code', value: 'ALPHA123' }}
       fingerprint="experience-fingerprint"
       locale="en"
@@ -46,6 +48,15 @@ describe('invitation details', () => {
     expect(screen.getByText('What began with an ordinary conversation grew into friendship, and then a quiet certainty.')).toBeTruthy();
     expect(screen.getByText('Through shared days, long prayers, and all the ordinary moments between, we found a home in one another.')).toBeTruthy();
     expect(screen.getByText('By the grace of Allah, we are ready for our next chapter.')).toBeTruthy();
+  });
+
+  it('keeps Nikah out of every reception-only guest-facing description', () => {
+    const { container } = renderExperience(invitationForClass('economy', 'bride'));
+    const rsvp = container.querySelector('.rsvp-section') as HTMLElement;
+
+    expect(screen.getAllByText("Bride's Reception").length).toBeGreaterThan(0);
+    expect(within(rsvp).getByText("Bride's Reception")).toBeTruthy();
+    expect(container.textContent).not.toMatch(/nikah/i);
   });
 
   it('keeps Getting here collapsed until the guest opens it', () => {

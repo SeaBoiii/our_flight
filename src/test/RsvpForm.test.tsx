@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { RsvpForm } from '../components/RsvpForm';
+import { invitationForClass } from '../invitations';
 import { invitationWith } from './fixtures';
 
 describe('RSVP preview mode', () => {
@@ -31,6 +32,20 @@ describe('RSVP preview mode', () => {
     expect(screen.getAllByText('Will you attend the wedding ceremony?')).toHaveLength(2);
     expect(screen.getByText('Saturday, 21 August 2027')).toBeTruthy();
     expect(screen.getByText('Sunday, 22 August 2027')).toBeTruthy();
+  });
+
+  it('describes a reception-only response without mentioning Nikah', () => {
+    const { container } = render(
+      <RsvpForm
+        invitation={invitationForClass('economy', 'bride')}
+        accessCredential={{ kind: 'class-code', value: 'ECHO1234' }}
+        fingerprint="bride-reception-fingerprint"
+        locale="en"
+      />,
+    );
+
+    expect(screen.getByText("Bride's Reception")).toBeTruthy();
+    expect(container.textContent).not.toMatch(/nikah/i);
   });
 
   it('shows linked validation errors before any open RSVP request is sent', () => {

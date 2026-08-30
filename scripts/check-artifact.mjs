@@ -27,6 +27,10 @@ const configuredCodeHashes = new Set([
   process.env.INVITE_CODE_HASH_PREMIUM,
   process.env.INVITE_CODE_HASH_BUSINESS,
   process.env.INVITE_CODE_HASH_FIRST,
+  process.env.INVITE_CODE_HASH_BRIDE_ECONOMY,
+  process.env.INVITE_CODE_HASH_BRIDE_PREMIUM,
+  process.env.INVITE_CODE_HASH_BRIDE_BUSINESS,
+  process.env.INVITE_CODE_HASH_BRIDE_FIRST,
 ].filter((value) => /^[a-f0-9]{64}$/i.test(value ?? '')).map((value) => value.toLowerCase()));
 const configuredLegacyTokenHashes = new Set([
   process.env.INVITE_TOKEN_HASH_ECONOMY,
@@ -49,7 +53,7 @@ const sourceSecretPatterns = [
   },
   {
     label: 'raw invitation-code assignment',
-    pattern: /(?:INVITE_CODE_(?:ECONOMY|PREMIUM|BUSINESS|FIRST)(?!_HASH)|(?:invite|invitation)Code)\s*[:=]\s*["'`][A-Za-z0-9 -]{8,24}["'`]/i,
+    pattern: /(?:INVITE_CODE_(?:BRIDE_)?(?:ECONOMY|PREMIUM|BUSINESS|FIRST)(?!_HASH)|(?:invite|invitation)Code)\s*[:=]\s*["'`][A-Za-z0-9 -]{8,24}["'`]/i,
   },
   {
     label: 'hard-coded server secret',
@@ -103,7 +107,7 @@ async function localReleaseValues() {
     if (!(await exists(releaseFile))) continue;
     const text = await readFile(releaseFile, 'utf8');
     for (const line of text.split(/\r?\n/)) {
-      const match = /^\s*(?:Initial shared passcode|Economy token|Premium Economy token|Business token|First Class token|Economy code|Premium Economy code|Business code|First Class code)\s*:\s*(\S+)\s*$/i.exec(line);
+      const match = /^\s*(?:Initial shared passcode|Economy token|Premium Economy token|Business token|First Class token|(?:Bride |Groom )?Economy code|(?:Bride |Groom )?Premium Economy code|(?:Bride |Groom )?Business code|(?:Bride |Groom )?First Class code)\s*:\s*(\S+)\s*$/i.exec(line);
       if (match?.[1]) values.push(match[1]);
       for (const route of line.matchAll(/#\/i\/([A-Za-z0-9_-]{20,160})/g)) values.push(route[1]);
     }
@@ -116,7 +120,7 @@ function hash(bytes) {
 }
 
 function containsConfiguredRawCode(text) {
-  for (const match of text.matchAll(/\bAN(?:[-\s]?[A-Z0-9]){6,12}\b/gi)) {
+  for (const match of text.matchAll(/\b(?:AN|NUR)(?:[-\s]?[A-Z0-9]){6,12}\b/gi)) {
     const canonical = match[0].normalize('NFKC').trim().toUpperCase()
       .replace(/[\s\u002D\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]+/g, '');
     if (configuredCodeHashes.has(hash(Buffer.from(canonical)))) return true;

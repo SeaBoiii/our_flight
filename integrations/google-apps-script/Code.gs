@@ -12,6 +12,10 @@
  *   INVITE_CODE_HASH_PREMIUM          lowercase SHA-256 hex
  *   INVITE_CODE_HASH_BUSINESS         lowercase SHA-256 hex
  *   INVITE_CODE_HASH_FIRST            lowercase SHA-256 hex
+ *   INVITE_CODE_HASH_BRIDE_ECONOMY    lowercase SHA-256 hex
+ *   INVITE_CODE_HASH_BRIDE_PREMIUM    lowercase SHA-256 hex
+ *   INVITE_CODE_HASH_BRIDE_BUSINESS   lowercase SHA-256 hex
+ *   INVITE_CODE_HASH_BRIDE_FIRST      lowercase SHA-256 hex
  *   LEGACY_INVITES_ENABLED            true | false (defaults to false)
  *
  * setupWorkbook() records SPREADSHEET_ID automatically. Never store raw
@@ -27,7 +31,8 @@ const BRIDGE_TYPE = 'our-flight:rsvp-result';
 const CURRENT_BRIDGE_VERSION = 2;
 const LEGACY_BRIDGE_VERSION = 1;
 const MAX_PAYLOAD_LENGTH = 16384;
-const PUBLIC_RESPONSE_COLUMNS = 12;
+const PUBLIC_RESPONSE_COLUMNS = 13;
+const LEGACY_RESPONSE_COLUMNS = 14;
 const RESPONSE_HEADERS = [
   'Response ID',
   'Submitted at',
@@ -41,20 +46,25 @@ const RESPONSE_HEADERS = [
   '22 Aug attendance',
   '22 Aug party size',
   'Message',
+  'Invitation side',
   'Access credential hash',
   'Payload digest',
 ];
 const CODE_INVITATIONS = [
-  { cabinClass: 'economy', scope: 'day22', property: 'INVITE_CODE_HASH_ECONOMY' },
-  { cabinClass: 'premium-economy', scope: 'day22', property: 'INVITE_CODE_HASH_PREMIUM' },
-  { cabinClass: 'business', scope: 'both-days', property: 'INVITE_CODE_HASH_BUSINESS' },
-  { cabinClass: 'first', scope: 'both-days', property: 'INVITE_CODE_HASH_FIRST' },
+  { invitationSide: 'groom', cabinClass: 'economy', scope: 'day22', property: 'INVITE_CODE_HASH_ECONOMY' },
+  { invitationSide: 'groom', cabinClass: 'premium-economy', scope: 'day22', property: 'INVITE_CODE_HASH_PREMIUM' },
+  { invitationSide: 'groom', cabinClass: 'business', scope: 'both-days', property: 'INVITE_CODE_HASH_BUSINESS' },
+  { invitationSide: 'groom', cabinClass: 'first', scope: 'both-days', property: 'INVITE_CODE_HASH_FIRST' },
+  { invitationSide: 'bride', cabinClass: 'economy', scope: 'day21-reception', property: 'INVITE_CODE_HASH_BRIDE_ECONOMY' },
+  { invitationSide: 'bride', cabinClass: 'premium-economy', scope: 'day21-reception', property: 'INVITE_CODE_HASH_BRIDE_PREMIUM' },
+  { invitationSide: 'bride', cabinClass: 'business', scope: 'day21-full', property: 'INVITE_CODE_HASH_BRIDE_BUSINESS' },
+  { invitationSide: 'bride', cabinClass: 'first', scope: 'both-days', property: 'INVITE_CODE_HASH_BRIDE_FIRST' },
 ];
 const LEGACY_INVITATIONS = [
-  { cabinClass: 'economy', scope: 'day22', property: 'INVITE_TOKEN_HASH_ECONOMY' },
-  { cabinClass: 'premium-economy', scope: 'day22', property: 'INVITE_TOKEN_HASH_PREMIUM' },
-  { cabinClass: 'business', scope: 'both-days', property: 'INVITE_TOKEN_HASH_BUSINESS' },
-  { cabinClass: 'first', scope: 'both-days', property: 'INVITE_TOKEN_HASH_FIRST' },
+  { invitationSide: 'groom', cabinClass: 'economy', scope: 'day22', property: 'INVITE_TOKEN_HASH_ECONOMY' },
+  { invitationSide: 'groom', cabinClass: 'premium-economy', scope: 'day22', property: 'INVITE_TOKEN_HASH_PREMIUM' },
+  { invitationSide: 'groom', cabinClass: 'business', scope: 'both-days', property: 'INVITE_TOKEN_HASH_BUSINESS' },
+  { invitationSide: 'groom', cabinClass: 'first', scope: 'both-days', property: 'INVITE_TOKEN_HASH_FIRST' },
 ];
 
 function setupWorkbook() {
@@ -99,7 +109,14 @@ function verifyConfiguration() {
   const legacyEnabled = legacyInvitesEnabled_(properties);
   if (legacyEnabled) configuredLegacyInvitations_(properties);
   console.log('Configuration valid. RSVP status: %s. Legacy invitations: %s.', status, legacyEnabled);
-  return { ok: true, rsvpStatus: status, invitationClasses: 4, legacyInvitesEnabled: legacyEnabled };
+  return {
+    ok: true,
+    rsvpStatus: status,
+    invitationClasses: 4,
+    invitationSides: 2,
+    invitationCredentials: CODE_INVITATIONS.length,
+    legacyInvitesEnabled: legacyEnabled,
+  };
 }
 
 function doPost(event) {
@@ -248,6 +265,7 @@ function normalizeSubmission_(payload, properties, bridgeVersion) {
 
   return {
     responseId: responseId,
+    invitationSide: invitation.invitationSide,
     cabinClass: invitation.cabinClass,
     scope: invitation.scope,
     locale: locale,
@@ -262,7 +280,14 @@ function normalizeSubmission_(payload, properties, bridgeVersion) {
 function normalizeResponses_(value, scope) {
   if (!Array.isArray(value)) throw validationError_('invalid_submission', ['responses']);
 
-  const expectedIds = scope === 'both-days' ? ['day21', 'day22'] : ['day22'];
+  const expectedIdsByScope = {
+    'day21-reception': ['day21'],
+    'day21-full': ['day21'],
+    'day22': ['day22'],
+    'both-days': ['day21', 'day22'],
+  };
+  const expectedIds = expectedIdsByScope[scope];
+  if (!expectedIds) throw validationError_('invalid_submission', ['responses']);
   if (value.length !== expectedIds.length) throw validationError_('invalid_submission', ['responses']);
 
   const byId = {};
@@ -331,6 +356,7 @@ function storeSubmission_(submission, properties) {
     day22.attendance || '',
     day22.partySize || '',
     safeSheetText_(submission.message),
+    submission.invitationSide,
     submission.credentialHash,
     submission.digest,
   ];
@@ -349,10 +375,11 @@ function configuredLegacyInvitations_(properties) {
 function configuredInvitationSet_(properties, definitions) {
   const seen = {};
   return definitions.map(function (invitation) {
-    const credentialHash = String(properties.getProperty(invitation.property) || '').trim().toLowerCase();
+    const credentialHash = String(properties.getProperty(invitation.property) || '');
     if (!isSha256_(credentialHash) || seen[credentialHash]) throw validationError_('not_configured', []);
     seen[credentialHash] = true;
     return {
+      invitationSide: invitation.invitationSide,
       cabinClass: invitation.cabinClass,
       scope: invitation.scope,
       credentialHash: credentialHash,
@@ -492,9 +519,50 @@ function findResponseRow_(sheet, responseId) {
   return match ? match.getRow() : null;
 }
 
+function ensureResponseColumnCapacity_(sheet, width) {
+  const maxColumns = sheet.getMaxColumns();
+  if (maxColumns < width) sheet.insertColumnsAfter(maxColumns, width - maxColumns);
+}
+
+/**
+ * Version 1 of the workbook stored credential metadata in M:N. Insert the new
+ * public side column at M so A:L never move, then retain the metadata verbatim
+ * in N:O. Blank side cells in existing rows are old groom-side submissions.
+ */
+function migrateResponseSchema_(sheet) {
+  ensureResponseColumnCapacity_(sheet, LEGACY_RESPONSE_COLUMNS);
+  const metadataHeaders = sheet.getRange(1, PUBLIC_RESPONSE_COLUMNS, 1, 2).getDisplayValues()[0];
+  const isLegacySchema = metadataHeaders[0] === 'Access credential hash'
+    && metadataHeaders[1] === 'Payload digest';
+  const isCurrentSchema = metadataHeaders[0] === 'Invitation side'
+    && metadataHeaders[1] === 'Access credential hash';
+  const isBlankSchema = metadataHeaders[0] === '' && metadataHeaders[1] === '';
+
+  if (isLegacySchema) {
+    sheet.insertColumnBefore(PUBLIC_RESPONSE_COLUMNS);
+  } else if (!isCurrentSchema && !isBlankSchema) {
+    throw new Error('Responses sheet metadata columns are not recognized. Restore the expected headers before setup.');
+  }
+
+  ensureResponseColumnCapacity_(sheet, RESPONSE_HEADERS.length);
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+
+  const sideRange = sheet.getRange(2, PUBLIC_RESPONSE_COLUMNS, lastRow - 1, 1);
+  const sides = sideRange.getDisplayValues();
+  const responseIds = sheet.getRange(2, 1, lastRow - 1, 1).getDisplayValues();
+  let changed = false;
+  const backfilled = sides.map(function (row, index) {
+    if (String(row[0] || '').trim() !== '' || String(responseIds[index][0] || '').trim() === '') return [row[0]];
+    changed = true;
+    return ['groom'];
+  });
+  if (changed) sideRange.setValues(backfilled);
+}
+
 function formatResponsesSheet_(sheet) {
+  migrateResponseSchema_(sheet);
   const width = RESPONSE_HEADERS.length;
-  if (sheet.getMaxColumns() < width) sheet.insertColumnsAfter(sheet.getMaxColumns(), width - sheet.getMaxColumns());
   sheet.getRange(1, 1, 1, width).setValues([RESPONSE_HEADERS]);
   sheet.setFrozenRows(1);
   sheet.setTabColor('#17606a');
@@ -514,15 +582,94 @@ function formatResponsesSheet_(sheet) {
   sheet.setColumnWidth(7, 210);
   sheet.setColumnWidths(8, 4, 145);
   sheet.setColumnWidth(12, 330);
+  sheet.setColumnWidth(13, 120);
   sheet.getRange(1, 1, sheet.getMaxRows(), width).setVerticalAlignment('middle');
 
   const existingFilter = sheet.getFilter();
   if (existingFilter) existingFilter.remove();
   sheet.getRange(1, 1, sheet.getMaxRows(), PUBLIC_RESPONSE_COLUMNS).createFilter();
+  sheet.showColumns(PUBLIC_RESPONSE_COLUMNS);
   sheet.hideColumns(PUBLIC_RESPONSE_COLUMNS + 1, width - PUBLIC_RESPONSE_COLUMNS);
 }
 
+function summaryHeaders_() {
+  return [[
+    'Day / metric',
+    'Economy',
+    'Premium Economy',
+    'Business',
+    'First Class',
+    'Total',
+  ]];
+}
+
+function summaryMetricLabels_() {
+  return [
+    ['21 Aug · attending parties'],
+    ['21 Aug · guest headcount'],
+    ['21 Aug · not attending'],
+    ['22 Aug · attending parties'],
+    ['22 Aug · guest headcount'],
+    ['22 Aug · not attending'],
+  ];
+}
+
+function formatSummaryBlock_(sheet, titleRow, dataRow, title, titleColor) {
+  const headerRow = dataRow - 1;
+  sheet.getRange(titleRow, 1, 1, 6).merge().setValue(title);
+  sheet.getRange(titleRow, 1, 1, 6)
+    .setBackground(titleColor)
+    .setFontColor('#fff7e8')
+    .setFontWeight('bold')
+    .setHorizontalAlignment('center');
+  sheet.getRange(headerRow, 1, 1, 6).setValues(summaryHeaders_())
+    .setBackground('#d7ae62')
+    .setFontColor('#122f36')
+    .setFontWeight('bold');
+  sheet.getRange(dataRow, 1, 6, 1).setValues(summaryMetricLabels_());
+  sheet.getRange(dataRow, 1, 6, 6)
+    .setBorder(true, true, true, true, true, true, '#c8d8dc', SpreadsheetApp.BorderStyle.SOLID);
+  sheet.getRange(dataRow + 1, 1, 1, 6).setBackground('#edf6f7');
+  sheet.getRange(dataRow + 4, 1, 1, 6).setBackground('#edf6f7');
+  sheet.getRange(dataRow, 2, 6, 5).setHorizontalAlignment('center').setNumberFormat('0');
+}
+
+function setSideSummaryFormulas_(sheet, dataRow, invitationSide) {
+  for (let column = 2; column <= 5; column += 1) {
+    const letter = String.fromCharCode(64 + column);
+    const sideCriteria = 'Responses!$M:$M,"' + invitationSide + '",';
+    sheet.getRange(dataRow, column).setFormula('=COUNTIFS(' + sideCriteria + 'Responses!$D:$D,' + letter + '$3,Responses!$H:$H,"attending")');
+    sheet.getRange(dataRow + 1, column).setFormula('=SUMIFS(Responses!$I:$I,' + sideCriteria + 'Responses!$D:$D,' + letter + '$3,Responses!$H:$H,"attending")');
+    sheet.getRange(dataRow + 2, column).setFormula('=COUNTIFS(' + sideCriteria + 'Responses!$D:$D,' + letter + '$3,Responses!$H:$H,"not-attending")');
+    sheet.getRange(dataRow + 3, column).setFormula('=COUNTIFS(' + sideCriteria + 'Responses!$D:$D,' + letter + '$3,Responses!$J:$J,"attending")');
+    sheet.getRange(dataRow + 4, column).setFormula('=SUMIFS(Responses!$K:$K,' + sideCriteria + 'Responses!$D:$D,' + letter + '$3,Responses!$J:$J,"attending")');
+    sheet.getRange(dataRow + 5, column).setFormula('=COUNTIFS(' + sideCriteria + 'Responses!$D:$D,' + letter + '$3,Responses!$J:$J,"not-attending")');
+  }
+  for (let row = dataRow; row < dataRow + 6; row += 1) {
+    sheet.getRange(row, 6).setFormula('=SUM(B' + row + ':E' + row + ')');
+  }
+}
+
+function setCombinedSummaryFormulas_(sheet, dataRow, groomDataRow, brideDataRow) {
+  for (let column = 2; column <= 5; column += 1) {
+    const letter = String.fromCharCode(64 + column);
+    for (let offset = 0; offset < 6; offset += 1) {
+      sheet.getRange(dataRow + offset, column).setFormula(
+        '=SUM(' + letter + (groomDataRow + offset) + ',' + letter + (brideDataRow + offset) + ')'
+      );
+    }
+  }
+  for (let row = dataRow; row < dataRow + 6; row += 1) {
+    sheet.getRange(row, 6).setFormula('=SUM(B' + row + ':E' + row + ')');
+  }
+}
+
 function formatSummarySheet_(sheet) {
+  const groomDataRow = 6;
+  const brideDataRow = 15;
+  const combinedDataRow = 24;
+
+  sheet.getRange('A1:F32').breakApart();
   sheet.clear();
   sheet.setTabColor('#d7ae62');
   sheet.getRange('A1:F1').merge().setValue('ALEEM & NURULAIN · RSVP SUMMARY');
@@ -538,47 +685,22 @@ function formatSummarySheet_(sheet) {
 
   sheet.getRange('B3:E3').setValues([['economy', 'premium-economy', 'business', 'first']]);
   sheet.hideRows(3);
-  sheet.getRange('A4:F4').setValues([[
-    'Day / metric',
-    'Economy',
-    'Premium Economy',
-    'Business',
-    'First Class',
-    'Total',
-  ]]);
-  sheet.getRange('A5:A10').setValues([
-    ['21 Aug · attending parties'],
-    ['21 Aug · guest headcount'],
-    ['21 Aug · not attending'],
-    ['22 Aug · attending parties'],
-    ['22 Aug · guest headcount'],
-    ['22 Aug · not attending'],
-  ]);
 
-  for (let column = 2; column <= 5; column += 1) {
-    const letter = String.fromCharCode(64 + column);
-    sheet.getRange(5, column).setFormula('=COUNTIFS(Responses!$D:$D,' + letter + '$3,Responses!$H:$H,"attending")');
-    sheet.getRange(6, column).setFormula('=SUMIFS(Responses!$I:$I,Responses!$D:$D,' + letter + '$3,Responses!$H:$H,"attending")');
-    sheet.getRange(7, column).setFormula('=COUNTIFS(Responses!$D:$D,' + letter + '$3,Responses!$H:$H,"not-attending")');
-    sheet.getRange(8, column).setFormula('=COUNTIFS(Responses!$D:$D,' + letter + '$3,Responses!$J:$J,"attending")');
-    sheet.getRange(9, column).setFormula('=SUMIFS(Responses!$K:$K,Responses!$D:$D,' + letter + '$3,Responses!$J:$J,"attending")');
-    sheet.getRange(10, column).setFormula('=COUNTIFS(Responses!$D:$D,' + letter + '$3,Responses!$J:$J,"not-attending")');
-  }
-  for (let row = 5; row <= 10; row += 1) sheet.getRange(row, 6).setFormula('=SUM(B' + row + ':E' + row + ')');
+  formatSummaryBlock_(sheet, 4, groomDataRow, 'GROOM INVITATIONS', '#17606a');
+  setSideSummaryFormulas_(sheet, groomDataRow, 'groom');
+  formatSummaryBlock_(sheet, 13, brideDataRow, 'BRIDE INVITATIONS', '#9b5968');
+  setSideSummaryFormulas_(sheet, brideDataRow, 'bride');
+  formatSummaryBlock_(sheet, 22, combinedDataRow, 'COMBINED TOTALS', '#0a3640');
+  setCombinedSummaryFormulas_(sheet, combinedDataRow, groomDataRow, brideDataRow);
 
-  sheet.getRange('A4:F4').setBackground('#d7ae62').setFontColor('#122f36').setFontWeight('bold');
-  sheet.getRange('A5:F10').setBorder(true, true, true, true, true, true, '#c8d8dc', SpreadsheetApp.BorderStyle.SOLID);
-  sheet.getRange('A6:F6').setBackground('#edf6f7');
-  sheet.getRange('A9:F9').setBackground('#edf6f7');
-  sheet.getRange('B5:F10').setHorizontalAlignment('center').setNumberFormat('0');
-  sheet.getRange('A12').setValue('RSVP deadline');
-  sheet.getRange('B12').setValue(new Date('2027-08-08T00:00:00+08:00')).setNumberFormat('dddd, dd mmmm yyyy');
-  sheet.getRange('A13').setValue('Latest update');
-  sheet.getRange('B13').setFormula('=IF(COUNTA(Responses!$C$2:$C)=0,"",MAX(Responses!$C$2:$C))').setNumberFormat('dd mmm yyyy, hh:mm:ss');
-  sheet.getRange('A12:A13').setFontWeight('bold').setFontColor('#34565e');
-  sheet.setFrozenRows(4);
+  sheet.getRange('A31').setValue('RSVP deadline');
+  sheet.getRange('B31').setValue(new Date('2027-08-08T00:00:00+08:00')).setNumberFormat('dddd, dd mmmm yyyy');
+  sheet.getRange('A32').setValue('Latest update');
+  sheet.getRange('B32').setFormula('=IF(COUNTA(Responses!$C$2:$C)=0,"",MAX(Responses!$C$2:$C))').setNumberFormat('dd mmm yyyy, hh:mm:ss');
+  sheet.getRange('A31:A32').setFontWeight('bold').setFontColor('#34565e');
+  sheet.setFrozenRows(5);
   sheet.setColumnWidth(1, 230);
   sheet.setColumnWidths(2, 5, 145);
   sheet.setRowHeight(1, 42);
-  sheet.getRange('A1:F13').setVerticalAlignment('middle');
+  sheet.getRange('A1:F32').setVerticalAlignment('middle');
 }

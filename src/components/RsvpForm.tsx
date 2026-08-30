@@ -214,6 +214,7 @@ export function RsvpForm({
               <fieldset className="attendance-card" key={inviteEvent.id}>
                 <legend>
                   <span>{localized(inviteEvent.dateLabel, locale)}</span>
+                  <span>{localized(inviteEvent.title, locale)}</span>
                   {t.attendanceQuestion}
                 </legend>
                 {inviteEvent.segments.length > 1 ? <p className="field-help">{t.oneAnswer}</p> : null}

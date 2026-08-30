@@ -95,5 +95,7 @@ describe('Apps Script response bridge origins', () => {
       credential: { kind: 'class-code', value: 'ALPHA123' },
       responses: [{ eventId: 'day22', attendance: 'attending', partySize: 2 }],
     });
+    expect(submittedPayload).not.toHaveProperty('side');
+    expect(submittedPayload).not.toHaveProperty('scope');
   });
 });

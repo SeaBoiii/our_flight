@@ -3,9 +3,9 @@ import { BoardingPass } from './components/BoardingPass';
 import { LanguageToggle } from './components/LanguageToggle';
 import { copy } from './copy';
 import {
-  classForAccessCredential,
+  accessForCredential,
   invitationConfigurationReady,
-  invitationForClass,
+  invitationForAccess,
   isLegacyInvitationToken,
   isNormalizedInvitationCode,
   legacyInvitationConfigurationReady,
@@ -75,7 +75,10 @@ export default function App() {
       setRestoring(true);
       try {
         const saved = readSession();
-        if (!saved) return;
+        if (!saved) {
+          clearSession();
+          return;
+        }
         const savedExpired = Date.parse(saved.expiresAt) <= Date.now();
         const legacyUnavailable = saved.credential.kind === 'legacy-token' && !legacyInvitesEnabled();
         const wrongLegacyLink = Boolean(incomingToken && (
@@ -90,19 +93,24 @@ export default function App() {
           return;
         }
 
-        const [nextFingerprint, cabinClass] = await Promise.all([
+        const [nextFingerprint, invitationAccess] = await Promise.all([
           fingerprintCredential(saved.credential),
-          classForAccessCredential(saved.credential),
+          accessForCredential(saved.credential),
         ]);
         if (cancelled || accessFlowVersionRef.current !== flowVersion) return;
-        if (!cabinClass || cabinClass !== saved.cabinClass || nextFingerprint !== saved.fingerprint) {
+        if (
+          !invitationAccess
+          || invitationAccess.side !== saved.side
+          || invitationAccess.cabinClass !== saved.cabinClass
+          || nextFingerprint !== saved.fingerprint
+        ) {
           clearSession();
           return;
         }
         setCredential(saved.credential);
         setFingerprint(nextFingerprint);
         setExpiresAt(saved.expiresAt);
-        setInvitation(invitationForClass(cabinClass));
+        setInvitation(invitationForAccess(invitationAccess));
         if (saved.credential.kind === 'legacy-token') {
           setLegacyToken(null);
           removeInvitationFragment();
@@ -207,12 +215,12 @@ export default function App() {
         nextCredential = { kind: 'class-code', value: normalizedCode };
       }
 
-      const [nextFingerprint, cabinClass] = await Promise.all([
+      const [nextFingerprint, invitationAccess] = await Promise.all([
         fingerprintCredential(nextCredential),
-        classForAccessCredential(nextCredential),
+        accessForCredential(nextCredential),
       ]);
       if (accessFlowVersionRef.current !== flowVersion) return;
-      if (!cabinClass) {
+      if (!invitationAccess) {
         setGateError('invalid');
         return;
       }
@@ -221,14 +229,15 @@ export default function App() {
       setCredential(nextCredential);
       setFingerprint(nextFingerprint);
       setExpiresAt(nextExpiry);
-      setInvitation(invitationForClass(cabinClass));
+      setInvitation(invitationForAccess(invitationAccess));
       setAccessInput('');
       saveSession({
-        version: 2,
+        version: 3,
         unlocked: true,
         expiresAt: nextExpiry,
         fingerprint: nextFingerprint,
-        cabinClass,
+        side: invitationAccess.side,
+        cabinClass: invitationAccess.cabinClass,
         credential: nextCredential,
       });
       if (nextCredential.kind === 'legacy-token') {

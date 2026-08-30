@@ -2,12 +2,18 @@ import type {
   AccessCredential,
   CabinClass,
   Invitation,
+  InvitationAccess,
   InvitationEvent,
+  InvitationSide,
   InvitationScope,
   LocalizedText,
   RsvpStatus,
 } from './types';
-import { programmeByDay } from './programme';
+import {
+  day21BrideReception,
+  day21NikahAndReception,
+  day22GroomReception,
+} from './programme';
 
 const labels: Record<CabinClass, LocalizedText> = {
   economy: { en: 'Economy', ms: 'Kelas Ekonomi' },
@@ -16,7 +22,23 @@ const labels: Record<CabinClass, LocalizedText> = {
   first: { en: 'First Class', ms: 'Kelas Pertama' },
 };
 
-const day21: InvitationEvent = {
+const day21Reception: InvitationEvent = {
+  id: 'day21',
+  flightCode: 'AN2108',
+  dateIso: '2027-08-21',
+  dateLabel: { en: 'Saturday, 21 August 2027', ms: 'Sabtu, 21 Ogos 2027' },
+  title: { en: "Bride's Reception", ms: 'Resepsi Pengantin Perempuan' },
+  time: '12:00–16:00',
+  segments: [
+    { title: { en: "Bride's Reception", ms: 'Resepsi Pengantin Perempuan' }, time: '12:00–16:00' },
+  ],
+  programme: day21BrideReception,
+  calendarSegments: [
+    { title: { en: "Bride's Reception", ms: 'Resepsi Pengantin Perempuan' }, startLocal: '20270821T120000', endLocal: '20270821T160000' },
+  ],
+};
+
+const day21Full: InvitationEvent = {
   id: 'day21',
   flightCode: 'AN2108',
   dateIso: '2027-08-21',
@@ -27,7 +49,7 @@ const day21: InvitationEvent = {
     { title: { en: 'Nikah', ms: 'Nikah' }, time: '10:00–12:00' },
     { title: { en: "Bride's Reception", ms: 'Resepsi Pengantin Perempuan' }, time: '12:00–16:00' },
   ],
-  programme: programmeByDay.day21,
+  programme: day21NikahAndReception,
   calendarSegments: [
     { title: { en: 'Nikah', ms: 'Nikah' }, startLocal: '20270821T100000', endLocal: '20270821T120000' },
     { title: { en: "Bride's Reception", ms: 'Resepsi Pengantin Perempuan' }, startLocal: '20270821T120000', endLocal: '20270821T160000' },
@@ -44,7 +66,7 @@ const day22: InvitationEvent = {
   segments: [
     { title: { en: "Groom's Reception", ms: 'Walimatul Urus' }, time: '12:00–16:00' },
   ],
-  programme: programmeByDay.day22,
+  programme: day22GroomReception,
   calendarSegments: [
     { title: { en: "Groom's Reception", ms: 'Walimatul Urus' }, startLocal: '20270822T120000', endLocal: '20270822T160000' },
   ],
@@ -54,13 +76,19 @@ const CLASS_CODE_PATTERN = /^[A-Z0-9]{8,12}$/;
 const LEGACY_TOKEN_PATTERN = /^[A-Za-z0-9_-]{20,160}$/;
 const CODE_SEPARATOR_PATTERN = /[\s\u002D\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]+/g;
 
-function configuredClassCodeHashes(): Record<CabinClass, string> {
-  return {
-    economy: import.meta.env.VITE_INVITE_CODE_HASH_ECONOMY ?? '',
-    'premium-economy': import.meta.env.VITE_INVITE_CODE_HASH_PREMIUM ?? '',
-    business: import.meta.env.VITE_INVITE_CODE_HASH_BUSINESS ?? '',
-    first: import.meta.env.VITE_INVITE_CODE_HASH_FIRST ?? '',
-  };
+type ClassCodeConfiguration = InvitationAccess & { hash: string };
+
+function configuredClassCodeHashes(): ClassCodeConfiguration[] {
+  return [
+    { side: 'groom', cabinClass: 'economy', hash: import.meta.env.VITE_INVITE_CODE_HASH_ECONOMY ?? '' },
+    { side: 'groom', cabinClass: 'premium-economy', hash: import.meta.env.VITE_INVITE_CODE_HASH_PREMIUM ?? '' },
+    { side: 'groom', cabinClass: 'business', hash: import.meta.env.VITE_INVITE_CODE_HASH_BUSINESS ?? '' },
+    { side: 'groom', cabinClass: 'first', hash: import.meta.env.VITE_INVITE_CODE_HASH_FIRST ?? '' },
+    { side: 'bride', cabinClass: 'economy', hash: import.meta.env.VITE_INVITE_CODE_HASH_BRIDE_ECONOMY ?? '' },
+    { side: 'bride', cabinClass: 'premium-economy', hash: import.meta.env.VITE_INVITE_CODE_HASH_BRIDE_PREMIUM ?? '' },
+    { side: 'bride', cabinClass: 'business', hash: import.meta.env.VITE_INVITE_CODE_HASH_BRIDE_BUSINESS ?? '' },
+    { side: 'bride', cabinClass: 'first', hash: import.meta.env.VITE_INVITE_CODE_HASH_BRIDE_FIRST ?? '' },
+  ];
 }
 
 function configuredLegacyTokenHashes(): Record<CabinClass, string> {
@@ -89,8 +117,9 @@ export async function sha256Hex(value: string): Promise<string> {
 }
 
 export function invitationConfigurationReady(): boolean {
-  const hashes = Object.values(configuredClassCodeHashes());
-  return hashes.every(isSha256) && new Set(hashes.map((hash) => hash.toLowerCase())).size === 4;
+  const hashes = configuredClassCodeHashes().map(({ hash }) => hash);
+  return hashes.every(isSha256)
+    && new Set(hashes.map((hash) => hash.toLowerCase())).size === hashes.length;
 }
 
 export function legacyInvitesEnabled(): boolean {
@@ -129,10 +158,30 @@ async function classForValue(
   return null;
 }
 
-export async function classForInvitationCode(value: string): Promise<CabinClass | null> {
+async function accessForValue(
+  value: string,
+  configurations: ClassCodeConfiguration[],
+): Promise<InvitationAccess | null> {
+  const valueHash = await sha256Hex(value);
+  for (const { side, cabinClass, hash } of configurations) {
+    if (isSha256(hash) && equalHash(valueHash, hash.toLowerCase())) return { side, cabinClass };
+  }
+  return null;
+}
+
+export async function accessForInvitationCode(value: string): Promise<InvitationAccess | null> {
   const normalized = normalizeInvitationCode(value);
   if (!isNormalizedInvitationCode(normalized)) return null;
-  return classForValue(normalized, configuredClassCodeHashes());
+  return accessForValue(normalized, configuredClassCodeHashes());
+}
+
+export async function classForInvitationCode(value: string): Promise<CabinClass | null> {
+  return (await accessForInvitationCode(value))?.cabinClass ?? null;
+}
+
+export async function accessForLegacyToken(token: string): Promise<InvitationAccess | null> {
+  const cabinClass = await classForLegacyToken(token);
+  return cabinClass ? { side: 'groom', cabinClass } : null;
 }
 
 export async function classForLegacyToken(token: string): Promise<CabinClass | null> {
@@ -141,8 +190,12 @@ export async function classForLegacyToken(token: string): Promise<CabinClass | n
 }
 
 export async function classForAccessCredential(credential: AccessCredential): Promise<CabinClass | null> {
-  if (credential.kind === 'class-code') return classForInvitationCode(credential.value);
-  return classForLegacyToken(credential.value);
+  return (await accessForCredential(credential))?.cabinClass ?? null;
+}
+
+export async function accessForCredential(credential: AccessCredential): Promise<InvitationAccess | null> {
+  if (credential.kind === 'class-code') return accessForInvitationCode(credential.value);
+  return accessForLegacyToken(credential.value);
 }
 
 export async function verifyLegacyPasscode(passcode: string): Promise<boolean> {
@@ -152,8 +205,13 @@ export async function verifyLegacyPasscode(passcode: string): Promise<boolean> {
   return equalHash(await sha256Hex(passcode), configuredHash.toLowerCase());
 }
 
-export function scopeForClass(cabinClass: CabinClass): InvitationScope {
-  return cabinClass === 'business' || cabinClass === 'first' ? 'both-days' : 'day22';
+export function scopeForClass(cabinClass: CabinClass, side: InvitationSide = 'groom'): InvitationScope {
+  if (side === 'groom') {
+    return cabinClass === 'business' || cabinClass === 'first' ? 'both-days' : 'day22';
+  }
+  if (cabinClass === 'first') return 'both-days';
+  if (cabinClass === 'business') return 'day21-full';
+  return 'day21-reception';
 }
 
 export function appsScriptUrl(): string {
@@ -176,10 +234,17 @@ export function rsvpStatus(): RsvpStatus {
   return 'preview';
 }
 
-export function invitationForClass(cabinClass: CabinClass): Invitation {
-  const scope = scopeForClass(cabinClass);
-  const events = scope === 'both-days' ? [day21, day22] : [day22];
+export function invitationForClass(cabinClass: CabinClass, side: InvitationSide = 'groom'): Invitation {
+  const scope = scopeForClass(cabinClass, side);
+  const events = scope === 'both-days'
+    ? [day21Full, day22]
+    : scope === 'day21-full'
+      ? [day21Full]
+      : scope === 'day21-reception'
+        ? [day21Reception]
+        : [day22];
   return {
+    side,
     cabinClass,
     cabinLabel: labels[cabinClass],
     scope,
@@ -195,4 +260,8 @@ export function invitationForClass(cabinClass: CabinClass): Invitation {
       ms: 'Sila sahkan kehadiran selewat-lewatnya Ahad, 8 Ogos 2027.',
     },
   };
+}
+
+export function invitationForAccess({ side, cabinClass }: InvitationAccess): Invitation {
+  return invitationForClass(cabinClass, side);
 }

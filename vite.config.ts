@@ -82,7 +82,7 @@ function validateHashSet(label: string, hashes: Record<string, string>): void {
 
   const normalisedHashes = Object.values(hashes).map((hash) => hash.toLowerCase());
   if (new Set(normalisedHashes).size !== normalisedHashes.length) {
-    throw new Error(`Each ${label} class must use a different hash.`);
+    throw new Error(`Each ${label} entry must use a different hash.`);
   }
 }
 
@@ -130,10 +130,14 @@ export default defineConfig(({ command, mode }) => {
   }
   const legacyEnabled = legacySetting === 'true';
   const classCodeHashes = {
-    economy: firstValue(environment, 'VITE_INVITE_CODE_HASH_ECONOMY', 'INVITE_CODE_HASH_ECONOMY'),
-    premium: firstValue(environment, 'VITE_INVITE_CODE_HASH_PREMIUM', 'INVITE_CODE_HASH_PREMIUM'),
-    business: firstValue(environment, 'VITE_INVITE_CODE_HASH_BUSINESS', 'INVITE_CODE_HASH_BUSINESS'),
-    first: firstValue(environment, 'VITE_INVITE_CODE_HASH_FIRST', 'INVITE_CODE_HASH_FIRST'),
+    'groom economy': firstValue(environment, 'VITE_INVITE_CODE_HASH_ECONOMY', 'INVITE_CODE_HASH_ECONOMY'),
+    'groom premium': firstValue(environment, 'VITE_INVITE_CODE_HASH_PREMIUM', 'INVITE_CODE_HASH_PREMIUM'),
+    'groom business': firstValue(environment, 'VITE_INVITE_CODE_HASH_BUSINESS', 'INVITE_CODE_HASH_BUSINESS'),
+    'groom first': firstValue(environment, 'VITE_INVITE_CODE_HASH_FIRST', 'INVITE_CODE_HASH_FIRST'),
+    'bride economy': firstValue(environment, 'VITE_INVITE_CODE_HASH_BRIDE_ECONOMY', 'INVITE_CODE_HASH_BRIDE_ECONOMY'),
+    'bride premium': firstValue(environment, 'VITE_INVITE_CODE_HASH_BRIDE_PREMIUM', 'INVITE_CODE_HASH_BRIDE_PREMIUM'),
+    'bride business': firstValue(environment, 'VITE_INVITE_CODE_HASH_BRIDE_BUSINESS', 'INVITE_CODE_HASH_BRIDE_BUSINESS'),
+    'bride first': firstValue(environment, 'VITE_INVITE_CODE_HASH_BRIDE_FIRST', 'INVITE_CODE_HASH_BRIDE_FIRST'),
   };
   const passcodeHash = legacyEnabled ? firstValue(environment, 'VITE_PASSCODE_HASH', 'WEDDING_PASSCODE_HASH') : '';
   const legacyTokenHashes = legacyEnabled ? {
@@ -150,7 +154,7 @@ export default defineConfig(({ command, mode }) => {
     throw new Error('VITE_APPS_SCRIPT_URL is required when VITE_RSVP_STATUS=open.');
   }
   if (command === 'build') {
-    validateHashSet('invitation-code', classCodeHashes);
+    validateHashSet('invitation-code profile', classCodeHashes);
     if (legacyEnabled) {
       if (!SHA256_PATTERN.test(passcodeHash)) throw new Error('Missing or invalid SHA-256 build value: passcode.');
       validateHashSet('legacy invitation', legacyTokenHashes);
@@ -165,10 +169,14 @@ export default defineConfig(({ command, mode }) => {
     plugins: [react(), htmlEnvironment({ appsScriptUrl, development: command === 'serve', publicUrl })],
     define: {
       'import.meta.env.VITE_APPS_SCRIPT_URL': JSON.stringify(appsScriptUrl),
-      'import.meta.env.VITE_INVITE_CODE_HASH_BUSINESS': JSON.stringify(classCodeHashes.business),
-      'import.meta.env.VITE_INVITE_CODE_HASH_ECONOMY': JSON.stringify(classCodeHashes.economy),
-      'import.meta.env.VITE_INVITE_CODE_HASH_FIRST': JSON.stringify(classCodeHashes.first),
-      'import.meta.env.VITE_INVITE_CODE_HASH_PREMIUM': JSON.stringify(classCodeHashes.premium),
+      'import.meta.env.VITE_INVITE_CODE_HASH_BUSINESS': JSON.stringify(classCodeHashes['groom business']),
+      'import.meta.env.VITE_INVITE_CODE_HASH_ECONOMY': JSON.stringify(classCodeHashes['groom economy']),
+      'import.meta.env.VITE_INVITE_CODE_HASH_FIRST': JSON.stringify(classCodeHashes['groom first']),
+      'import.meta.env.VITE_INVITE_CODE_HASH_PREMIUM': JSON.stringify(classCodeHashes['groom premium']),
+      'import.meta.env.VITE_INVITE_CODE_HASH_BRIDE_BUSINESS': JSON.stringify(classCodeHashes['bride business']),
+      'import.meta.env.VITE_INVITE_CODE_HASH_BRIDE_ECONOMY': JSON.stringify(classCodeHashes['bride economy']),
+      'import.meta.env.VITE_INVITE_CODE_HASH_BRIDE_FIRST': JSON.stringify(classCodeHashes['bride first']),
+      'import.meta.env.VITE_INVITE_CODE_HASH_BRIDE_PREMIUM': JSON.stringify(classCodeHashes['bride premium']),
       'import.meta.env.VITE_INVITE_HASH_BUSINESS': JSON.stringify(legacyTokenHashes.business),
       'import.meta.env.VITE_INVITE_HASH_ECONOMY': JSON.stringify(legacyTokenHashes.economy),
       'import.meta.env.VITE_INVITE_HASH_FIRST': JSON.stringify(legacyTokenHashes.first),

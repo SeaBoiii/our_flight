@@ -1,14 +1,15 @@
-import type { AccessCredential, CabinClass, RsvpDraft } from './types';
+import type { AccessCredential, CabinClass, InvitationSide, RsvpDraft } from './types';
 import { sha256Hex } from './invitations';
 
 const SESSION_KEY = 'our-flight:access';
 const LOCALE_KEY = 'our-flight:language';
 
 export type SavedSession = {
-  version: 2;
+  version: 3;
   unlocked: true;
   expiresAt: string;
   fingerprint: string;
+  side: InvitationSide;
   cabinClass: CabinClass;
   credential: AccessCredential;
 };
@@ -41,12 +42,13 @@ export function readSession(): SavedSession | null {
         ? typeof parsed.credential.value === 'string' && /^[A-Za-z0-9_-]{20,160}$/.test(parsed.credential.value)
         : false;
     if (
-      parsed.version !== 2
+      parsed.version !== 3
       || parsed.unlocked !== true
       || typeof parsed.expiresAt !== 'string'
       || !Number.isFinite(Date.parse(parsed.expiresAt))
       || typeof parsed.fingerprint !== 'string'
       || !/^[a-f0-9]{64}$/i.test(parsed.fingerprint)
+      || !['groom', 'bride'].includes(parsed.side ?? '')
       || !['economy', 'premium-economy', 'business', 'first'].includes(parsed.cabinClass ?? '')
       || !credentialValid
     ) return null;

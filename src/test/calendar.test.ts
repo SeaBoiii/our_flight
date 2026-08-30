@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calendarContents } from '../calendar';
+import { invitationForClass } from '../invitations';
 import { invitationWith } from './fixtures';
 
 describe('browser calendar files', () => {
@@ -22,5 +23,16 @@ describe('browser calendar files', () => {
     expect(malayCalendar).toContain('Walimatul Urus');
     expect(englishCalendar).toContain('DTSTART;TZID=Asia/Singapore:20270822T120000');
     expect(englishCalendar).toContain('DTEND;TZID=Asia/Singapore:20270822T160000');
+  });
+
+  it('creates a reception-only 21 August calendar without Nikah details', () => {
+    const [event] = invitationForClass('economy', 'bride').events;
+    const calendar = calendarContents(event, 'en');
+
+    expect(calendar.match(/BEGIN:VEVENT/g)).toHaveLength(1);
+    expect(calendar).toContain("Bride's Reception");
+    expect(calendar).toContain('DTSTART;TZID=Asia/Singapore:20270821T120000');
+    expect(calendar).toContain('DTEND;TZID=Asia/Singapore:20270821T160000');
+    expect(calendar).not.toMatch(/nikah/i);
   });
 });

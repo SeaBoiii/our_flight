@@ -2,7 +2,13 @@ export type Locale = 'en' | 'ms';
 export type RsvpStatus = 'preview' | 'open' | 'closed';
 export type Attendance = 'attending' | 'not-attending';
 export type CabinClass = 'economy' | 'premium-economy' | 'business' | 'first';
-export type InvitationScope = 'day22' | 'both-days';
+export type InvitationSide = 'groom' | 'bride';
+export type InvitationScope = 'day21-reception' | 'day21-full' | 'day22' | 'both-days';
+
+export type InvitationAccess = {
+  side: InvitationSide;
+  cabinClass: CabinClass;
+};
 
 export type AccessCredential =
   | { kind: 'class-code'; value: string }
@@ -37,6 +43,7 @@ export type InvitationEvent = {
 };
 
 export type Invitation = {
+  side: InvitationSide;
   cabinClass: CabinClass;
   cabinLabel: LocalizedText;
   scope: InvitationScope;
