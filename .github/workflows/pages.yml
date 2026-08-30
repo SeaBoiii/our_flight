@@ -19,6 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
+      VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || '/' }}
+      VITE_PUBLIC_SITE_URL: ${{ vars.VITE_PUBLIC_SITE_URL || 'https://rsvp.aleemxnurul.love/' }}
+      
       INVITE_CODE_HASH_ECONOMY: ${{ secrets.INVITE_CODE_HASH_ECONOMY }}
       INVITE_CODE_HASH_PREMIUM: ${{ secrets.INVITE_CODE_HASH_PREMIUM }}
       INVITE_CODE_HASH_BUSINESS: ${{ secrets.INVITE_CODE_HASH_BUSINESS }}
@@ -36,11 +39,11 @@ jobs:
       RSVP_STATUS: ${{ vars.RSVP_STATUS || 'preview' }}
       APPS_SCRIPT_URL: ${{ vars.APPS_SCRIPT_URL }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/configure-pages@v5
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22.13.0
+          node-version: '24'
           cache: npm
       - run: npm ci
       - run: npm run lint
