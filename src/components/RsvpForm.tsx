@@ -4,6 +4,7 @@ import { copy } from '../copy';
 import { clearDraft, readDraft, saveDraft } from '../storage';
 import type { AccessCredential, Invitation, Locale, RsvpDraft } from '../types';
 import { localized } from '../types';
+import { RsvpConfirmation } from './RsvpConfirmation';
 
 type RsvpFormProps = {
   invitation: Invitation;
@@ -45,12 +46,14 @@ export function RsvpForm({
   const [draft, setDraft] = useState<RsvpDraft>(() => freshDraft(invitation, readDraft(fingerprint)));
   const [errors, setErrors] = useState<Errors>({});
   const [submitState, setSubmitState] = useState<SubmitState>('idle');
+  const [confirmedResponse, setConfirmedResponse] = useState<{ response: RsvpDraft; duplicate: boolean } | null>(null);
+  const sendingRef = useRef(false);
   const summaryRef = useRef<HTMLDivElement>(null);
   const formDisabled = invitation.rsvpStatus !== 'open' || submitState === 'sending' || submitState === 'success' || submitState === 'duplicate';
 
   useEffect(() => {
-    saveDraft(fingerprint, draft);
-  }, [draft, fingerprint]);
+    if (!confirmedResponse) saveDraft(fingerprint, draft);
+  }, [draft, fingerprint, confirmedResponse]);
 
   const updateAnswer = (eventId: string, field: 'attendance' | 'partySize', value: string) => {
     setDraft((current) => ({
@@ -88,7 +91,7 @@ export function RsvpForm({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (invitation.rsvpStatus !== 'open') return;
+    if (invitation.rsvpStatus !== 'open' || sendingRef.current || confirmedResponse) return;
     const nextErrors = validate();
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) {
@@ -96,10 +99,17 @@ export function RsvpForm({
       return;
     }
 
+    // Keep the confirmation tied to the exact answers sent, including retries.
+    const submittedResponse: RsvpDraft = {
+      ...draft,
+      responses: draft.responses.map((answer) => ({ ...answer })),
+    };
+    sendingRef.current = true;
     setSubmitState('sending');
     try {
-      const result = await submitRsvp(accessCredential, locale, draft);
+      const result = await submitRsvp(accessCredential, locale, submittedResponse);
       clearDraft(fingerprint);
+      setConfirmedResponse({ response: submittedResponse, duplicate: Boolean(result.duplicate) });
       setSubmitState(result.duplicate ? 'duplicate' : 'success');
     } catch (error) {
       let handledValidation = false;
@@ -124,6 +134,8 @@ export function RsvpForm({
       else if (error instanceof ApiFailure && error.code === 'idempotency_conflict') setSubmitState('conflict');
       else if (handledValidation) setSubmitState('idle');
       else setSubmitState('failed');
+    } finally {
+      sendingRef.current = false;
     }
   };
 
@@ -153,6 +165,19 @@ export function RsvpForm({
     if (field.startsWith('party-')) return `party-size-${field.slice('party-'.length)}`;
     return 'rsvp-title';
   };
+
+  if (confirmedResponse) {
+    return (
+      <section id="rsvp" className="rsvp-section" aria-labelledby="rsvp-title">
+        <RsvpConfirmation
+          invitation={invitation}
+          locale={locale}
+          response={confirmedResponse.response}
+          duplicate={confirmedResponse.duplicate}
+        />
+      </section>
+    );
+  }
 
   return (
     <section id="rsvp" className="rsvp-section" aria-labelledby="rsvp-title">

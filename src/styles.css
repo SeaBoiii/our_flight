@@ -102,6 +102,7 @@ a { color: inherit; }
 }
 .button-primary:disabled { opacity: 0.52; box-shadow: none; }
 .button-secondary { color: var(--accent-deep); border-color: color-mix(in srgb, var(--accent) 45%, #d9dfdc); background: #fff; }
+.button { padding-block: 10px; text-align: center; line-height: 1.4; }
 .button-text { color: var(--accent-deep); background: transparent; }
 .eyebrow {
   margin: 0 0 12px;
@@ -286,6 +287,10 @@ a { color: inherit; }
 .boarding-copy h1 { font-size: clamp(2.6rem, 12vw, 5rem); }
 .boarding-title:focus { outline: none; }
 .boarding-copy > p:last-child { margin: 12px 0 0; color: var(--muted); font-family: Georgia, "Times New Roman", serif; font-size: 1.25rem; }
+.boarding-returning { display: grid; justify-items: center; gap: 6px; margin: 26px auto 6px; text-align: center; }
+.boarding-returning p { max-width: 32em; margin: 4px 0; color: var(--muted); font-size: 0.8rem; line-height: 1.5; }
+.boarding-fast-track { max-width: 100%; box-shadow: none; }
+.invitation-forget { display: flex; width: fit-content; min-height: 44px; max-width: 100%; align-items: center; justify-content: center; margin: 16px auto 0; padding: 10px 16px; border: 0; color: var(--muted); background: transparent; font-size: 0.75rem; line-height: 1.4; text-align: center; text-decoration: underline; text-underline-offset: 4px; }
 
 .ticket-stack {
   --ticket-stub-width: 156px;
@@ -781,6 +786,7 @@ a { color: inherit; }
 .journey-cabin picture, .journey-cabin img { display: block; width: 100%; height: 100%; }
 .journey-cabin img { object-fit: cover; object-position: 51% 34%; }
 .journey-cloud-video { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; transform: none; pointer-events: none; }
+.journey-clouds > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
 .journey-clouds::after { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(251,250,247,0.1), rgba(251,250,247,0.32)); content: ""; }
 .journey-opening { position: absolute; inset: 0; z-index: 5; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: clamp(16px, 2.5dvh, 30px); padding: max(82px, calc(env(safe-area-inset-top) + 68px)) max(18px, 7vw) max(20px, 4dvh); pointer-events: none; }
 .journey-ticket-slot { position: relative; min-width: 0; min-height: 0; overflow: hidden; overflow: clip; }
@@ -1099,6 +1105,14 @@ a { color: inherit; }
   .journey-ticket { --journey-ticket-preferred-scale: 0.68; width: 116vw; }
   .experience-nav .experience-back { width: 44px; min-width: 44px; height: 44px; min-height: 44px; gap: 0; padding: 0; border-radius: 50%; }
   .experience-back span { display: none; }
+  /* The boarding screen is a reading surface; the cinematic copy retains its compact fit. */
+  .boarding-ready .ticket-event-title { font-size: 0.9rem; line-height: 1.4; }
+  .boarding-ready .ticket-event-title > span { flex-wrap: wrap; gap: 2px 8px; }
+  .boarding-ready .ticket-event-title time { font-size: 0.75rem; }
+  .boarding-ready .ticket-fields dd { font-size: 0.8rem; line-height: 1.4; }
+  .boarding-ready .ticket-fields dt { font-size: 0.625rem; }
+  .boarding-ready .ticket-topline { flex-wrap: wrap; font-size: 0.6rem; }
+  .boarding-ready .ticket-topline span:first-child { max-width: none; }
 }
 
 @media (max-width: 360px) {

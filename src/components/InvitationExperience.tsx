@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import { downloadCalendar } from '../calendar';
+import { useEffect, useRef } from 'react';
 import { copy } from '../copy';
 import type { AccessCredential, Invitation, Locale } from '../types';
 import { localized } from '../types';
@@ -7,6 +6,8 @@ import { crownePlazaLogo } from '../venueLogo';
 import { Journey } from './Journey';
 import { LanguageToggle } from './LanguageToggle';
 import { RsvpForm } from './RsvpForm';
+import { FlightDashboard } from './FlightDashboard';
+import { EventActions } from './EventActions';
 
 type InvitationExperienceProps = {
   invitation: Invitation;
@@ -14,11 +15,11 @@ type InvitationExperienceProps = {
   fingerprint: string;
   locale: Locale;
   reducedMotion: boolean;
+  entryMode?: 'journey' | 'fast-track';
   onBack: () => void;
+  onForget?: () => void;
   onToggleLocale: () => void;
 };
-
-const mapUrl = 'https://www.google.com/maps/search/?api=1&query=Crowne+Plaza+Changi+Airport%2C+75+Airport+Boulevard%2C+Singapore+819664';
 
 function dateParts(label: string) {
   const [weekday, dated = ''] = label.split(/,\s*/, 2);
@@ -32,15 +33,23 @@ export default function InvitationExperience({
   fingerprint,
   locale,
   reducedMotion,
+  entryMode = 'journey',
   onBack,
+  onForget,
   onToggleLocale,
 }: InvitationExperienceProps) {
   const t = copy[locale];
-  const [calendarBusy, setCalendarBusy] = useState<string | null>(null);
-  const [calendarError, setCalendarError] = useState<string | null>(null);
   const experienceRef = useRef<HTMLElement>(null);
+  const dashboardHeadingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
+    if (entryMode === 'fast-track') {
+      const frame = window.requestAnimationFrame(() => {
+        dashboardHeadingRef.current?.scrollIntoView({ behavior: 'instant', block: 'start' });
+        dashboardHeadingRef.current?.focus({ preventScroll: true });
+      });
+      return () => window.cancelAnimationFrame(frame);
+    }
     let settleFrame = 0;
     let settleTimer = 0;
     const resetScroll = () => {
@@ -70,21 +79,7 @@ export default function InvitationExperience({
       window.cancelAnimationFrame(settleFrame);
       window.clearTimeout(settleTimer);
     };
-  }, [reducedMotion]);
-
-  const handleCalendar = (eventId: string) => {
-    setCalendarBusy(eventId);
-    setCalendarError(null);
-    try {
-      const event = invitation.events.find((candidate) => candidate.id === eventId);
-      if (!event) throw new Error('Unknown calendar event');
-      downloadCalendar(event, locale);
-    } catch {
-      setCalendarError(eventId);
-    } finally {
-      setCalendarBusy(null);
-    }
-  };
+  }, [reducedMotion, entryMode]);
 
   return (
     <main ref={experienceRef} className={`experience cabin-${invitation.cabinClass}`} tabIndex={-1} aria-label={t.journeyLabel}>
@@ -96,7 +91,7 @@ export default function InvitationExperience({
         <LanguageToggle locale={locale} label={t.language} onToggle={onToggleLocale} />
       </nav>
 
-      <Journey invitation={invitation} locale={locale} reducedMotion={reducedMotion} />
+      {entryMode === 'journey' ? <Journey invitation={invitation} locale={locale} reducedMotion={reducedMotion} /> : null}
 
       <section id="invitation" className="invitation-reveal" tabIndex={-1}>
         <div className="invitation-card">
@@ -108,6 +103,8 @@ export default function InvitationExperience({
           <p className="blessing">{t.blessing}</p>
         </div>
       </section>
+
+      <FlightDashboard invitation={invitation} locale={locale} headingRef={dashboardHeadingRef} />
 
       <section className="our-story-section" aria-labelledby="our-story-title">
         <div className="our-story-inner">
@@ -187,26 +184,7 @@ export default function InvitationExperience({
                   <div><dt>{t.ballroom}</dt><dd>{invitation.ballroom}</dd></div>
                   <div><dt>{t.terminal}</dt><dd>{invitation.terminal}</dd></div>
                 </dl>
-                <div className="itinerary-actions">
-                  <button
-                    className="button button-secondary"
-                    type="button"
-                    disabled={calendarBusy === event.id}
-                    onClick={() => handleCalendar(event.id)}
-                  >
-                    {calendarBusy === event.id ? t.calendarBusy : t.calendar}
-                  </button>
-                  <a
-                    className="button button-secondary"
-                    href={mapUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={`${t.directions} (${t.newTab})`}
-                  >
-                    {t.directions}
-                  </a>
-                </div>
-                {calendarError === event.id ? <p className="field-error" role="alert">{t.calendarFailed}</p> : null}
+                <EventActions event={event} locale={locale} className="itinerary-actions" />
               </article>
             );
           })}
@@ -245,6 +223,7 @@ export default function InvitationExperience({
       <footer className="site-footer">
         <img src={`${import.meta.env.BASE_URL}monogram-a-and-n-display.png`} alt="" />
         <p>{t.footer}</p>
+        {onForget ? <button className="button button-text invitation-forget" type="button" onClick={onForget}>{t.forgetInvitation}</button> : null}
         <small className="video-credit">
           Video:{' '}
           <a

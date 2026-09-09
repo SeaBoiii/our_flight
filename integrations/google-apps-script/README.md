@@ -59,7 +59,7 @@ The response version matches the accepted request version. The browser accepts a
 | Property | Value |
 | --- | --- |
 | `RSVP_STATUS` | `preview`, `open`, or `closed`; begin with `preview`. |
-| `PARENT_ORIGIN` | `https://seaboiii.github.io` — origin only, without `/our_flight/` or a trailing slash. |
+| `PARENT_ORIGIN` | `https://rsvp.aleemxnurul.love` — production custom-domain origin only, without a path or trailing slash. Update and redeploy Apps Script if the invitation's hosting origin changes. |
 | `INVITE_CODE_HASH_ECONOMY` | Lowercase SHA-256 of the normalized groom-side Economy code. |
 | `INVITE_CODE_HASH_PREMIUM` | Lowercase SHA-256 of the normalized groom-side Premium Economy code. |
 | `INVITE_CODE_HASH_BUSINESS` | Lowercase SHA-256 of the normalized groom-side Business code. |

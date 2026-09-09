@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Journey } from '../components/Journey';
 import { invitationWith } from './fixtures';
@@ -75,5 +75,35 @@ describe('animated cloud journey', () => {
     expect(opening?.children[1]).toBe(intro);
     expect(slot?.contains(ticket)).toBe(true);
     expect(slot?.contains(intro)).toBe(false);
+  });
+
+  it.each([
+    { saveData: true, effectiveType: '4g' },
+    { saveData: false, effectiveType: '2g' },
+    { effectiveType: 'slow-2g' },
+  ])('uses static clouds without mounting a video for %j', (connection) => {
+    stubIntersectionObserver();
+    vi.stubGlobal('navigator', { connection });
+    const { container } = render(<Journey invitation={invitationWith()} locale="en" reducedMotion={false} />);
+    expect(container.querySelector('.journey')).toBeTruthy();
+    expect(container.querySelector('video, source[type="video/mp4"]')).toBeNull();
+    expect(container.querySelector('.journey-clouds > img')?.getAttribute('src')).toContain('clouds-video-poster.webp');
+  });
+
+  it('reacts when data saver is enabled during the visit and cleans up its subscription', () => {
+    stubIntersectionObserver();
+    const connection = Object.assign(new EventTarget(), { saveData: false, effectiveType: '4g' });
+    const unsubscribe = vi.spyOn(connection, 'removeEventListener');
+    vi.stubGlobal('navigator', { connection });
+    const { container, unmount } = render(<Journey invitation={invitationWith()} locale="en" reducedMotion={false} />);
+    expect(container.querySelector('video')).toBeTruthy();
+    act(() => {
+      connection.saveData = true;
+      connection.dispatchEvent(new Event('change'));
+    });
+    expect(container.querySelector('video')).toBeNull();
+    expect(container.querySelector('.journey-clouds > img')).toBeTruthy();
+    unmount();
+    expect(unsubscribe).toHaveBeenCalledWith('change', expect.any(Function));
   });
 });

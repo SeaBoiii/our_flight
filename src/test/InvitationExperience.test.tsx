@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import InvitationExperience from '../components/InvitationExperience';
 import { copy } from '../copy';
@@ -43,6 +43,8 @@ describe('invitation details', () => {
     renderExperience();
     const storyHeading = screen.getByRole('heading', { name: 'Our Story' });
     const itineraryHeading = screen.getByRole('heading', { name: 'Your itinerary' });
+    const dashboardHeading = screen.getByRole('heading', { name: 'Flight Dashboard' });
+    expect(dashboardHeading.compareDocumentPosition(storyHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(storyHeading.compareDocumentPosition(itineraryHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText('“Some meetings feel less like chance and more like a promise finally finding its way home.”')).toBeTruthy();
     expect(screen.getByText('What began with an ordinary conversation grew into friendship, and then a quiet certainty.')).toBeTruthy();
@@ -75,5 +77,19 @@ describe('invitation details', () => {
     renderExperience();
     expect(screen.getByRole('link', { name: 'Clouds and blue sky background' }).getAttribute('href')).toContain('clouds-and-blue-sky-background-2408');
     expect(screen.getByRole('link', { name: 'Mixkit' }).getAttribute('href')).toBe('https://mixkit.co/');
+  });
+
+  it('fast-tracks into the dashboard with focus and no journey or cabin/video assets', async () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+    const { container } = render(
+      <InvitationExperience invitation={invitationWith(2)} accessCredential={{ kind: 'class-code', value: 'ALPHA123' }} fingerprint="fast-track" locale="en" reducedMotion={false} entryMode="fast-track" onBack={() => undefined} onToggleLocale={() => undefined} />,
+    );
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Flight Dashboard' })));
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'instant', block: 'start' });
+    expect(container.querySelector('.journey, .static-journey, video, img[src*="journey/cabin"], source[srcset*="journey/cabin"]')).toBeNull();
+    expect(container.querySelector('#invitation')).toBeTruthy();
+    expect(container.querySelectorAll('.dashboard-flight')).toHaveLength(2);
+    expect(container.querySelector('#rsvp')).toBeTruthy();
   });
 });

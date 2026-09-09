@@ -2,7 +2,7 @@
 
 A mobile-first Vite/React wedding invitation published as one static GitHub Pages site. Every guest starts at the same URL:
 
-`https://seaboiii.github.io/our_flight/`
+`https://rsvp.aleemxnurul.love/`
 
 The A&N monogram, boarding-pass designs, ticket scan, cabin/window/cloud journey, bilingual invitation, itinerary, calendar actions and RSVP are shared across all invitations. The invitation side and cabin class derived from the entered code determine what the guest receives:
 
@@ -17,7 +17,29 @@ The A&N monogram, boarding-pass designs, ticket scan, cabin/window/cloud journey
 | Bride | Business | 21 August Nikah and Bride's Reception |
 | Bride | First Class | Full 21 August programme and 22 August Groom's Reception |
 
-There is no side or class selector. Codes are normalized with Unicode NFKC, trimmed, uppercased, and stripped of spaces and hyphens before hashing. A valid version-3 session stores its side, class, credential fingerprint and 30-minute expiry in `sessionStorage`. Sessions from older application versions intentionally return to check-in after this release. RSVP drafts remain keyed only by the credential fingerprint and survive that session upgrade.
+There is no side or class selector. Codes are normalized with Unicode NFKC, trimmed, uppercased, and stripped of spaces and hyphens before hashing. A version-4 record in `localStorage` remembers the invitation on that browser/device without an expiry. Every reload verifies its credential against the current configured hashes and checks the derived side, class and fingerprint before restoring access. Invalid records, changed access configuration, and disabled legacy credentials return to check-in. Browsers that block storage can still use the current visit.
+
+This release discards old `sessionStorage` access records; existing guests check in once to begin persistent access. RSVP drafts remain in their separate fingerprint-based local-storage keys and are preserved when access is upgraded or forgotten.
+
+## Guest journey and remembered invitations
+
+The first manual check-in shows the boarding pass with the existing scan interaction. Scanning preserves the cabin/window/cloud journey, followed by the formal invitation, **Flight Dashboard**, Our Story, detailed itinerary, Getting here, RSVP and footer.
+
+Only an invitation restored from device storage offers the secondary **Fast Track to Flight Details** button beside the replay option. Fast Track never mounts Journey or its cabin/video elements and focuses the dashboard heading. The formal invitation stays available above the dashboard. Browser Back returns to boarding; Forward preserves the chosen entry mode. Reload always restores the boarding pass, allowing the guest to choose again.
+
+The dashboard derives one card per `invitation.events` entry, with the correct flight, date, time, class and venue. It shares calendar generation and the Maps destination with the detailed itinerary. RSVP success and confirmed duplicate receipts replace the form with a bilingual flight confirmation: attending, warmly declining, or mixed attendance. Calendar downloads are offered only for attending events. The receipt bridge and server validation remain unchanged.
+
+Use **Use a different invitation** below the boarding pass or in the invitation footer to forget access and return to check-in. This preserves RSVP drafts and language preference. To reset only access during development, run the following in the browser console and reload:
+
+```js
+localStorage.removeItem('our-flight:access');
+sessionStorage.removeItem('our-flight:access'); // pre-release access, if present
+location.reload();
+```
+
+Storage belongs to the exact browser origin. The custom domain, an old `github.io` URL, and localhost each remember invitations separately. Clearing browser site data also clears remembered access and drafts.
+
+Data saver (`navigator.connection.saveData`) and `slow-2g`/`2g` connections use the existing cloud poster in the cinematic sequence without mounting or requesting the MP4. The reusable hook subscribes to supported connection changes; browsers without the Network Information API retain normal video playback. Reduced-motion preferences continue to use the static cabin/cloud/ticket reading order. Fast Track omits both journey variants.
 
 ## Static-site security boundary
 
@@ -27,7 +49,7 @@ The old Sites deployment is disconnected and remains private only as a rollback 
 
 ## Local development
 
-Use Node.js 22.13 or later.
+Use Node.js 22.13 or later; Node 24 is used by the deployment workflow.
 
 1. Copy `.env.example` to the ignored `.env.local` file.
 2. Add all eight SHA-256 hashes of the normalized class codes as `VITE_INVITE_CODE_HASH_*` and `VITE_INVITE_CODE_HASH_BRIDE_*`. Every hash is required, must be 64 hexadecimal characters, and must be unique across both sides.
@@ -67,6 +89,8 @@ Each list may have its activity names, timestamps and number of entries edited i
 
 In **Settings → Pages**, select **GitHub Actions** as the source.
 
+The production custom domain is `rsvp.aleemxnurul.love`. Configure that domain and HTTPS in GitHub Pages settings and maintain its DNS mapping to Pages. The repository does not currently use a checked-in `public/CNAME`; the Pages custom-domain setting owns that association. The invitation is served at the domain root, not under `/our_flight/`.
+
 Add these Actions secrets:
 
 - `INVITE_CODE_HASH_ECONOMY`
@@ -85,6 +109,8 @@ Add these repository variables:
 - `RSVP_STATUS`: begin with `preview`
 - `APPS_SCRIPT_URL`: blank in preview, then the canonical `/exec` URL
 - `LEGACY_INVITES_ENABLED`: set `true` for the transition release; code defaults to `false`
+- `VITE_BASE_PATH`: workflow default `/`, controlling built asset paths for the custom-domain root
+- `VITE_PUBLIC_SITE_URL`: workflow default `https://rsvp.aleemxnurul.love/`, controlling the canonical and social-preview URLs
 
 While `LEGACY_INVITES_ENABLED=true`, retain these existing Actions secrets:
 
@@ -94,7 +120,9 @@ While `LEGACY_INVITES_ENABLED=true`, retain these existing Actions secrets:
 - `INVITE_TOKEN_HASH_BUSINESS`
 - `INVITE_TOKEN_HASH_FIRST`
 
-Push to `main` or run **Deploy GitHub Pages** manually. The workflow installs with Node 22, lints, tests, builds, scans the artifact, and deploys `dist/`. Vite derives `/our_flight/` and the public social URL from `GITHUB_REPOSITORY`.
+Push to `main` or run **Deploy GitHub Pages** manually. The workflow installs with Node 24, lints, tests, builds, scans the artifact, and deploys `dist/`. Its explicit base-path and public-URL defaults select the custom domain. Without these overrides, a GitHub Actions build falls back to the repository-derived `/our_flight/` base and `github.io` URL; that fallback is not the production configuration. `VITE_BASE_PATH` must be an absolute URL path, and `VITE_PUBLIC_SITE_URL` must be an HTTPS URL without credentials, query or fragment.
+
+The Apps Script `PARENT_ORIGIN` must be `https://rsvp.aleemxnurul.love` (origin only). Changing hosting origins requires updating that property and redeploying Apps Script as well as Pages. This controls the browser receipt bridge, not invitation scope validation.
 
 ## Google setup and transition rollout
 
@@ -123,3 +151,24 @@ GitHub Pages cannot hide the Apps Script `/exec` URL. Apps Script therefore deri
 - `npm run hash:code -- "YOUR-CLASS-CODE"` — normalize and hash a class code
 - `npm run check:artifact` — secret, branding and performance-budget checks on `dist/`
 - `npm run preview` — serve the production artifact locally
+- `npm run test:e2e` — Playwright browser suite
+- `npm run test:e2e:mobile` — all four supported phone projects
+- `npm run test:e2e:update` — update reviewed screenshot baselines
+
+## Mobile browser validation
+
+Install browser binaries once after dependencies, then run the suite:
+
+```sh
+npm ci
+npx playwright install chromium
+npm run test:e2e:mobile
+```
+
+On Linux CI, use `npx playwright install --with-deps chromium` to install browser system dependencies too. Playwright starts its own isolated Vite server with test-only invitation hashes and mocked Google receipts; it does not require real codes or a live Apps Script deployment. Never replace these fixtures with production credentials.
+
+Chromium phone projects cover 375 × 667, 390 × 844, 412 × 915 and 430 × 932. They exercise check-in, first/reopened boarding passes, returning-only Fast Track, dashboard focus and event scope, full and reduced-motion journeys, static low-data clouds, itinerary, RSVP and confirmation. Layout checks include document overflow, text clipping/collisions inside cards, touch targets, Malay copy and increased text size.
+
+The checked-in screenshots were captured on Windows with the installed Playwright Chromium version. Baseline filenames include the OS because system fonts can differ. On another OS, run `npm run test:e2e:update`, review the generated images, then run the regular suite; commit reviewed baselines for that platform if it becomes a maintained runner. Existing baselines should only be updated after reviewing the visual changes. Browser emulation does not reproduce Safari, physical iPhone notches or all OS text-size settings, so retain a physical iOS/Android release smoke check.
+
+Run `npm run lint`, `npm test`, `npm run build` and `npm run check:artifact` as well. Unit tests use jsdom browser storage, including on Node 25+ where the native Node storage API otherwise shadows it.

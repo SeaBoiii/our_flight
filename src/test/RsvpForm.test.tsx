@@ -1,7 +1,11 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import * as api from '../api';
+import * as calendar from '../calendar';
 import { RsvpForm } from '../components/RsvpForm';
 import { invitationForClass } from '../invitations';
+import { readDraft } from '../storage';
+import type { Invitation, Locale } from '../types';
 import { invitationWith } from './fixtures';
 
 describe('RSVP preview mode', () => {
@@ -62,5 +66,188 @@ describe('RSVP preview mode', () => {
     expect(screen.getByRole('alert').textContent).toContain('Enter your name.');
     expect(screen.getByRole('link', { name: 'Enter your name.' }).getAttribute('href')).toBe('#invitee-name');
     expect(screen.getByRole('link', { name: 'Select an attendance response.' }).getAttribute('href')).toBe('#attendance-0-yes');
+  });
+});
+
+function openForm(invitation = invitationWith(1, 'open'), locale: Locale = 'en') {
+  return render(
+    <RsvpForm
+      invitation={invitation}
+      accessCredential={{ kind: 'class-code', value: 'ALPHA123' }}
+      fingerprint="confirmation-fingerprint"
+      locale={locale}
+    />,
+  );
+}
+
+function completeResponse(attendance: Array<'attending' | 'not-attending'>, locale: Locale = 'en') {
+  fireEvent.change(screen.getByLabelText(locale === 'en' ? 'Your name' : 'Nama anda'), { target: { value: 'Aminah Rahman' } });
+  attendance.forEach((value, index) => {
+    fireEvent.click(document.getElementById(`attendance-${index}-${value === 'attending' ? 'yes' : 'no'}`)!);
+    if (value === 'attending') {
+      fireEvent.change(document.getElementById(`party-size-${index}`)!, { target: { value: String(index + 2) } });
+    }
+  });
+}
+
+describe('RSVP flight confirmation', () => {
+  it('replaces an attending form with submitted guest, event and venue details after a verified receipt', async () => {
+    const submit = vi.spyOn(api, 'submitRsvp').mockResolvedValue({ ok: true, duplicate: false });
+    const download = vi.spyOn(calendar, 'downloadCalendar').mockImplementation(() => {});
+    const invitation = invitationWith(1, 'open');
+    openForm(invitation);
+    completeResponse(['attending']);
+    fireEvent.click(screen.getByRole('button', { name: 'Send RSVP' }));
+
+    const heading = await screen.findByRole('heading', { name: 'Your seat is confirmed' });
+    expect(document.activeElement).toBe(heading);
+    expect(screen.getByRole('status').textContent).toContain('We look forward to having you on board');
+    expect(screen.queryByLabelText('Your name')).toBeNull();
+    expect(screen.getByText('Aminah Rahman')).toBeTruthy();
+    expect(screen.getByText('AN2208')).toBeTruthy();
+    expect(screen.queryByText('AN2108')).toBeNull();
+    expect(screen.getByText('Sunday, 22 August 2027')).toBeTruthy();
+    expect(screen.getByText('12:00-16:00')).toBeTruthy();
+    expect(screen.getByText('Economy')).toBeTruthy();
+    expect(screen.getByText('Crowne Plaza at Changi Airport')).toBeTruthy();
+    expect(screen.getByText('Chengal Ballroom · Terminal 3')).toBeTruthy();
+    expect(screen.getByText('Number attending, including you:').textContent).toContain('2');
+    expect(readDraft('confirmation-fingerprint')).toBeNull();
+    expect(submit.mock.calls[0][2].responseId).toMatch(/^[0-9a-f-]{36}$/i);
+    fireEvent.click(screen.getByRole('button', { name: 'Add to calendar' }));
+    await vi.waitFor(() => expect(download).toHaveBeenCalledWith(invitation.events[0], 'en'));
+  });
+
+  it('confirms both invited events and keeps their party sizes distinct', async () => {
+    vi.spyOn(api, 'submitRsvp').mockResolvedValue({ ok: true, duplicate: false });
+    openForm(invitationWith(2, 'open'));
+    completeResponse(['attending', 'attending']);
+    fireEvent.click(screen.getByRole('button', { name: 'Send RSVP' }));
+
+    await screen.findByRole('heading', { name: 'Your seat is confirmed' });
+    const events = screen.getAllByRole('article');
+    expect(events).toHaveLength(2);
+    expect(within(events[0]).getByText('Number attending, including you:').textContent).toContain('2');
+    expect(within(events[1]).getByText('Number attending, including you:').textContent).toContain('3');
+    expect(screen.getAllByRole('button', { name: 'Add to calendar' })).toHaveLength(2);
+  });
+
+  it('shows a warm successful decline with no calendar actions or party size', async () => {
+    vi.spyOn(api, 'submitRsvp').mockResolvedValue({ ok: true, duplicate: false });
+    const { container } = openForm(invitationWith(2, 'open'));
+    completeResponse(['not-attending', 'not-attending']);
+    fireEvent.click(screen.getByRole('button', { name: 'Send RSVP' }));
+
+    await screen.findByRole('heading', { name: "We'll miss having you on board" });
+    expect(screen.getByRole('status').textContent).toContain('Thank you for responding');
+    expect(screen.getAllByText('Unable to attend')).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: 'Add to calendar' })).toBeNull();
+    expect(screen.queryByText('Number attending, including you:')).toBeNull();
+    expect(container.querySelector('.submission-status--failed')).toBeNull();
+    expect(readDraft('confirmation-fingerprint')).toBeNull();
+  });
+
+  it('shows mixed attendance by event and adds only the attended event to the calendar', async () => {
+    vi.spyOn(api, 'submitRsvp').mockResolvedValue({ ok: true, duplicate: true });
+    const download = vi.spyOn(calendar, 'downloadCalendar').mockImplementation(() => {});
+    const invitation = invitationWith(2, 'open');
+    openForm(invitation);
+    completeResponse(['attending', 'not-attending']);
+    fireEvent.click(screen.getByRole('button', { name: 'Send RSVP' }));
+
+    await screen.findByRole('heading', { name: 'Your itinerary is confirmed' });
+    const events = screen.getAllByRole('article');
+    expect(within(events[0]).getByText('Attending')).toBeTruthy();
+    expect(within(events[1]).getByText('Unable to attend')).toBeTruthy();
+    expect(within(events[1]).queryByRole('button')).toBeNull();
+    expect(screen.getByText('This RSVP was already received. No duplicate response was created.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Add to calendar' }));
+    await vi.waitFor(() => expect(download).toHaveBeenCalledWith(invitation.events[0], 'en'));
+    expect(readDraft('confirmation-fingerprint')).toBeNull();
+  });
+
+  it('retains bride reception scope and translates a duplicate-confirmed response into Malay', async () => {
+    vi.spyOn(api, 'submitRsvp').mockResolvedValue({ ok: true, duplicate: true });
+    const invitation: Invitation = { ...invitationForClass('economy', 'bride'), rsvpStatus: 'open' };
+    const { container } = openForm(invitation, 'ms');
+    completeResponse(['attending'], 'ms');
+    fireEvent.click(screen.getByRole('button', { name: 'Hantar RSVP' }));
+
+    await screen.findByRole('heading', { name: 'Tempat anda telah disahkan' });
+    expect(screen.getByText('Resepsi Pengantin Perempuan')).toBeTruthy();
+    expect(screen.getByText('AN2108')).toBeTruthy();
+    expect(screen.queryByText('AN2208')).toBeNull();
+    expect(container.textContent).not.toMatch(/nikah/i);
+    expect(screen.getByText('Kelas Ekonomi')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Tambah ke kalendar' })).toBeTruthy();
+    expect(screen.getByText('RSVP ini telah diterima sebelum ini. Tiada jawapan pendua direkodkan.')).toBeTruthy();
+  });
+
+  it('waits for receipt, blocks parallel submits and confirms the submitted snapshot when locale changes', async () => {
+    let receive!: (receipt: Awaited<ReturnType<typeof api.submitRsvp>>) => void;
+    const submit = vi.spyOn(api, 'submitRsvp').mockImplementation(() => new Promise((resolve) => { receive = resolve; }));
+    const invitation = invitationWith(1, 'open');
+    const { container, rerender } = openForm(invitation);
+    completeResponse(['attending']);
+    const originalId = readDraft('confirmation-fingerprint')?.responseId;
+    fireEvent.submit(container.querySelector('form')!);
+    fireEvent.submit(container.querySelector('form')!);
+    expect(submit).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('heading', { name: 'Your seat is confirmed' })).toBeNull();
+    expect(readDraft('confirmation-fingerprint')?.responseId).toBe(originalId);
+    rerender(<RsvpForm invitation={invitation} accessCredential={{ kind: 'class-code', value: 'ALPHA123' }} fingerprint="confirmation-fingerprint" locale="ms" />);
+    await act(async () => receive({ ok: true, duplicate: false }));
+
+    expect(screen.getByRole('heading', { name: 'Tempat anda telah disahkan' })).toBeTruthy();
+    expect(screen.getByText('Aminah Rahman')).toBeTruthy();
+    expect(submit.mock.calls[0][1]).toBe('en');
+    expect(submit.mock.calls[0][2].responseId).toBe(originalId);
+    expect(readDraft('confirmation-fingerprint')).toBeNull();
+  });
+
+  it('preserves answers and response ID after an unconfirmed attempt and accepts a duplicate on retry', async () => {
+    const submit = vi.spyOn(api, 'submitRsvp')
+      .mockRejectedValueOnce(new api.ApiFailure(0, 'unconfirmed'))
+      .mockResolvedValueOnce({ ok: true, duplicate: true });
+    openForm();
+    completeResponse(['attending']);
+    const saved = readDraft('confirmation-fingerprint');
+    fireEvent.click(screen.getByRole('button', { name: 'Send RSVP' }));
+
+    await screen.findByText(/We could not confirm whether your RSVP reached us/);
+    expect(screen.queryByRole('heading', { name: 'Your seat is confirmed' })).toBeNull();
+    expect(readDraft('confirmation-fingerprint')).toEqual(saved);
+    fireEvent.click(screen.getByRole('button', { name: 'Send RSVP' }));
+    await screen.findByRole('heading', { name: 'Your seat is confirmed' });
+    expect(submit.mock.calls[1][2]).toEqual(submit.mock.calls[0][2]);
+    expect(screen.getByText('This RSVP was already received. No duplicate response was created.')).toBeTruthy();
+  });
+
+  it('keeps idempotency conflicts editable until the guest explicitly clears the saved response', async () => {
+    vi.spyOn(api, 'submitRsvp').mockRejectedValue(new api.ApiFailure(422, 'idempotency_conflict'));
+    openForm();
+    completeResponse(['attending']);
+    const saved = readDraft('confirmation-fingerprint');
+    fireEvent.click(screen.getByRole('button', { name: 'Send RSVP' }));
+
+    await screen.findByText(/This saved response ID was already used for different answers/);
+    expect(readDraft('confirmation-fingerprint')).toEqual(saved);
+    expect(screen.queryByRole('heading', { name: 'Your seat is confirmed' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear saved response' }));
+    expect(readDraft('confirmation-fingerprint')?.responseId).not.toBe(saved?.responseId);
+    expect((screen.getByLabelText('Your name') as HTMLInputElement).value).toBe('');
+  });
+
+  it('continues showing server field errors without clearing the submitted draft', async () => {
+    vi.spyOn(api, 'submitRsvp').mockRejectedValue(new api.ApiFailure(422, 'invalid_fields', ['responses.day22.partySize']));
+    openForm();
+    completeResponse(['attending']);
+    const saved = readDraft('confirmation-fingerprint');
+    fireEvent.click(screen.getByRole('button', { name: 'Send RSVP' }));
+
+    const error = await screen.findByRole('alert');
+    expect(within(error).getByRole('link', { name: 'Enter a whole number of 1 or more.' }).getAttribute('href')).toBe('#party-size-0');
+    expect(readDraft('confirmation-fingerprint')).toEqual(saved);
+    expect(screen.queryByRole('heading', { name: 'Your seat is confirmed' })).toBeNull();
   });
 });

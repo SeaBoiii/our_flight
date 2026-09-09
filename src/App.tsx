@@ -14,25 +14,35 @@ import {
   verifyLegacyPasscode,
 } from './invitations';
 import {
-  clearSession,
+  clearRememberedInvitation,
   fingerprintCredential,
   legacyTokenFromHash,
   readLocale,
   readReducedMotion,
-  readSession,
+  readRememberedInvitation,
   saveLocale,
-  saveSession,
+  saveRememberedInvitation,
 } from './storage';
 import type { AccessCredential, Invitation, Locale } from './types';
 
 const InvitationExperience = lazy(() => import('./components/InvitationExperience'));
 
-type GateError = 'empty' | 'invalid' | 'configuration' | 'expired' | null;
-const SESSION_MINUTES = 30;
+type GateError = 'empty' | 'invalid' | 'configuration' | null;
+type EntryMode = 'journey' | 'fast-track';
+type EntryHistory = { visit: string; view: EntryMode | 'boarding'; position: number };
+
+function entryHistory(): EntryHistory | null {
+  const entry = window.history.state?.ourFlightEntry as Partial<EntryHistory> | undefined;
+  return entry && typeof entry.visit === 'string'
+    && Number.isInteger(entry.position) && (entry.position ?? -1) >= 0
+    && ['journey', 'fast-track', 'boarding'].includes(entry.view ?? '')
+    ? entry as EntryHistory
+    : null;
+}
 
 function removeInvitationFragment(): void {
   if (!window.location.hash) return;
-  window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+  window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}`);
 }
 
 export default function App() {
@@ -41,16 +51,28 @@ export default function App() {
   const [legacyToken, setLegacyToken] = useState(() => legacyInvitesEnabled() ? legacyTokenFromHash() : null);
   const [credential, setCredential] = useState<AccessCredential | null>(null);
   const [fingerprint, setFingerprint] = useState('');
-  const [expiresAt, setExpiresAt] = useState('');
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [accessInput, setAccessInput] = useState('');
   const [unlocking, setUnlocking] = useState(false);
   const [restoring, setRestoring] = useState(true);
   const [gateError, setGateError] = useState<GateError>(null);
-  const [boarded, setBoarded] = useState(false);
+  const [restoredInvitation, setRestoredInvitation] = useState(false);
+  const [entryMode, setEntryMode] = useState<EntryMode | null>(null);
   const boardingHeadingRef = useRef<HTMLHeadingElement>(null);
+  const checkInHeadingRef = useRef<HTMLHeadingElement>(null);
   const accessFlowVersionRef = useRef(0);
+  const historyVisitRef = useRef(crypto.randomUUID());
+  const historyPositionRef = useRef(0);
   const t = copy[locale];
+
+  const rememberBoardingHistory = useCallback(() => {
+    historyPositionRef.current = 0;
+    window.history.replaceState(
+      { ourFlightEntry: { visit: historyVisitRef.current, view: 'boarding', position: 0 } },
+      '',
+      `${window.location.pathname}${window.location.search}`,
+    );
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = locale === 'ms' ? 'ms-SG' : 'en-SG';
@@ -74,22 +96,20 @@ export default function App() {
     const restore = async () => {
       setRestoring(true);
       try {
-        const saved = readSession();
+        const saved = readRememberedInvitation();
         if (!saved) {
-          clearSession();
+          clearRememberedInvitation();
           return;
         }
-        const savedExpired = Date.parse(saved.expiresAt) <= Date.now();
         const legacyUnavailable = saved.credential.kind === 'legacy-token' && !legacyInvitesEnabled();
-        const wrongLegacyLink = Boolean(incomingToken && (
+        const wrongLegacyLink = Boolean(legacyInvitesEnabled() && incomingToken && (
           saved.credential.kind !== 'legacy-token' || saved.credential.value !== incomingToken
         ));
-        if (savedExpired || legacyUnavailable || wrongLegacyLink) {
-          if (savedExpired && !incomingToken && saved.credential.kind === 'legacy-token' && legacyInvitesEnabled()) {
-            setLegacyToken(saved.credential.value);
-          }
-          clearSession();
-          if (savedExpired) setGateError('expired');
+        const configurationReady = saved.credential.kind === 'legacy-token'
+          ? legacyInvitationConfigurationReady()
+          : invitationConfigurationReady();
+        if (legacyUnavailable || wrongLegacyLink || !configurationReady) {
+          clearRememberedInvitation();
           return;
         }
 
@@ -104,16 +124,22 @@ export default function App() {
           || invitationAccess.cabinClass !== saved.cabinClass
           || nextFingerprint !== saved.fingerprint
         ) {
-          clearSession();
+          clearRememberedInvitation();
           return;
         }
         setCredential(saved.credential);
         setFingerprint(nextFingerprint);
-        setExpiresAt(saved.expiresAt);
         setInvitation(invitationForAccess(invitationAccess));
+        setRestoredInvitation(true);
+        rememberBoardingHistory();
         if (saved.credential.kind === 'legacy-token') {
           setLegacyToken(null);
           removeInvitationFragment();
+        }
+      } catch {
+        if (!cancelled && accessFlowVersionRef.current === flowVersion) {
+          clearRememberedInvitation();
+          setGateError('configuration');
         }
       } finally {
         if (!cancelled && accessFlowVersionRef.current === flowVersion) setRestoring(false);
@@ -121,62 +147,108 @@ export default function App() {
     };
     void restore();
     return () => { cancelled = true; };
-  }, []);
+  }, [rememberBoardingHistory]);
 
   useEffect(() => {
     const onHashChange = () => {
       const nextToken = legacyTokenFromHash();
+      // Native section links create their own history entries. Track those
+      // entries so the ticket control can return past them in one action.
+      if (!nextToken && invitation && entryMode && !entryHistory()) {
+        historyPositionRef.current += 1;
+        window.history.replaceState({
+          ourFlightEntry: { visit: historyVisitRef.current, view: entryMode, position: historyPositionRef.current },
+        }, '');
+      }
       const legacyEnabled = legacyInvitesEnabled();
       const rejectedToken = Boolean(nextToken && !legacyEnabled);
       const effectiveToken = legacyEnabled ? nextToken : null;
       if (rejectedToken) removeInvitationFragment();
+      if (rejectedToken && invitation) return;
       if (!rejectedToken && effectiveToken === legacyToken) return;
       if (!rejectedToken && !effectiveToken && !legacyToken) return;
       accessFlowVersionRef.current += 1;
-      clearSession();
+      clearRememberedInvitation();
       setLegacyToken(effectiveToken);
       setCredential(null);
       setFingerprint('');
-      setExpiresAt('');
       setInvitation(null);
       setAccessInput('');
       setUnlocking(false);
       setRestoring(false);
       setGateError(null);
-      setBoarded(false);
+      setRestoredInvitation(false);
+      setEntryMode(null);
+      historyVisitRef.current = crypto.randomUUID();
+      historyPositionRef.current = 0;
       window.scrollTo({ top: 0, behavior: 'auto' });
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
-  }, [legacyToken]);
+  }, [entryMode, invitation, legacyToken]);
 
-  const expireSession = useCallback(() => {
+  const forgetInvitation = useCallback(() => {
     accessFlowVersionRef.current += 1;
-    if (credential?.kind === 'legacy-token' && legacyInvitesEnabled()) {
-      setLegacyToken(credential.value);
-    }
-    clearSession();
+    clearRememberedInvitation();
+    setLegacyToken(null);
     setCredential(null);
     setFingerprint('');
-    setExpiresAt('');
     setInvitation(null);
-    setBoarded(false);
-    setGateError('expired');
+    setRestoredInvitation(false);
+    setEntryMode(null);
+    setGateError(null);
+    setAccessInput('');
+    setUnlocking(false);
+    setRestoring(false);
+    historyVisitRef.current = crypto.randomUUID();
+    historyPositionRef.current = 0;
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
     window.scrollTo({ top: 0, behavior: 'auto' });
-  }, [credential]);
+    window.requestAnimationFrame(() => checkInHeadingRef.current?.focus({ preventScroll: true }));
+  }, []);
 
   useEffect(() => {
-    if (!expiresAt) return undefined;
-    const remaining = Date.parse(expiresAt) - Date.now();
-    const timer = window.setTimeout(expireSession, Math.max(0, Math.min(remaining, 2_147_000_000)));
-    return () => window.clearTimeout(timer);
-  }, [expiresAt, expireSession]);
+    const onPopState = () => {
+      if (!invitation) return;
+      const entry = entryHistory();
+      if (entry?.visit !== historyVisitRef.current) return;
+      if (entry.view === 'fast-track' && !restoredInvitation) return;
+      historyPositionRef.current = entry.position;
+      setEntryMode(entry.view === 'boarding' ? null : entry.view);
+      if (entry.view === 'boarding') window.scrollTo({ top: 0, behavior: 'auto' });
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [invitation, restoredInvitation]);
 
   useEffect(() => {
-    if (!invitation || boarded) return;
+    if (!invitation || entryMode) return;
     const frame = window.requestAnimationFrame(() => boardingHeadingRef.current?.focus({ preventScroll: true }));
     return () => window.cancelAnimationFrame(frame);
-  }, [boarded, invitation]);
+  }, [entryMode, invitation]);
+
+  const boardInvitation = (mode: EntryMode) => {
+    if (mode === 'fast-track' && !restoredInvitation) return;
+    historyPositionRef.current += 1;
+    window.history.pushState(
+      { ourFlightEntry: { visit: historyVisitRef.current, view: mode, position: historyPositionRef.current } },
+      '',
+      `${window.location.pathname}${window.location.search}`,
+    );
+    window.scrollTo({ top: 0, behavior: 'auto' });
+    setEntryMode(mode);
+  };
+
+  const returnToBoarding = () => {
+    const entry = entryHistory();
+    setEntryMode(null);
+    if (entry?.visit === historyVisitRef.current && entry.position > 0) {
+      window.history.go(-entry.position);
+    } else {
+      rememberBoardingHistory();
+    }
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
 
   const toggleLocale = () => setLocale((current) => current === 'en' ? 'ms' : 'en');
 
@@ -225,21 +297,20 @@ export default function App() {
         return;
       }
 
-      const nextExpiry = new Date(Date.now() + SESSION_MINUTES * 60_000).toISOString();
       setCredential(nextCredential);
       setFingerprint(nextFingerprint);
-      setExpiresAt(nextExpiry);
       setInvitation(invitationForAccess(invitationAccess));
+      setRestoredInvitation(false);
+      setEntryMode(null);
       setAccessInput('');
-      saveSession({
-        version: 3,
-        unlocked: true,
-        expiresAt: nextExpiry,
+      saveRememberedInvitation({
+        version: 4,
         fingerprint: nextFingerprint,
         side: invitationAccess.side,
         cabinClass: invitationAccess.cabinClass,
         credential: nextCredential,
       });
+      rememberBoardingHistory();
       if (nextCredential.kind === 'legacy-token') {
         setLegacyToken(null);
         removeInvitationFragment();
@@ -256,13 +327,11 @@ export default function App() {
     ? t.emptyPasscode
     : gateError === 'invalid'
       ? t.invalidInvitation
-      : gateError === 'expired'
-        ? t.expired
-        : gateError === 'configuration'
-          ? t.configurationError
-          : '';
+      : gateError === 'configuration'
+        ? t.configurationError
+        : '';
 
-  if (invitation && credential && fingerprint && boarded) {
+  if (invitation && credential && fingerprint && entryMode) {
     return (
       <Suspense fallback={<div className="page-loading" role="status">{t.checking}</div>}>
         <InvitationExperience
@@ -271,10 +340,9 @@ export default function App() {
           fingerprint={fingerprint}
           locale={locale}
           reducedMotion={reducedMotion}
-          onBack={() => {
-            setBoarded(false);
-            window.scrollTo({ top: 0, behavior: 'auto' });
-          }}
+          entryMode={entryMode}
+          onBack={returnToBoarding}
+          onForget={forgetInvitation}
           onToggleLocale={toggleLocale}
         />
       </Suspense>
@@ -309,11 +377,17 @@ export default function App() {
           <BoardingPass
             invitation={invitation}
             locale={locale}
-            onBoard={() => {
-              window.scrollTo({ top: 0, behavior: 'auto' });
-              setBoarded(true);
-            }}
+            onBoard={() => boardInvitation('journey')}
           />
+          {restoredInvitation ? (
+            <div className="boarding-returning">
+              <button className="button button-secondary boarding-fast-track" type="button" onClick={() => boardInvitation('fast-track')}>
+                {t.fastTrack}
+              </button>
+              <p>{t.fastTrackHint}</p>
+            </div>
+          ) : null}
+          <button className="invitation-forget" type="button" onClick={forgetInvitation}>{t.forgetInvitation}</button>
         </section>
       ) : (
         <section className="gate-stage" aria-labelledby="check-in-title">
@@ -329,7 +403,7 @@ export default function App() {
           </div>
           <div className="gate-copy">
             <p className="eyebrow">{t.flightTheme}</p>
-            <h1 id="check-in-title">{t.checkIn}</h1>
+            <h1 ref={checkInHeadingRef} id="check-in-title" tabIndex={-1}>{t.checkIn}</h1>
             <p>{t.gateBody}</p>
             <form onSubmit={handleUnlock} noValidate>
               <label htmlFor="invitation-code">{t.passcode}</label>

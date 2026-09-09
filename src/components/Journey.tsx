@@ -6,6 +6,7 @@ import {
   getWindowExitScale,
 } from '../journeyMotion';
 import type { Invitation, Locale } from '../types';
+import { useLowDataMode } from '../useLowDataMode';
 import { BoardingPass } from './BoardingPass';
 
 type JourneyProps = {
@@ -138,6 +139,7 @@ function setCloudAperture(
 }
 
 export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
+  const lowData = useLowDataMode();
   const sectionRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const ticketSlotRef = useRef<HTMLDivElement>(null);
@@ -254,7 +256,7 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
       removeListeners();
       if (raf) window.cancelAnimationFrame(raf);
     };
-  }, [reducedMotion]);
+  }, [reducedMotion, lowData]);
 
   if (reducedMotion) {
     return <ReducedJourney invitation={invitation} locale={locale} />;
@@ -267,7 +269,7 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
           <CabinPicture alt="" eager />
         </div>
         <div className="journey-clouds" aria-hidden="true">
-          <CloudVideo videoRef={cloudVideoRef} />
+          {lowData ? <CloudPoster alt="" /> : <CloudVideo videoRef={cloudVideoRef} />}
         </div>
 
         <div className="journey-opening">

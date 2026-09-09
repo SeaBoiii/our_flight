@@ -14,6 +14,8 @@ export default tseslint.config(
       '.vinext/**',
       '.wrangler/**',
       'coverage/**',
+      'playwright-report/**',
+      'test-results/**',
       'frontend/**',
     ],
   },
