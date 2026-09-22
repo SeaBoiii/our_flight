@@ -8,17 +8,18 @@ type LanguageToggleProps = {
 
 export function LanguageToggle({ locale, label, onToggle }: LanguageToggleProps) {
   const targetLanguage = locale === 'en' ? 'ms' : 'en';
+  const abbreviation = targetLanguage === 'ms' ? 'BM' : 'EN';
 
   return (
     <button
       className="language-toggle"
       type="button"
       lang={targetLanguage}
-      aria-label={label}
+      aria-label={`${label} (${abbreviation})`}
       title={label}
       onClick={onToggle}
     >
-      {targetLanguage === 'ms' ? 'BM' : 'EN'}
+      {abbreviation}
     </button>
   );
 }

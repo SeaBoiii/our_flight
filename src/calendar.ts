@@ -28,7 +28,9 @@ function foldLine(line: string): string[] {
 function eventLines(event: InvitationEvent, locale: Locale): string[] {
   return event.calendarSegments.flatMap((segment, index) => [
     'BEGIN:VEVENT',
-    `UID:${event.flightCode.toLowerCase()}-${index + 1}@aleem-nurulain`,
+    // The reception is the same event in both 21 August invitation scopes.
+    // Keep previously published full-programme and 22 August UIDs stable.
+    `UID:${event.flightCode.toLowerCase()}-${index + (event.calendarKey === 'day21-reception' ? 2 : 1)}@aleem-nurulain`,
     'DTSTAMP:20260826T000000Z',
     `DTSTART;TZID=Asia/Singapore:${segment.startLocal}`,
     `DTEND;TZID=Asia/Singapore:${segment.endLocal}`,
@@ -62,14 +64,10 @@ export function calendarContents(event: InvitationEvent, locale: Locale): string
   return `${lines.flatMap(foldLine).join('\r\n')}\r\n`;
 }
 
-export function downloadCalendar(event: InvitationEvent, locale: Locale): void {
-  const blob = new Blob([calendarContents(event, locale)], { type: 'text/calendar;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `aleem-nurulain-${event.dateIso}.ics`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+export function calendarFileName(event: Pick<InvitationEvent, 'calendarKey'>, locale: Locale): string {
+  return `aleem-nurulain-${event.calendarKey}-${locale}.ics`;
+}
+
+export function calendarUrl(event: Pick<InvitationEvent, 'calendarKey'>, locale: Locale, base = '/'): string {
+  return `${base.replace(/\/?$/, '/')}calendar/${calendarFileName(event, locale)}`;
 }

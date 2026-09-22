@@ -1,5 +1,6 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
+import { calendarAssets } from './plugins/calendarAssets';
 
 const SHA256_PATTERN = /^[a-f0-9]{64}$/i;
 const RSVP_STATUSES = new Set(['preview', 'open', 'closed']);
@@ -166,7 +167,7 @@ export default defineConfig(({ command, mode }) => {
 
   return {
     base,
-    plugins: [react(), htmlEnvironment({ appsScriptUrl, development: command === 'serve', publicUrl })],
+    plugins: [react(), calendarAssets(), htmlEnvironment({ appsScriptUrl, development: command === 'serve', publicUrl })],
     define: {
       'import.meta.env.VITE_APPS_SCRIPT_URL': JSON.stringify(appsScriptUrl),
       'import.meta.env.VITE_INVITE_CODE_HASH_BUSINESS': JSON.stringify(classCodeHashes['groom business']),

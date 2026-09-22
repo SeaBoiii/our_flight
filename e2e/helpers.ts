@@ -18,7 +18,35 @@ export async function returnToInvitation(page: Page, code: string = testCodes.BR
 export async function fastTrack(page: Page, code: string = testCodes.BRIDE_BUSINESS) {
   await returnToInvitation(page, code);
   await page.getByRole('button', { name: /Fast Track/i }).click();
-  await expect(page.locator('#flight-dashboard h2')).toBeFocused();
+  await expect(page.locator('#itinerary-title')).toBeFocused();
+}
+
+export async function ticketInstructionPrecedesTickets(page: Page, label = 'Tap ticket to scan and board') {
+  const instruction = page.locator('.ticket-scan-instruction');
+  await expect(instruction).toHaveText(label);
+  const instructionBox = await instruction.boundingBox();
+  const ticketBox = await page.locator('.boarding-pass').first().boundingBox();
+  expect(instructionBox).not.toBeNull();
+  expect(ticketBox).not.toBeNull();
+  expect(instructionBox!.y + instructionBox!.height, 'Scan guidance belongs above the tickets').toBeLessThanOrEqual(ticketBox!.y + 1);
+}
+
+export async function journeyCueFitsFirstScreen(page: Page, label = 'Scroll down to begin your journey') {
+  const cue = page.locator('.journey-scroll-cue');
+  await expect(cue).toHaveText(label);
+  await expect(cue).toHaveCSS('opacity', '1');
+  await expect(cue.locator('a, button')).toHaveCount(0);
+  const cueBox = await cue.boundingBox();
+  const navBox = await page.locator('.experience-nav').boundingBox();
+  const headingBox = await page.locator('.journey h1, .static-journey h1').boundingBox();
+  expect(cueBox).not.toBeNull();
+  expect(cueBox!.y).toBeGreaterThanOrEqual(headingBox!.y + headingBox!.height);
+  expect(cueBox!.y).toBeGreaterThanOrEqual(navBox!.y + navBox!.height);
+  expect(cueBox!.y + cueBox!.height, 'Scroll guidance must fit in the first screen').toBeLessThanOrEqual(page.viewportSize()!.height);
+  const ticket = page.locator('.journey-ticket');
+  const ticketBox = await ticket.count() ? await ticket.boundingBox() : null;
+  if (ticketBox) expect(cueBox!.y, 'Journey tickets must not cover scroll guidance').toBeGreaterThanOrEqual(ticketBox.y + ticketBox.height - 1);
+  await fitsPhone(cue, page);
 }
 
 export async function noHorizontalOverflow(page: Page) {

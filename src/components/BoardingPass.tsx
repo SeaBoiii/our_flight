@@ -43,7 +43,7 @@ export function BoardingPass({
   }, []);
 
   const scanAndBoard = () => {
-    if (!onBoard || isScanning) return;
+    if (!onBoard || boardingTimer.current !== null) return;
     setIsScanning(true);
     const reducedMotion = typeof window.matchMedia === 'function'
       && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -52,6 +52,15 @@ export function BoardingPass({
 
   return (
     <div className={`ticket-stack cabin-${invitation.cabinClass}${compact ? ' ticket-stack--compact' : ''}${onBoard ? ' ticket-stack--boardable' : ''}${isScanning ? ' ticket-stack--scanning' : ''}`}>
+      {onBoard ? (
+        <p className="ticket-scan-instruction" role="status" aria-live="polite">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M9 11V5a2 2 0 0 1 4 0v5l1-1a2 2 0 0 1 3 1 2 2 0 0 1 3 2v4c0 4-2 6-6 6h-1c-2 0-3-1-4-2l-4-5a2 2 0 0 1 3-2l1 1v-3Z" />
+            <path d="M5 5H2m4-3L4 1m11 2 2-2" />
+          </svg>
+          {isScanning ? t.scanningTicket : t.scanTicket}
+        </p>
+      ) : null}
       {invitation.events.map((event) => {
         const date = stubDate(event, locale);
         const classTitle = cabinTitle(invitation, locale);
@@ -76,7 +85,7 @@ export function BoardingPass({
                 <span>{event.flightCode} · {date.day} {date.month} {date.year}</span>
               </div>
 
-              <div className="route-row" aria-label={`${t.departure}: SIN. ${t.destination}: Crowne Plaza, Changi Airport`}>
+              <div className="route-row">
                 <div>
                   <span className="field-label">{t.departure}</span>
                   <strong>SIN</strong>
@@ -132,21 +141,15 @@ export function BoardingPass({
       })}
 
       {onBoard ? (
-        <>
-          <button
-            className="ticket-scan-action"
-            type="button"
-            disabled={isScanning}
-            aria-label={isScanning ? t.scanningTicket : t.scanTicket}
-            onClick={scanAndBoard}
-          >
-            <span className="visually-hidden">{isScanning ? t.scanningTicket : t.scanTicket}</span>
-          </button>
-          <p className="ticket-scan-instruction" role="status" aria-live="polite">
-            <span aria-hidden="true" />
-            {isScanning ? t.scanningTicket : t.scanTicket}
-          </p>
-        </>
+        <button
+          className="ticket-scan-action"
+          type="button"
+          disabled={isScanning}
+          aria-label={isScanning ? t.scanningTicket : t.scanTicket}
+          onClick={scanAndBoard}
+        >
+          <span className="visually-hidden">{isScanning ? t.scanningTicket : t.scanTicket}</span>
+        </button>
       ) : null}
     </div>
   );

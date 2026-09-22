@@ -32,6 +32,7 @@ export type ProgrammeItem = {
 
 export type InvitationEvent = {
   id: 'day21' | 'day22';
+  calendarKey: 'day21-reception' | 'day21-full' | 'day22';
   flightCode: 'AN2108' | 'AN2208';
   dateIso: '2027-08-21' | '2027-08-22';
   dateLabel: LocalizedText;

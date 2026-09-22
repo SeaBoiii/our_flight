@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type MouseEvent } from 'react';
 import { copy } from '../copy';
 import type { AccessCredential, Invitation, Locale } from '../types';
 import { localized } from '../types';
@@ -6,7 +6,6 @@ import { crownePlazaLogo } from '../venueLogo';
 import { Journey } from './Journey';
 import { LanguageToggle } from './LanguageToggle';
 import { RsvpForm } from './RsvpForm';
-import { FlightDashboard } from './FlightDashboard';
 import { EventActions } from './EventActions';
 
 type InvitationExperienceProps = {
@@ -40,19 +39,37 @@ export default function InvitationExperience({
 }: InvitationExperienceProps) {
   const t = copy[locale];
   const experienceRef = useRef<HTMLElement>(null);
-  const dashboardHeadingRef = useRef<HTMLHeadingElement>(null);
+  const itineraryHeadingRef = useRef<HTMLHeadingElement>(null);
+  const navigatedRef = useRef(false);
+  const sectionFocusFrameRef = useRef(0);
+
+  useEffect(() => () => window.cancelAnimationFrame(sectionFocusFrameRef.current), []);
+
+  const focusSection = (event: MouseEvent<HTMLAnchorElement>, id: string) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    navigatedRef.current = true;
+    const targetHash = event.currentTarget.hash;
+    window.cancelAnimationFrame(sectionFocusFrameRef.current);
+    // Native fragment navigation may focus the section after the click handler.
+    // Move focus to its heading once that default action has completed.
+    sectionFocusFrameRef.current = window.requestAnimationFrame(() => {
+      if (window.location.hash === targetHash) document.getElementById(id)?.focus({ preventScroll: true });
+    });
+  };
 
   useEffect(() => {
+    navigatedRef.current = false;
     if (entryMode === 'fast-track') {
       const frame = window.requestAnimationFrame(() => {
-        dashboardHeadingRef.current?.scrollIntoView({ behavior: 'instant', block: 'start' });
-        dashboardHeadingRef.current?.focus({ preventScroll: true });
+        itineraryHeadingRef.current?.scrollIntoView({ behavior: 'instant', block: 'start' });
+        itineraryHeadingRef.current?.focus({ preventScroll: true });
       });
       return () => window.cancelAnimationFrame(frame);
     }
     let settleFrame = 0;
     let settleTimer = 0;
     const resetScroll = () => {
+      if (navigatedRef.current) return;
       const root = document.documentElement;
       const previousBehavior = root.style.scrollBehavior;
       root.style.scrollBehavior = 'auto';
@@ -63,14 +80,14 @@ export default function InvitationExperience({
     };
     const frame = window.requestAnimationFrame(() => {
       resetScroll();
-      experienceRef.current?.focus({ preventScroll: true });
+      if (!navigatedRef.current) experienceRef.current?.focus({ preventScroll: true });
       // A second frame wins over scroll anchoring when the 360svh sticky
       // journey is replaced by the shorter reduced-motion reading order.
       settleFrame = window.requestAnimationFrame(() => {
         resetScroll();
         settleTimer = window.setTimeout(() => {
           resetScroll();
-          experienceRef.current?.focus();
+          if (!navigatedRef.current) experienceRef.current?.focus();
         }, 80);
       });
     });
@@ -88,6 +105,10 @@ export default function InvitationExperience({
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 12H6m5-5-5 5 5 5" /></svg>
           <span>{t.back}</span>
         </button>
+        <div className="experience-shortcuts">
+          <a href="#itinerary-title" onClick={(event) => focusSection(event, 'itinerary-title')}>{t.itinerary}</a>
+          <a href="#rsvp" onClick={(event) => focusSection(event, 'rsvp-title')}>{t.rsvpShort}</a>
+        </div>
         <LanguageToggle locale={locale} label={t.language} onToggle={onToggleLocale} />
       </nav>
 
@@ -103,8 +124,6 @@ export default function InvitationExperience({
           <p className="blessing">{t.blessing}</p>
         </div>
       </section>
-
-      <FlightDashboard invitation={invitation} locale={locale} headingRef={dashboardHeadingRef} />
 
       <section className="our-story-section" aria-labelledby="our-story-title">
         <div className="our-story-inner">
@@ -124,7 +143,7 @@ export default function InvitationExperience({
       <section className="itinerary-section" aria-labelledby="itinerary-title">
         <div className="section-heading">
           <p className="eyebrow">{localized(invitation.cabinLabel, locale)}</p>
-          <h2 id="itinerary-title">{t.itinerary}</h2>
+          <h2 id="itinerary-title" ref={itineraryHeadingRef} tabIndex={-1}>{t.itinerary}</h2>
           <p>{t.singaporeTime}</p>
         </div>
 
@@ -189,6 +208,7 @@ export default function InvitationExperience({
             );
           })}
         </div>
+        <a className="itinerary-rsvp button button-text" href="#rsvp" onClick={(event) => focusSection(event, 'rsvp-title')}>{t.rsvpTitle}<span aria-hidden="true"> ↓</span></a>
       </section>
 
       <details className="travel-section">

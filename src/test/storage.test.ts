@@ -1,11 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   clearRememberedInvitation,
+  clearDraft,
   legacyTokenFromHash,
   readRememberedInvitation,
+  readDraft,
+  saveDraft,
   saveRememberedInvitation,
   type SavedInvitation,
 } from '../storage';
+import type { RsvpDraft } from '../types';
 
 const saved: SavedInvitation = {
   version: 4,
@@ -14,6 +18,42 @@ const saved: SavedInvitation = {
   cabinClass: 'economy',
   credential: { kind: 'class-code', value: 'ALPHA123' },
 };
+
+describe('RSVP draft storage', () => {
+  const draft: RsvpDraft = {
+    responseId: '123e4567-e89b-42d3-a456-426614174000',
+    inviteeName: 'Aminah', message: '',
+    responses: [{ eventId: 'day22', attendance: 'attending', partySize: '2' }],
+  };
+
+  it('restores the exact unfinished response and clears it on request', () => {
+    expect(saveDraft(saved.fingerprint, draft)).toBe(true);
+    expect(readDraft(saved.fingerprint)).toEqual(draft);
+    clearDraft(saved.fingerprint);
+    expect(readDraft(saved.fingerprint)).toBeNull();
+  });
+
+  it.each([
+    null,
+    { ...draft, responses: [null] },
+    { ...draft, responses: ['day22'] },
+    { ...draft, responses: [{ eventId: 'other', attendance: 'attending', partySize: '2' }] },
+    { ...draft, responses: [{ eventId: 'day22', attendance: 'maybe', partySize: '2' }] },
+    { ...draft, responses: [{ eventId: 'day22', attendance: 'attending', partySize: 2 }] },
+    { ...draft, responses: [draft.responses[0], draft.responses[0]] },
+    { ...draft, submissionLocale: 'unknown' },
+  ])('ignores malformed draft data instead of breaking the form: %j', (value) => {
+    window.localStorage.setItem(`our-flight:rsvp:${saved.fingerprint}`, JSON.stringify(value));
+    expect(readDraft(saved.fingerprint)).toBeNull();
+  });
+
+  it('reports failed persistence without throwing or losing the in-memory response', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new DOMException('Full', 'QuotaExceededError'); });
+    expect(saveDraft(saved.fingerprint, draft)).toBe(false);
+    expect(readDraft(saved.fingerprint)).toBeNull();
+    expect(draft.inviteeName).toBe('Aminah');
+  });
+});
 
 describe('persistent invitation storage', () => {
   it('remembers a versioned invitation in localStorage without an expiry', () => {

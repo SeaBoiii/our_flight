@@ -1,9 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { calendarContents } from '../calendar';
+import { calendarContents, calendarUrl } from '../calendar';
+import { day21Full, day21Reception, day22, invitationEvents } from '../invitationEvents';
 import { invitationForClass } from '../invitations';
 import { invitationWith } from './fixtures';
 
 describe('browser calendar files', () => {
+  it('keeps established ceremony UIDs consistent across invitation scopes and languages', () => {
+    const uids = (value: string) => Array.from(value.matchAll(/^UID:(.+)\r$/gm), ([, uid]) => uid);
+    for (const locale of ['en', 'ms'] as const) {
+      expect(uids(calendarContents(day21Full, locale))).toEqual(['an2108-1@aleem-nurulain', 'an2108-2@aleem-nurulain']);
+      expect(uids(calendarContents(day21Reception, locale))).toEqual(['an2108-2@aleem-nurulain']);
+      expect(uids(calendarContents(day22, locale))).toEqual(['an2208-1@aleem-nurulain']);
+    }
+  });
+
+  it.each(['/', '/our_flight/', '/our_flight'])('provides six distinct hosted calendar URLs under %s', (base) => {
+    const urls = invitationEvents.flatMap((event) => ['en', 'ms'].map((locale) => calendarUrl(event, locale as 'en' | 'ms', base)));
+    const prefix = base === '/' ? '/calendar/' : '/our_flight/calendar/';
+    expect(new Set(urls).size).toBe(6);
+    expect(urls.every((url) => url.startsWith(prefix) && url.endsWith('.ics'))).toBe(true);
+    expect(calendarUrl(day21Reception, 'ms', base)).toBe(`${prefix}aleem-nurulain-day21-reception-ms.ics`);
+  });
+
   it('uses the Singapore timezone and includes both 21 August programme segments', () => {
     const [event] = invitationWith(2).events;
     const calendar = calendarContents(event, 'en');

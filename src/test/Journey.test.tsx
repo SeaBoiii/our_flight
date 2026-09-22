@@ -27,6 +27,114 @@ describe('animated cloud journey', () => {
     });
   };
 
+  const setupCloudPlayback = () => {
+    let notifyIntersection: (visible: boolean) => void = () => undefined;
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(callback: IntersectionObserverCallback) {
+        notifyIntersection = (isIntersecting) => callback(
+          [{ isIntersecting } as IntersectionObserverEntry],
+          this as unknown as IntersectionObserver,
+        );
+      }
+      observe = vi.fn();
+      disconnect = vi.fn();
+    });
+    let hidden = false;
+    vi.spyOn(document, 'hidden', 'get').mockImplementation(() => hidden);
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+    let frameId = 0;
+    const frames = new Map<number, FrameRequestCallback>();
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      frames.set(++frameId, callback);
+      return frameId;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => { frames.delete(id); });
+
+    const { container, unmount } = render(<Journey invitation={invitationWith()} locale="en" reducedMotion={false} />);
+    const section = container.querySelector<HTMLElement>('.journey')!;
+    const stage = container.querySelector<HTMLElement>('.journey-stage')!;
+    let top = 0;
+    Object.defineProperties(stage, { clientWidth: { value: 390 }, clientHeight: { value: 800 } });
+    vi.spyOn(section, 'getBoundingClientRect').mockImplementation(() => ({
+      x: 0, y: top, top, bottom: top + 4000, left: 0, right: 390, width: 390, height: 4000,
+      toJSON: () => ({}),
+    }));
+
+    return {
+      play,
+      pause,
+      unmount,
+      nextFrame: () => act(() => {
+        const queued = [...frames.values()];
+        frames.clear();
+        queued.forEach((callback) => callback(0));
+      }),
+      intersect: (visible: boolean) => act(() => notifyIntersection(visible)),
+      scrollTo: (position: number) => act(() => {
+        top = -position;
+        window.dispatchEvent(new Event('scroll'));
+      }),
+      setHidden: (value: boolean) => act(() => {
+        hidden = value;
+        document.dispatchEvent(new Event('visibilitychange'));
+      }),
+    };
+  };
+
+  it('waits for the cloud reveal to play, pauses offscreen and resumes when the clouds return', () => {
+    const media = setupCloudPlayback();
+    media.intersect(true);
+    media.nextFrame();
+    media.scrollTo(640);
+    media.nextFrame();
+    expect(media.play).not.toHaveBeenCalled();
+
+    media.scrollTo(1600);
+    media.nextFrame();
+    expect(media.play).toHaveBeenCalledTimes(1);
+    media.scrollTo(1800);
+    media.nextFrame();
+    expect(media.play).toHaveBeenCalledTimes(1);
+
+    media.scrollTo(4400);
+    media.nextFrame();
+    expect(media.pause).toHaveBeenCalledTimes(1);
+    media.intersect(false);
+    media.scrollTo(1600);
+    media.nextFrame();
+    expect(media.play).toHaveBeenCalledTimes(1);
+    media.intersect(true);
+    media.nextFrame();
+    expect(media.play).toHaveBeenCalledTimes(2);
+
+    media.unmount();
+    expect(media.pause).toHaveBeenCalledTimes(2);
+  });
+
+  it('pauses immediately in a hidden document without waiting for a suspended animation frame', () => {
+    const media = setupCloudPlayback();
+    media.intersect(true);
+    media.scrollTo(1600);
+    media.nextFrame();
+    expect(media.play).toHaveBeenCalledTimes(1);
+
+    media.setHidden(true);
+    expect(media.pause).toHaveBeenCalledTimes(1);
+    media.nextFrame();
+    expect(media.play).toHaveBeenCalledTimes(1);
+    media.setHidden(false);
+    media.nextFrame();
+    expect(media.play).toHaveBeenCalledTimes(2);
+
+    media.unmount();
+    media.setHidden(true);
+    media.setHidden(false);
+    media.nextFrame();
+    expect(media.play).toHaveBeenCalledTimes(2);
+    expect(media.pause).toHaveBeenCalledTimes(2);
+  });
+
   it('uses the silent forward-and-reverse cloud video as a looping background', () => {
     stubIntersectionObserver();
 
@@ -35,7 +143,8 @@ describe('animated cloud journey', () => {
     );
     const video = container.querySelector<HTMLVideoElement>('.journey-cloud-video');
     expect(video).not.toBeNull();
-    expect(video?.autoplay).toBe(true);
+    expect(video?.autoplay).toBe(false);
+    expect(video?.preload).toBe('none');
     expect(video?.loop).toBe(true);
     expect(video?.muted).toBe(true);
     expect(video?.playsInline).toBe(true);
@@ -75,6 +184,14 @@ describe('animated cloud journey', () => {
     expect(opening?.children[1]).toBe(intro);
     expect(slot?.contains(ticket)).toBe(true);
     expect(slot?.contains(intro)).toBe(false);
+  });
+
+  it('keeps the invitation readable when IntersectionObserver is unavailable', () => {
+    vi.stubGlobal('IntersectionObserver', undefined);
+    const { container } = render(<Journey invitation={invitationWith()} locale="en" reducedMotion={false} />);
+    expect(screen.getByRole('heading', { name: 'Welcome aboard' })).toBeTruthy();
+    expect(container.querySelector('.static-journey')).toBeTruthy();
+    expect(container.querySelector('video')).toBeNull();
   });
 
   it.each([

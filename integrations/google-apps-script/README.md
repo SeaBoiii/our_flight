@@ -111,6 +111,7 @@ For retirement, change `LEGACY_INVITES_ENABLED` to `false` in Apps Script and Pa
 
 - Invitation side, class and scope are derived from the credential hash; client-supplied side/class/scope values are ignored.
 - Formula-leading name and message values are escaped before spreadsheet insertion.
+- Accepted writes are flushed to Sheets before releasing the script lock and returning success, so concurrent retries can find the committed response ID.
 - **Invitation side** is visible at column M. **Access credential hash** and **Payload digest** are hidden at N/O; existing A:L response data is not moved.
 - Existing response rows are backfilled as groom-side submissions during `setupWorkbook()`; raw credentials are never needed for migration.
 - Legacy requests retain the original version-1 canonical digest so retries can match rows written before the migration.

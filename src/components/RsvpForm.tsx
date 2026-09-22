@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ApiFailure, submitRsvp } from '../api';
+import { createUuid } from '../browser';
 import { copy } from '../copy';
-import { clearDraft, readDraft, saveDraft } from '../storage';
+import { clearDraft, readDraft, saveDraft, type SavedRsvpDraft } from '../storage';
 import type { AccessCredential, Invitation, Locale, RsvpDraft } from '../types';
 import { localized } from '../types';
 import { RsvpConfirmation } from './RsvpConfirmation';
@@ -13,18 +14,20 @@ type RsvpFormProps = {
   locale: Locale;
 };
 
-type Errors = Record<string, string>;
+type ErrorMessage = 'nameError' | 'messageError' | 'attendanceError' | 'partyError';
+type Errors = Record<string, ErrorMessage>;
 type SubmitState = 'idle' | 'sending' | 'success' | 'duplicate' | 'failed' | 'unconfirmed' | 'conflict';
 
-function freshDraft(invitation: Invitation, saved: RsvpDraft | null): RsvpDraft {
+function freshDraft(invitation: Invitation, saved: SavedRsvpDraft | null): SavedRsvpDraft {
   const savedAnswers = new Map(saved?.responses.map((answer) => [answer.eventId, answer]));
   const savedResponseId = saved?.responseId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(saved.responseId)
     ? saved.responseId
-    : crypto.randomUUID();
+    : createUuid();
   return {
     responseId: savedResponseId,
     inviteeName: saved?.inviteeName ?? '',
     message: saved?.message ?? '',
+    ...(saved?.submissionLocale ? { submissionLocale: saved.submissionLocale } : {}),
     responses: invitation.events.map((event) => {
       const answer = savedAnswers.get(event.id);
       return {
@@ -43,22 +46,33 @@ export function RsvpForm({
   locale,
 }: RsvpFormProps) {
   const t = copy[locale];
-  const [draft, setDraft] = useState<RsvpDraft>(() => freshDraft(invitation, readDraft(fingerprint)));
+  const [{ draft, draftSaved }, setDraftState] = useState<{ draft: SavedRsvpDraft; draftSaved: boolean | null }>(() => {
+    const saved = readDraft(fingerprint);
+    return { draft: freshDraft(invitation, saved), draftSaved: saved ? true : null };
+  });
   const [errors, setErrors] = useState<Errors>({});
   const [submitState, setSubmitState] = useState<SubmitState>('idle');
   const [confirmedResponse, setConfirmedResponse] = useState<{ response: RsvpDraft; duplicate: boolean } | null>(null);
   const sendingRef = useRef(false);
+  const submissionRef = useRef<AbortController | null>(null);
   const summaryRef = useRef<HTMLDivElement>(null);
   const formDisabled = invitation.rsvpStatus !== 'open' || submitState === 'sending' || submitState === 'success' || submitState === 'duplicate';
 
-  useEffect(() => {
-    if (!confirmedResponse) saveDraft(fingerprint, draft);
-  }, [draft, fingerprint, confirmedResponse]);
+  useEffect(() => () => submissionRef.current?.abort(), []);
+
+  const updateDraft = (next: SavedRsvpDraft) => {
+    setDraftState({ draft: next, draftSaved: saveDraft(fingerprint, next) });
+    setSubmitState('idle');
+  };
+
+  const clearErrors = (...fields: string[]) => {
+    setErrors((current) => Object.fromEntries(Object.entries(current).filter(([field]) => !fields.includes(field))));
+  };
 
   const updateAnswer = (eventId: string, field: 'attendance' | 'partySize', value: string) => {
-    setDraft((current) => ({
-      ...current,
-      responses: current.responses.map((answer) => {
+    updateDraft({
+      ...draft,
+      responses: draft.responses.map((answer) => {
         if (answer.eventId !== eventId) return answer;
         if (field === 'attendance') {
           return {
@@ -69,20 +83,21 @@ export function RsvpForm({
         }
         return { ...answer, partySize: value };
       }),
-    }));
-    setSubmitState('idle');
+    });
+    const index = invitation.events.findIndex((event) => event.id === eventId);
+    clearErrors(...(field === 'attendance' ? [`attendance-${index}`, `party-${index}`] : [`party-${index}`]));
   };
 
   const validate = (): Errors => {
     const next: Errors = {};
-    if (!draft.inviteeName.trim()) next.inviteeName = t.nameError;
-    if (draft.message.length > 500) next.message = t.messageError;
+    if (!draft.inviteeName.trim() || draft.inviteeName.trim().length > 100) next.inviteeName = 'nameError';
+    if (draft.message.length > 500) next.message = 'messageError';
     draft.responses.forEach((answer, index) => {
-      if (!answer.attendance) next[`attendance-${index}`] = t.attendanceError;
+      if (!answer.attendance) next[`attendance-${index}`] = 'attendanceError';
       if (answer.attendance === 'attending') {
         const partySize = Number(answer.partySize);
         if (!/^\d+$/.test(answer.partySize) || !Number.isSafeInteger(partySize) || partySize < 1) {
-          next[`party-${index}`] = t.partyError;
+          next[`party-${index}`] = 'partyError';
         }
       }
     });
@@ -100,28 +115,37 @@ export function RsvpForm({
     }
 
     // Keep the confirmation tied to the exact answers sent, including retries.
-    const submittedResponse: RsvpDraft = {
+    const submissionLocale = draft.submissionLocale ?? locale;
+    const submittedResponse: SavedRsvpDraft = {
       ...draft,
+      // Locale is part of the server's idempotency digest, even when answers
+      // are unchanged. Preserve the first submission's locale across retries.
+      submissionLocale,
       responses: draft.responses.map((answer) => ({ ...answer })),
     };
+    setDraftState({ draft: submittedResponse, draftSaved: saveDraft(fingerprint, submittedResponse) });
     sendingRef.current = true;
+    const controller = new AbortController();
+    submissionRef.current = controller;
     setSubmitState('sending');
     try {
-      const result = await submitRsvp(accessCredential, locale, submittedResponse);
+      const result = await submitRsvp(accessCredential, submissionLocale, submittedResponse, controller.signal);
+      if (controller.signal.aborted) return;
       clearDraft(fingerprint);
       setConfirmedResponse({ response: submittedResponse, duplicate: Boolean(result.duplicate) });
       setSubmitState(result.duplicate ? 'duplicate' : 'success');
     } catch (error) {
+      if (controller.signal.aborted) return;
       let handledValidation = false;
       if (error instanceof ApiFailure && error.status === 422) {
         const serverErrors: Errors = {};
         for (const field of error.fields) {
-          if (field === 'inviteeName') serverErrors.inviteeName = t.nameError;
-          if (field === 'message') serverErrors.message = t.messageError;
+          if (field === 'inviteeName') serverErrors.inviteeName = 'nameError';
+          if (field === 'message') serverErrors.message = 'messageError';
           invitation.events.forEach((inviteEvent, index) => {
             if (!field.includes(inviteEvent.id)) return;
-            if (field.endsWith('.partySize')) serverErrors[`party-${index}`] = t.partyError;
-            else serverErrors[`attendance-${index}`] = t.attendanceError;
+            if (field.endsWith('.partySize')) serverErrors[`party-${index}`] = 'partyError';
+            else serverErrors[`attendance-${index}`] = 'attendanceError';
           });
         }
         if (Object.keys(serverErrors).length) {
@@ -135,13 +159,14 @@ export function RsvpForm({
       else if (handledValidation) setSubmitState('idle');
       else setSubmitState('failed');
     } finally {
+      if (submissionRef.current === controller) submissionRef.current = null;
       sendingRef.current = false;
     }
   };
 
   const handleClear = () => {
     clearDraft(fingerprint);
-    setDraft(freshDraft(invitation, null));
+    setDraftState({ draft: freshDraft(invitation, null), draftSaved: null });
     setErrors({});
     setSubmitState('idle');
   };
@@ -183,7 +208,7 @@ export function RsvpForm({
     <section id="rsvp" className="rsvp-section" aria-labelledby="rsvp-title">
       <div className="section-heading">
         <p className="eyebrow">RSVP</p>
-        <h2 id="rsvp-title">{t.rsvpTitle}</h2>
+        <h2 id="rsvp-title" tabIndex={-1}>{t.rsvpTitle}</h2>
         <p>{localized(invitation.rsvpDeadline, locale)}</p>
       </div>
 
@@ -206,7 +231,7 @@ export function RsvpForm({
             <strong>{t.review}</strong>
             <ul>
               {Object.entries(errors).map(([field, message]) => (
-                <li key={field}><a href={`#${errorTarget(field)}`}>{message}</a></li>
+                <li key={field}><a href={`#${errorTarget(field)}`}>{t[message]}</a></li>
               ))}
             </ul>
           </div>
@@ -224,11 +249,11 @@ export function RsvpForm({
               aria-invalid={Boolean(errors.inviteeName)}
               aria-describedby={errors.inviteeName ? 'invitee-name-error' : undefined}
               onChange={(event) => {
-                setDraft((current) => ({ ...current, inviteeName: event.target.value }));
-                setSubmitState('idle');
+                updateDraft({ ...draft, inviteeName: event.target.value });
+                clearErrors('inviteeName');
               }}
             />
-            {errors.inviteeName ? <span id="invitee-name-error" className="field-error">{errors.inviteeName}</span> : null}
+            {errors.inviteeName ? <span id="invitee-name-error" className="field-error">{t[errors.inviteeName]}</span> : null}
           </div>
 
           {invitation.events.map((inviteEvent, index) => {
@@ -269,7 +294,7 @@ export function RsvpForm({
                   />
                   <span>{t.declining}</span>
                 </label>
-                {attendanceError ? <span id={`attendance-error-${index}`} className="field-error">{attendanceError}</span> : null}
+                {attendanceError ? <span id={`attendance-error-${index}`} className="field-error">{t[attendanceError]}</span> : null}
                 {answer?.attendance === 'attending' ? (
                   <div className="form-field form-field--party">
                     <label htmlFor={`party-size-${index}`}>{t.partySize}</label>
@@ -284,7 +309,7 @@ export function RsvpForm({
                       aria-describedby={partyError ? `party-error-${index}` : undefined}
                       onChange={(event) => updateAnswer(inviteEvent.id, 'partySize', event.target.value)}
                     />
-                    {partyError ? <span id={`party-error-${index}`} className="field-error">{partyError}</span> : null}
+                    {partyError ? <span id={`party-error-${index}`} className="field-error">{t[partyError]}</span> : null}
                   </div>
                 ) : null}
               </fieldset>
@@ -302,12 +327,12 @@ export function RsvpForm({
               aria-invalid={Boolean(errors.message)}
               aria-describedby={errors.message ? 'guest-message-error' : undefined}
               onChange={(event) => {
-                setDraft((current) => ({ ...current, message: event.target.value }));
-                setSubmitState('idle');
+                updateDraft({ ...draft, message: event.target.value });
+                clearErrors('message');
               }}
             />
             <span className="character-count">{draft.message.length}/500 &middot; {t.characters}</span>
-            {errors.message ? <span id="guest-message-error" className="field-error">{errors.message}</span> : null}
+            {errors.message ? <span id="guest-message-error" className="field-error">{t[errors.message]}</span> : null}
           </div>
         </fieldset>
 
@@ -325,7 +350,7 @@ export function RsvpForm({
             {t.clear}
           </button>
         </div>
-        {submitState !== 'success' && submitState !== 'duplicate' ? <p className="form-note">{t.saved}</p> : null}
+        {draftSaved !== null ? <p className="form-note" role={draftSaved ? undefined : 'status'}>{draftSaved ? t.saved : t.draftNotSaved}</p> : null}
         <p className="form-note">{t.privacy}</p>
       </form>
     </section>

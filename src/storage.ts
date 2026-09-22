@@ -1,4 +1,4 @@
-import type { AccessCredential, CabinClass, InvitationSide, RsvpDraft } from './types';
+import type { AccessCredential, CabinClass, InvitationSide, Locale, RsvpDraft } from './types';
 import { sha256Hex } from './invitations';
 
 const INVITATION_KEY = 'our-flight:access';
@@ -11,6 +11,8 @@ export type SavedInvitation = {
   cabinClass: CabinClass;
   credential: AccessCredential;
 };
+
+export type SavedRsvpDraft = RsvpDraft & { submissionLocale?: Locale };
 
 function storage(kind: 'local' | 'session'): Storage | null {
   try {
@@ -91,20 +93,49 @@ function draftKey(fingerprint: string): string {
   return `our-flight:rsvp:${fingerprint}`;
 }
 
-export function readDraft(fingerprint: string): RsvpDraft | null {
+export function readDraft(fingerprint: string): SavedRsvpDraft | null {
   try {
     const raw = storage('local')?.getItem(draftKey(fingerprint));
     if (!raw) return null;
-    const value = JSON.parse(raw) as Partial<RsvpDraft>;
-    if (typeof value.responseId !== 'string' || typeof value.inviteeName !== 'string' || typeof value.message !== 'string' || !Array.isArray(value.responses)) return null;
-    return value as RsvpDraft;
+    const value = JSON.parse(raw) as Partial<SavedRsvpDraft> | null;
+    if (
+      !value
+      || typeof value.responseId !== 'string'
+      || typeof value.inviteeName !== 'string'
+      || typeof value.message !== 'string'
+      || !Array.isArray(value.responses)
+      || value.responses.length > 2
+      || (value.submissionLocale !== undefined && !['en', 'ms'].includes(value.submissionLocale))
+    ) return null;
+    const responses: RsvpDraft['responses'] = [];
+    for (const answer of value.responses) {
+      if (
+        !answer || typeof answer !== 'object'
+        || !['day21', 'day22'].includes(answer.eventId)
+        || !['', 'attending', 'not-attending'].includes(answer.attendance)
+        || typeof answer.partySize !== 'string'
+        || responses.some((previous) => previous.eventId === answer.eventId)
+      ) return null;
+      responses.push({ eventId: answer.eventId, attendance: answer.attendance, partySize: answer.partySize });
+    }
+    return {
+      responseId: value.responseId, inviteeName: value.inviteeName, message: value.message, responses,
+      ...(value.submissionLocale ? { submissionLocale: value.submissionLocale } : {}),
+    };
   } catch {
     return null;
   }
 }
 
-export function saveDraft(fingerprint: string, draft: RsvpDraft): void {
-  try { storage('local')?.setItem(draftKey(fingerprint), JSON.stringify(draft)); } catch { /* Form remains usable. */ }
+export function saveDraft(fingerprint: string, draft: SavedRsvpDraft): boolean {
+  try {
+    const target = storage('local');
+    if (!target) return false;
+    target.setItem(draftKey(fingerprint), JSON.stringify(draft));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function clearDraft(fingerprint: string): void {

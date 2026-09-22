@@ -1,4 +1,5 @@
 import { appsScriptUrl } from './invitations';
+import { createUuid } from './browser';
 import type { AccessCredential, Locale, RsvpDraft, RsvpReceipt } from './types';
 
 const BRIDGE_VERSION = 2;
@@ -66,11 +67,13 @@ export async function submitRsvp(
   accessCredential: AccessCredential,
   locale: Locale,
   draft: RsvpDraft,
+  signal?: AbortSignal,
 ): Promise<{ ok: true; duplicate: boolean }> {
   const endpoint = appsScriptUrl();
   if (!endpoint) throw new ApiFailure(503, 'not_configured');
 
-  const nonce = crypto.randomUUID();
+  if (signal?.aborted) throw new ApiFailure(0, 'unconfirmed');
+  const nonce = createUuid();
   const frameName = `our-flight-rsvp-${nonce}`;
   const iframe = document.createElement('iframe');
   iframe.name = frameName;
@@ -120,6 +123,7 @@ export async function submitRsvp(
   return new Promise((resolve, reject) => {
     const cleanup = () => {
       window.removeEventListener('message', onMessage);
+      signal?.removeEventListener('abort', onAbort);
       window.clearTimeout(timeout);
       form.remove();
       iframe.remove();
@@ -144,7 +148,24 @@ export async function submitRsvp(
       reject(new ApiFailure(0, 'unconfirmed'));
     }, 30_000);
 
+    const onAbort = () => {
+      cleanup();
+      // The server may still receive the POST. Keep its response ID for retry.
+      reject(new ApiFailure(0, 'unconfirmed'));
+    };
+
     window.addEventListener('message', onMessage);
-    form.requestSubmit();
+    signal?.addEventListener('abort', onAbort, { once: true });
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+    try {
+      if (typeof form.requestSubmit === 'function') form.requestSubmit();
+      else form.submit();
+    } catch {
+      cleanup();
+      reject(new ApiFailure(0, 'submission_failed'));
+    }
   });
 }

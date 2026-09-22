@@ -23,11 +23,19 @@ This release discards old `sessionStorage` access records; existing guests check
 
 ## Guest journey and remembered invitations
 
-The first manual check-in shows the boarding pass with the existing scan interaction. Scanning preserves the cabin/window/cloud journey, followed by the formal invitation, **Flight Dashboard**, Our Story, detailed itinerary, Getting here, RSVP and footer.
+The first manual check-in shows the boarding pass with the scan interaction. Scanning begins the cabin/window/cloud journey, followed by the formal invitation, Our Story, detailed itinerary, Getting here, RSVP and footer. The former Flight Dashboard has been retired from the guest experience; its implementation remains available in Git history.
 
-Only an invitation restored from device storage offers the secondary **Fast Track to Flight Details** button beside the replay option. Fast Track never mounts Journey or its cabin/video elements and focuses the dashboard heading. The formal invitation stays available above the dashboard. Browser Back returns to boarding; Forward preserves the chosen entry mode. Reload always restores the boarding pass, allowing the guest to choose again.
+A prominent tap instruction sits above the tickets. Three gentle scale/glow pulses draw attention, then leave a highlighted border; reduced-motion guests see static highlighting. After scanning, a bilingual scroll prompt appears beneath the welcome text and fades after the first 48px of scrolling, returning at the top. The reduced-motion reading flow keeps a static prompt.
 
-The dashboard derives one card per `invitation.events` entry, with the correct flight, date, time, class and venue. It shares calendar generation and the Maps destination with the detailed itinerary. RSVP success and confirmed duplicate receipts replace the form with a bilingual flight confirmation: attending, warmly declining, or mixed attendance. Calendar downloads are offered only for attending events. The receipt bridge and server validation remain unchanged.
+Only an invitation restored from device storage offers the **Fast Track to Your Itinerary** button above the tickets, so returning guests can reach details without scrolling through both passes. Fast Track never mounts Journey or its cabin/video elements and focuses the itinerary heading. The formal invitation and Our Story stay available above the itinerary. Browser Back returns to boarding; Forward preserves the chosen entry mode. Reload always restores the boarding pass, allowing the guest to choose again.
+
+Once guests board, the fixed **Your itinerary** and **RSVP** links provide a direct route past the decorative journey. These native section links focus the relevant heading and participate in browser history; **Back to boarding pass** returns past section-link entries in one action. The boarding-page Fast Track remains exclusive to remembered invitations.
+
+The invitation experience is loaded separately from check-in. While it loads, guests can read their event dates, times and venue, open directions or calendar links, and return to their tickets. An error boundary preserves the same practical information if the experience fails to load or render, with an explicit reload action. Browser storage failures leave the current visit usable. Older Web Crypto implementations use secure random bytes when `randomUUID` is unavailable, and reduced-motion subscriptions support the older media-query listener API.
+
+The itinerary derives one card per `invitation.events` entry, with the correct flight, date, time, class, programme and venue, plus calendar and Maps links. Its RSVP shortcut takes guests directly to the attendance form. RSVP success and confirmed duplicate receipts replace the form with a bilingual flight confirmation: attending, warmly declining, or mixed attendance. Confirmation calendar links are offered only for attending events. The receipt bridge and server validation remain unchanged.
+
+Calendar links open regular same-origin `.ics` resources without forcing a download or popup. The shared Vite plugin generates and serves six files under `calendar/`: reception-only 21 August, full 21 August, and 22 August, each in English and Malay. The pure event catalogue in `src/invitationEvents.ts` supplies both invitation and calendar data. File URLs respect the deployment base path and return `text/calendar`. Verify the final native save flow on a physical iPhone in Safari and when arriving from a messaging app; Chromium emulation cannot confirm the Calendar handoff.
 
 Use **Use a different invitation** below the boarding pass or in the invitation footer to forget access and return to check-in. This preserves RSVP drafts and language preference. To reset only access during development, run the following in the browser console and reload:
 
@@ -40,6 +48,10 @@ location.reload();
 Storage belongs to the exact browser origin. The custom domain, an old `github.io` URL, and localhost each remember invitations separately. Clearing browser site data also clears remembered access and drafts.
 
 Data saver (`navigator.connection.saveData`) and `slow-2g`/`2g` connections use the existing cloud poster in the cinematic sequence without mounting or requesting the MP4. The reusable hook subscribes to supported connection changes; browsers without the Network Information API retain normal video playback. Reduced-motion preferences continue to use the static cabin/cloud/ticket reading order. Fast Track omits both journey variants.
+
+The video uses `preload="none"` and starts only when the cloud reveal is visible. It pauses offscreen and immediately when the page is backgrounded. Browsers without IntersectionObserver receive the static reading flow. No separate music or audible autoplay is required.
+
+RSVP drafts are validated before restoration. Storage errors are disclosed without blocking the current visit; requests are cancelled when the form is left, preserving retry identity. The original submission language is retained across retries because it forms part of the server's duplicate-detection digest.
 
 ## Static-site security boundary
 
@@ -83,7 +95,7 @@ Edit the three clearly labelled bilingual lists in [`src/programme.ts`](src/prog
 - `day21NikahAndReception` for full 21 August invitations.
 - `day22GroomReception` for 22 August invitations.
 
-Each list may have its activity names, timestamps and number of entries edited independently. Redeploy GitHub Pages after a programme edit. Boarding-pass and calendar start/end times stay protected in `src/invitations.ts` and are intentionally not derived from these display lists.
+Each list may have its activity names, timestamps and number of entries edited independently. Redeploy GitHub Pages after a programme edit. Boarding-pass and calendar start/end times stay protected in `src/invitationEvents.ts` and are intentionally not derived from these display lists.
 
 ## GitHub Pages configuration
 
@@ -167,8 +179,10 @@ npm run test:e2e:mobile
 
 On Linux CI, use `npx playwright install --with-deps chromium` to install browser system dependencies too. Playwright starts its own isolated Vite server with test-only invitation hashes and mocked Google receipts; it does not require real codes or a live Apps Script deployment. Never replace these fixtures with production credentials.
 
-Chromium phone projects cover 375 × 667, 390 × 844, 412 × 915 and 430 × 932. They exercise check-in, first/reopened boarding passes, returning-only Fast Track, dashboard focus and event scope, full and reduced-motion journeys, static low-data clouds, itinerary, RSVP and confirmation. Layout checks include document overflow, text clipping/collisions inside cards, touch targets, Malay copy and increased text size.
+Chromium phone projects cover 375 × 667, 390 × 844, 412 × 915 and 430 × 932. They exercise check-in, first/reopened boarding passes, returning-only Fast Track, itinerary focus and event scope, full and reduced-motion journeys, static low-data clouds, itinerary, RSVP and confirmation. Layout checks include document overflow, text clipping/collisions inside cards, touch targets, Malay copy and increased text size.
 
 The checked-in screenshots were captured on Windows with the installed Playwright Chromium version. Baseline filenames include the OS because system fonts can differ. On another OS, run `npm run test:e2e:update`, review the generated images, then run the regular suite; commit reviewed baselines for that platform if it becomes a maintained runner. Existing baselines should only be updated after reviewing the visual changes. Browser emulation does not reproduce Safari, physical iPhone notches or all OS text-size settings, so retain a physical iOS/Android release smoke check.
 
 Run `npm run lint`, `npm test`, `npm run build` and `npm run check:artifact` as well. Unit tests use jsdom browser storage, including on Node 25+ where the native Node storage API otherwise shadows it.
+
+The [launch-readiness audit](LAUNCH_AUDIT.md) records the fixes, local verification results, and outstanding release-environment, live RSVP and physical-phone checks. The launch browser tests additionally exercise blocked chunks, older APIs, direct section navigation and 360px Malay text at 200%.

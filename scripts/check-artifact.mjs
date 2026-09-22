@@ -10,7 +10,7 @@ const execFileAsync = promisify(execFile);
 const workspace = fileURLToPath(new URL('../', import.meta.url));
 const root = resolve(workspace, process.env.ARTIFACT_DIR || 'dist');
 const originalMonogramSha256 = '1002106cac61fb895c9b2f85fefbb464ba9cdf23c64571ddccb66c96fce4f734';
-const textExtensions = new Set(['.css', '.env', '.gs', '.html', '.js', '.json', '.jsx', '.md', '.mjs', '.ts', '.tsx', '.txt', '.yaml', '.yml']);
+const textExtensions = new Set(['.css', '.env', '.gs', '.html', '.ics', '.js', '.json', '.jsx', '.md', '.mjs', '.ts', '.tsx', '.txt', '.yaml', '.yml']);
 
 const artifactPatterns = [
   { label: 'legacy private API route', pattern: /\/api\/v1\/(?:unlock|invitation|rsvp|calendar)/i },
@@ -168,7 +168,13 @@ for (const file of files) {
 
 for (const file of await trackedSourceFiles()) {
   const name = relative(workspace, file).replaceAll('\\', '/');
-  const text = (await readFile(file, 'utf8')).normalize('NFKC');
+  let text;
+  try {
+    text = (await readFile(file, 'utf8')).normalize('NFKC');
+  } catch (error) {
+    if (error.code === 'ENOENT') continue; // Deleted tracked files are absent from this build.
+    throw error;
+  }
   if (containsConfiguredRawCode(text)) failures.push(`A raw invitation code is present in tracked source ${name}.`);
   if (containsConfiguredLegacyToken(text)) failures.push(`A raw legacy invitation token is present in tracked source ${name}.`);
   if (containsConfiguredPasscode(text)) failures.push(`The raw legacy passcode is present in tracked source ${name}.`);

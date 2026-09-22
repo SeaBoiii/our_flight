@@ -10,5 +10,8 @@
     "strict": true,
     "noEmit": true
   },
-  "include": ["vite.config.ts", "playwright.config.ts", "e2e/**/*.ts"]
+  "include": [
+    "vite.config.ts", "playwright.config.ts", "e2e/**/*.ts", "plugins/**/*.ts",
+    "src/calendar.ts", "src/invitationEvents.ts", "src/programme.ts", "src/types.ts"
+  ]
 }

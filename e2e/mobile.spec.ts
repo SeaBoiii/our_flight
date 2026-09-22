@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import {
   cardTextDoesNotClipOrOverlap, comfortableTargets, fastTrack, fillRsvp, fitsPhone, mockRsvpBridge,
-  noHorizontalOverflow, programmeDoesNotOverlap, returnToInvitation, snapshot, unlock,
+  journeyCueFitsFirstScreen, noHorizontalOverflow, programmeDoesNotOverlap,
+  returnToInvitation, snapshot, ticketInstructionPrecedesTickets, unlock,
 } from './helpers';
 import { testCodes } from './test-config';
 
@@ -14,12 +15,19 @@ test('first bride unlock preserves boarding scan and cinematic content order', a
   await unlock(page);
   await expect(page.locator('.boarding-pass')).toHaveCount(1);
   await expect(page.locator('.boarding-pass')).toContainText('AN2108');
+  await ticketInstructionPrecedesTickets(page);
   await fitsPhone(page.locator('.boarding-pass'), page);
   await cardTextDoesNotClipOrOverlap(page.locator('.boarding-pass'));
   await noHorizontalOverflow(page);
   await snapshot(page.locator('.boarding-page'), 'first-boarding.png');
   await page.getByRole('button', { name: 'Tap ticket to scan and board', exact: true }).click();
   await expect(page.locator('.journey')).toBeVisible();
+  await journeyCueFitsFirstScreen(page);
+  await snapshot(page.locator('.journey-stage'), 'journey-opening.png');
+  await page.evaluate(() => window.scrollTo({ top: 48, behavior: 'instant' }));
+  await expect(page.locator('.journey-scroll-cue')).toHaveCSS('opacity', '0');
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await expect(page.locator('.journey-scroll-cue')).toHaveCSS('opacity', '1');
   await expect(page.locator('.journey video')).toHaveCount(1);
   await expect(page.locator('.journey video source')).toHaveAttribute('src', /clouds-ping-pong\.mp4$/);
   await noHorizontalOverflow(page);
@@ -31,13 +39,19 @@ test('first bride unlock preserves boarding scan and cinematic content order', a
     (elements) => elements.map((element) => element.id || element.classList[0]),
   );
   expect(order).toEqual([
-    'journey', 'invitation', 'flight-dashboard', 'our-story-section',
+    'journey', 'invitation', 'our-story-section',
     'itinerary-section', 'travel-section', 'rsvp', 'site-footer',
   ]);
   await page.locator('#invitation').scrollIntoViewIfNeeded();
   await expect(page.locator('#invitation h1')).toContainText('Aleem');
-  await page.locator('#flight-dashboard').scrollIntoViewIfNeeded();
-  await expect(page.locator('#flight-dashboard article')).toHaveCount(1);
+  await page.locator('.itinerary-section').scrollIntoViewIfNeeded();
+  await expect(page.locator('.itinerary-card')).toHaveCount(1);
+  await expect(page.locator('#flight-dashboard')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Back to boarding pass', exact: true }).click();
+  await ticketInstructionPrecedesTickets(page);
+  await page.getByRole('button', { name: 'Tap ticket to scan and board', exact: true }).click();
+  await expect(page.locator('.journey')).toBeVisible();
+  await journeyCueFitsFirstScreen(page);
 });
 
 test('reopened groom invitation restores two tickets and fast tracks without journey requests', async ({ page, context }) => {
@@ -48,6 +62,7 @@ test('reopened groom invitation restores two tickets and fast tracks without jou
   await returnToInvitation(page, testCodes.BUSINESS);
   await expect(page.getByLabel('Invitation code', { exact: true })).toHaveCount(0);
   await expect(page.locator('.boarding-pass')).toHaveCount(2);
+  await ticketInstructionPrecedesTickets(page);
   await fitsPhone(page.locator('.boarding-pass'), page);
   await comfortableTargets(page.locator('.boarding-page button'));
   await snapshot(page.locator('.boarding-page'), 'returning-boarding.png');
@@ -55,31 +70,28 @@ test('reopened groom invitation restores two tickets and fast tracks without jou
   const persisted = JSON.parse(storage.origins[0].localStorage.find((item) => item.name === 'our-flight:access')!.value);
   expect(persisted.version).toBe(4);
   expect(persisted).not.toHaveProperty('expiresAt');
-  await page.getByRole('button', { name: /Fast Track/i }).click();
-  await expect(page.locator('#flight-dashboard h2')).toBeFocused();
-  await expect(page.locator('#flight-dashboard h2')).toBeInViewport();
+  await page.getByRole('button', { name: 'Fast Track to Your Itinerary', exact: true }).click();
+  await expect(page.locator('#itinerary-title')).toBeFocused();
+  await expect(page.locator('#itinerary-title')).toBeInViewport();
   await expect(page.locator('.journey, .static-journey, video')).toHaveCount(0);
-  await expect(page.locator('#flight-dashboard article')).toHaveCount(2);
-  await expect(page.locator('#flight-dashboard')).toContainText('AN2108');
-  await expect(page.locator('#flight-dashboard')).toContainText('AN2208');
-  await expect(page.locator('#flight-dashboard')).toContainText('Chengal');
-  await expect(page.locator('#flight-dashboard')).toContainText('Terminal 3');
-  await fitsPhone(page.locator('#flight-dashboard article'), page);
-  await cardTextDoesNotClipOrOverlap(page.locator('#flight-dashboard article, .itinerary-card'));
-  await comfortableTargets(page.locator('#flight-dashboard .button'));
+  await expect(page.locator('.itinerary-card')).toHaveCount(2);
+  await expect(page.locator('.itinerary-section')).toContainText('AN2108');
+  await expect(page.locator('.itinerary-section')).toContainText('AN2208');
+  await fitsPhone(page.locator('.itinerary-card'), page);
+  await cardTextDoesNotClipOrOverlap(page.locator('.itinerary-card'));
+  await comfortableTargets(page.locator('.itinerary-section .button'));
   await noHorizontalOverflow(page);
-  await snapshot(page.locator('#flight-dashboard'), 'two-event-dashboard.png');
   await snapshot(page.locator('.itinerary-section'), 'two-event-itinerary.png');
   await programmeDoesNotOverlap(page);
   await page.locator('.travel-section summary').click();
   await expect(page.locator('.travel-details')).toContainText('MRT');
   expect(journeyRequests).toEqual([]);
-  const dashboardUrl = page.url();
-  await page.locator('.dashboard-rsvp').click();
+  const itineraryUrl = page.url();
+  await page.locator('.itinerary-rsvp').click();
   await expect(page).toHaveURL(/#rsvp$/);
   await page.goBack();
-  await expect(page).toHaveURL(dashboardUrl);
-  await expect(page.locator('#flight-dashboard')).toBeVisible();
+  await expect(page).toHaveURL(itineraryUrl);
+  await expect(page.locator('.itinerary-section')).toBeVisible();
   await page.goForward();
   await expect(page).toHaveURL(/#rsvp$/);
   await expect(page.locator('#rsvp')).toBeVisible();
@@ -87,13 +99,14 @@ test('reopened groom invitation restores two tickets and fast tracks without jou
   await expect(page.locator('.boarding-page')).toBeVisible();
   await expect(page.getByRole('button', { name: /Fast Track/i })).toBeVisible();
   await page.goForward();
-  await expect(page.locator('#flight-dashboard h2')).toBeFocused();
+  await expect(page.locator('#itinerary-title')).toBeFocused();
   await expect(page.locator('.journey, .static-journey, video')).toHaveCount(0);
   expect(journeyRequests).toEqual([]);
   await page.goBack();
   await expect(page.locator('.boarding-page')).toBeVisible();
   await page.getByRole('button', { name: 'Tap ticket to scan and board', exact: true }).click();
   await expect(page.locator('.journey')).toBeVisible();
+  await journeyCueFitsFirstScreen(page);
 });
 
 test('switching invitation preserves drafts and new manual unlock has no fast track', async ({ page }) => {
@@ -115,10 +128,18 @@ test('reduced-motion scan uses static cabin and clouds with no MP4 request', asy
   const mp4Requests: string[] = [];
   page.on('request', (request) => { if (/\.mp4(?:\?|$)/.test(request.url())) mp4Requests.push(request.url()); });
   await unlock(page);
+  await ticketInstructionPrecedesTickets(page);
+  const animatedTicketElements = await page.locator('.ticket-stack, .boarding-pass, .ticket-scan-instruction').evaluateAll((elements) => elements
+    .filter((element) => getComputedStyle(element).animationName !== 'none').map((element) => element.className));
+  expect(animatedTicketElements).toEqual([]);
   await page.getByRole('button', { name: 'Tap ticket to scan and board', exact: true }).click();
   await expect(page.locator('.static-journey')).toBeVisible();
   await expect(page.locator('video')).toHaveCount(0);
   await expect(page.locator('.static-journey img[src*="clouds-video-poster"]')).toBeVisible();
+  await journeyCueFitsFirstScreen(page);
+  await expect(page.locator('.journey-scroll-cue')).toHaveCSS('animation-name', 'none');
+  const staticCuePosition = await page.locator('.journey-scroll-cue').evaluate((element) => getComputedStyle(element).position);
+  expect(['static', 'relative']).toContain(staticCuePosition);
   await snapshot(page.locator('.static-journey'), 'reduced-motion-journey.png');
   await noHorizontalOverflow(page);
   expect(mp4Requests).toEqual([]);
@@ -148,8 +169,8 @@ for (const connection of [
     });
     await expect.poll(() => page.locator('.journey').evaluate((element) => Number(element.style.getPropertyValue('--cloud-opacity')))).toBe(1);
     await noHorizontalOverflow(page);
-    await page.locator('#flight-dashboard').scrollIntoViewIfNeeded();
-    await expect(page.locator('#flight-dashboard')).toBeVisible();
+    await page.locator('.itinerary-section').scrollIntoViewIfNeeded();
+    await expect(page.locator('#itinerary-title')).toBeVisible();
     expect(mp4Requests).toEqual([]);
   });
 }
@@ -184,9 +205,14 @@ for (const duplicate of [false, true]) {
     expect(submissions[0]).toMatchObject({ credential: { kind: 'class-code', value: testCodes.BRIDE_BUSINESS }, responses: [{ eventId: 'day21', attendance: 'attending', partySize: 2 }] });
     if (duplicate) await expect(page.locator('#rsvp')).toContainText('No duplicate response was created');
     else await snapshot(page.locator('#rsvp'), 'rsvp-confirmed.png');
+    const calendarLink = page.locator('#rsvp').getByRole('link', { name: 'Add to calendar', exact: true });
+    await expect(calendarLink).toHaveAttribute('href', '/calendar/aleem-nurulain-day21-full-en.ics');
+    await expect(calendarLink).not.toHaveAttribute('download');
     const download = page.waitForEvent('download');
-    await page.locator('#rsvp').getByRole('button', { name: 'Add to calendar', exact: true }).click();
-    expect((await download).suggestedFilename()).toMatch(/\.ics$/);
+    await calendarLink.click();
+    const calendarDownload = await download;
+    expect(calendarDownload.suggestedFilename()).toBe('aleem-nurulain-day21-full-en.ics');
+    expect(await calendarDownload.failure()).toBeNull();
   });
 }
 
@@ -198,7 +224,7 @@ test('declining has a warm confirmation and no calendar action', async ({ page }
   await expect(page.locator('.rsvp-confirmation--declining')).toBeVisible();
   await expect(page.locator('#rsvp h2')).toContainText(/miss having you on board/i);
   await expect(page.locator('#rsvp [role="alert"]')).toHaveCount(0);
-  await expect(page.locator('#rsvp').getByRole('button', { name: /calendar/i })).toHaveCount(0);
+  await expect(page.locator('#rsvp').getByRole('link', { name: /calendar/i })).toHaveCount(0);
   expect(submissions[0].responses).toEqual([{ eventId: 'day21', attendance: 'not-attending' }]);
   await noHorizontalOverflow(page);
 });
@@ -214,8 +240,8 @@ test('mixed groom attendance shows each day and calendar only for attending day'
   await expect(events).toHaveCount(2);
   await expect(events.nth(0)).toContainText('AN2108');
   await expect(events.nth(1)).toContainText('AN2208');
-  await expect(events.nth(0).getByRole('button', { name: /calendar/i })).toHaveCount(1);
-  await expect(events.nth(1).getByRole('button', { name: /calendar/i })).toHaveCount(0);
+  await expect(events.nth(0).getByRole('link', { name: /calendar/i })).toHaveCount(1);
+  await expect(events.nth(1).getByRole('link', { name: /calendar/i })).toHaveCount(0);
   await expect(events.nth(1)).toContainText('Unable to attend');
   await noHorizontalOverflow(page);
   await snapshot(page.locator('#rsvp'), 'rsvp-mixed.png');
@@ -223,21 +249,22 @@ test('mixed groom attendance shows each day and calendar only for attending day'
 
 test('Malay with 125 percent text fits tickets, details, itinerary and RSVP', async ({ page }, testInfo) => {
   await returnToInvitation(page, testCodes.BRIDE_FIRST);
-  await page.getByRole('button', { name: 'Bahasa Melayu', exact: true }).click();
+  await page.getByRole('button', { name: 'Bahasa Melayu (BM)', exact: true }).click();
   await page.addStyleTag({ content: 'html { font-size: 125% !important; }' });
-  await expect(page.getByRole('button', { name: 'English', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'English (EN)', exact: true })).toBeVisible();
   await fitsPhone(page.locator('.boarding-pass'), page);
   await cardTextDoesNotClipOrOverlap(page.locator('.boarding-pass'));
   await noHorizontalOverflow(page);
   await comfortableTargets(page.locator('.boarding-page button'));
   await page.locator('.boarding-page').screenshot({ path: testInfo.outputPath('malay-scaled-boarding.png') });
-  await page.getByRole('button', { name: 'Laluan Pantas ke Butiran Majlis', exact: true }).click();
-  await expect(page.locator('#flight-dashboard h2')).toBeFocused();
-  await fitsPhone(page.locator('#flight-dashboard article, .itinerary-card, .attendance-card'), page);
-  await cardTextDoesNotClipOrOverlap(page.locator('#flight-dashboard article, .itinerary-card'));
+  await ticketInstructionPrecedesTickets(page, 'Ketik tiket untuk imbas dan naik pesawat');
+  await page.getByRole('button', { name: 'Laluan Pantas ke Jadual Majlis Anda', exact: true }).click();
+  await expect(page.locator('#itinerary-title')).toBeFocused();
+  await fitsPhone(page.locator('.itinerary-card, .attendance-card'), page);
+  await cardTextDoesNotClipOrOverlap(page.locator('.itinerary-card'));
   await programmeDoesNotOverlap(page);
   await noHorizontalOverflow(page);
-  await page.locator('#flight-dashboard').screenshot({ path: testInfo.outputPath('malay-scaled-dashboard.png') });
+  await page.locator('.itinerary-section').screenshot({ path: testInfo.outputPath('malay-scaled-itinerary.png') });
   await expect(page.locator('meta[name="viewport"]')).toHaveAttribute('content', /viewport-fit=cover/);
   const nav = page.locator('.experience-nav');
   const navBox = await nav.boundingBox();
@@ -247,6 +274,64 @@ test('Malay with 125 percent text fits tickets, details, itinerary and RSVP', as
   await page.locator('#attendance-0-yes').check();
   await page.locator('#party-size-0').fill('3');
   await comfortableTargets(page.locator('.radio-option, #party-size-0, .form-actions button'));
-  await page.getByRole('button', { name: 'English', exact: true }).click();
+  await page.getByRole('button', { name: 'English (EN)', exact: true }).click();
   await expect(page.locator('#rsvp h2')).toHaveText('Confirm your attendance');
+});
+
+test('all calendar scopes and languages have real HTTP calendar responses', async ({ request }) => {
+  for (const locale of ['en', 'ms']) {
+    for (const key of ['day21-reception', 'day21-full', 'day22']) {
+      const response = await request.get(`/calendar/aleem-nurulain-${key}-${locale}.ics`);
+      expect(response.status()).toBe(200);
+      expect(response.headers()['content-type']).toContain('text/calendar');
+      const contents = await response.text();
+      expect(contents).toContain('BEGIN:VCALENDAR\r\n');
+      expect(contents.match(/BEGIN:VEVENT/g)).toHaveLength(key === 'day21-full' ? 2 : 1);
+      expect(contents).toContain('TZID:Asia/Singapore');
+      expect(contents).toContain('Chengal Ballroom');
+      if (key === 'day21-reception') {
+        expect(contents).not.toMatch(/Nikah/i);
+        expect(contents).toContain('DTSTART;TZID=Asia/Singapore:20270821T120000');
+        expect(contents).toContain('UID:an2108-2@aleem-nurulain');
+      }
+      if (key === 'day22') {
+        expect(contents).toContain(locale === 'en' ? "Groom's Reception" : 'Walimatul Urus');
+        expect(contents).toContain('DTSTART;TZID=Asia/Singapore:20270822T120000');
+      }
+    }
+  }
+});
+
+test('two-ticket Malay journey has visible guidance and supports keyboard boarding', async ({ page }, testInfo) => {
+  await unlock(page, testCodes.BRIDE_FIRST);
+  await page.getByRole('button', { name: 'Bahasa Melayu (BM)', exact: true }).click();
+  await page.addStyleTag({ content: 'html { font-size: 125% !important; }' });
+  await ticketInstructionPrecedesTickets(page, 'Ketik tiket untuk imbas dan naik pesawat');
+  const scan = page.getByRole('button', { name: 'Ketik tiket untuk imbas dan naik pesawat', exact: true });
+  await scan.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.ticket-scan-action')).toBeDisabled();
+  await expect(page.locator('.journey')).toBeVisible();
+  await journeyCueFitsFirstScreen(page, 'Tatal ke bawah untuk memulakan perjalanan anda');
+  await noHorizontalOverflow(page);
+  await page.locator('.journey-stage').screenshot({ path: testInfo.outputPath('malay-scaled-journey.png') });
+  await page.getByRole('button', { name: 'Kembali ke pas masuk', exact: true }).click();
+  await scan.focus();
+  await page.keyboard.press('Space');
+  await expect(page.locator('.journey')).toBeVisible();
+  await journeyCueFitsFirstScreen(page, 'Tatal ke bawah untuk memulakan perjalanan anda');
+});
+
+test('desktop tickets and scroll prompt remain clear', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile-standard', 'One desktop viewport check is sufficient.');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await unlock(page, testCodes.BUSINESS);
+  await ticketInstructionPrecedesTickets(page);
+  await fitsPhone(page.locator('.boarding-pass'), page);
+  await noHorizontalOverflow(page);
+  await page.locator('.boarding-page').screenshot({ path: testInfo.outputPath('desktop-boarding.png') });
+  await page.getByRole('button', { name: 'Tap ticket to scan and board', exact: true }).click();
+  await expect(page.locator('.journey')).toBeVisible();
+  await journeyCueFitsFirstScreen(page);
+  await page.locator('.journey-stage').screenshot({ path: testInfo.outputPath('desktop-journey.png') });
 });

@@ -1,7 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { BoardingPass } from './components/BoardingPass';
 import { LanguageToggle } from './components/LanguageToggle';
+import { ExperienceBoundary } from './components/ExperienceBoundary';
+import { ExperienceRecovery } from './components/ExperienceRecovery';
 import { copy } from './copy';
+import { createUuid } from './browser';
 import {
   accessForCredential,
   invitationConfigurationReady,
@@ -61,7 +64,8 @@ export default function App() {
   const boardingHeadingRef = useRef<HTMLHeadingElement>(null);
   const checkInHeadingRef = useRef<HTMLHeadingElement>(null);
   const accessFlowVersionRef = useRef(0);
-  const historyVisitRef = useRef(crypto.randomUUID());
+  const historyVisitRef = useRef<string | null>(null);
+  if (historyVisitRef.current === null) historyVisitRef.current = createUuid();
   const historyPositionRef = useRef(0);
   const t = copy[locale];
 
@@ -83,8 +87,12 @@ export default function App() {
     if (typeof window.matchMedia !== 'function') return undefined;
     const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
     const syncMotionPreference = (event: MediaQueryListEvent) => setReducedMotion(event.matches);
-    motionPreference.addEventListener('change', syncMotionPreference);
-    return () => motionPreference.removeEventListener('change', syncMotionPreference);
+    if (typeof motionPreference.addEventListener === 'function') {
+      motionPreference.addEventListener('change', syncMotionPreference);
+      return () => motionPreference.removeEventListener('change', syncMotionPreference);
+    }
+    motionPreference.addListener(syncMotionPreference);
+    return () => motionPreference.removeListener(syncMotionPreference);
   }, []);
 
   useEffect(() => {
@@ -179,7 +187,7 @@ export default function App() {
       setGateError(null);
       setRestoredInvitation(false);
       setEntryMode(null);
-      historyVisitRef.current = crypto.randomUUID();
+      historyVisitRef.current = createUuid();
       historyPositionRef.current = 0;
       window.scrollTo({ top: 0, behavior: 'auto' });
     };
@@ -200,7 +208,7 @@ export default function App() {
     setAccessInput('');
     setUnlocking(false);
     setRestoring(false);
-    historyVisitRef.current = crypto.randomUUID();
+    historyVisitRef.current = createUuid();
     historyPositionRef.current = 0;
     window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -333,19 +341,21 @@ export default function App() {
 
   if (invitation && credential && fingerprint && entryMode) {
     return (
-      <Suspense fallback={<div className="page-loading" role="status">{t.checking}</div>}>
-        <InvitationExperience
-          invitation={invitation}
-          accessCredential={credential}
-          fingerprint={fingerprint}
-          locale={locale}
-          reducedMotion={reducedMotion}
-          entryMode={entryMode}
-          onBack={returnToBoarding}
-          onForget={forgetInvitation}
-          onToggleLocale={toggleLocale}
-        />
-      </Suspense>
+      <ExperienceBoundary fallback={<ExperienceRecovery invitation={invitation} locale={locale} failed onBack={returnToBoarding} />}>
+        <Suspense fallback={<ExperienceRecovery invitation={invitation} locale={locale} onBack={returnToBoarding} />}>
+          <InvitationExperience
+            invitation={invitation}
+            accessCredential={credential}
+            fingerprint={fingerprint}
+            locale={locale}
+            reducedMotion={reducedMotion}
+            entryMode={entryMode}
+            onBack={returnToBoarding}
+            onForget={forgetInvitation}
+            onToggleLocale={toggleLocale}
+          />
+        </Suspense>
+      </ExperienceBoundary>
     );
   }
 
@@ -374,11 +384,6 @@ export default function App() {
             <h1 ref={boardingHeadingRef} id="boarding-title" className="boarding-title" tabIndex={-1}>{t.ticketReady}</h1>
             <p>Aleem &amp; Nurulain</p>
           </div>
-          <BoardingPass
-            invitation={invitation}
-            locale={locale}
-            onBoard={() => boardInvitation('journey')}
-          />
           {restoredInvitation ? (
             <div className="boarding-returning">
               <button className="button button-secondary boarding-fast-track" type="button" onClick={() => boardInvitation('fast-track')}>
@@ -387,6 +392,11 @@ export default function App() {
               <p>{t.fastTrackHint}</p>
             </div>
           ) : null}
+          <BoardingPass
+            invitation={invitation}
+            locale={locale}
+            onBoard={() => boardInvitation('journey')}
+          />
           <button className="invitation-forget" type="button" onClick={forgetInvitation}>{t.forgetInvitation}</button>
         </section>
       ) : (

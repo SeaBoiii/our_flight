@@ -1,5 +1,6 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { calendarAssets } from '../plugins/calendarAssets';
 import { testEnvironment } from './test-config';
 
 // Separate from the deployment config so test runs cannot read local .env files
@@ -9,7 +10,7 @@ export default defineConfig({
   envPrefix: '__E2E_NO_PROCESS_ENV__',
   base: '/',
   server: { hmr: false, watch: null },
-  plugins: [react(), {
+  plugins: [react(), calendarAssets(), {
     name: 'e2e-html-environment',
     transformIndexHtml(html) {
       const googleSources = "'self' https://script.google.com https://script.googleusercontent.com https://*.googleusercontent.com";

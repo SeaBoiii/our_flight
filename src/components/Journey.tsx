@@ -61,11 +61,10 @@ function CloudVideo({ videoRef }: { videoRef: RefObject<HTMLVideoElement | null>
     <video
       ref={videoRef}
       className="journey-cloud-video"
-      autoPlay
       loop
       muted
       playsInline
-      preload="metadata"
+      preload="none"
       poster={`${base}journey/clouds-video-poster.webp`}
       aria-hidden="true"
       tabIndex={-1}
@@ -76,6 +75,17 @@ function CloudVideo({ videoRef }: { videoRef: RefObject<HTMLVideoElement | null>
   );
 }
 
+function ScrollCue({ locale }: { locale: Locale }) {
+  return (
+    <p className="journey-scroll-cue">
+      <span>{copy[locale].scrollJourney}</span>
+      <svg aria-hidden="true" viewBox="0 0 24 24">
+        <path d="m6 6 6 6 6-6M6 13l6 6 6-6" />
+      </svg>
+    </p>
+  );
+}
+
 function ReducedJourney({ invitation, locale }: Omit<JourneyProps, 'reducedMotion'>) {
   const t = copy[locale];
   return (
@@ -83,7 +93,8 @@ function ReducedJourney({ invitation, locale }: Omit<JourneyProps, 'reducedMotio
       <div className="static-journey-intro">
         <p className="eyebrow">{t.flightTheme}</p>
         <h1>{t.welcome}</h1>
-        <p>{t.welcomeBody}</p>
+        <p className="journey-welcome-body">{t.welcomeBody}</p>
+        <ScrollCue locale={locale} />
       </div>
       <figure className="static-scene">
         <CabinPicture alt={t.cabinAlt} />
@@ -140,6 +151,7 @@ function setCloudAperture(
 
 export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
   const lowData = useLowDataMode();
+  const staticMode = reducedMotion || typeof IntersectionObserver === 'undefined';
   const sectionRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const ticketSlotRef = useRef<HTMLDivElement>(null);
@@ -149,7 +161,7 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
   const logo = `${import.meta.env.BASE_URL}monogram-a-and-n-display.png`;
 
   useLayoutEffect(() => {
-    if (reducedMotion) return undefined;
+    if (staticMode) return undefined;
     const slot = ticketSlotRef.current;
     const ticket = ticketRef.current;
     if (!slot || !ticket) return undefined;
@@ -180,16 +192,25 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
     observer.observe(slot);
     observer.observe(ticket);
     return () => observer.disconnect();
-  }, [invitation, locale, reducedMotion]);
+  }, [invitation, locale, staticMode]);
 
   useEffect(() => {
-    if (reducedMotion) return undefined;
+    if (staticMode) return undefined;
     const section = sectionRef.current;
     const stage = stageRef.current;
     if (!section || !stage) return undefined;
 
     let raf = 0;
     let listening = false;
+    let playbackRequested = false;
+    const video = cloudVideoRef.current;
+
+    const setPlayback = (play: boolean) => {
+      if (!video || play === playbackRequested) return;
+      playbackRequested = play;
+      if (play) void video.play().catch(() => undefined);
+      else video.pause();
+    };
 
     const update = () => {
       raf = 0;
@@ -203,6 +224,7 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
       const windowProgress = smoothstep(phase(progress, 0.34, 0.79));
       const cloudsIn = phase(progress, 0.32, 0.43);
       const cabinOut = phase(progress, 0.77, 0.88);
+      setPlayback(!document.hidden && rect.bottom > 0 && rect.top < window.innerHeight && cloudsIn > 0);
       const cameraScale = mix(
         1,
         getWindowExitScale(stageWidth, stageHeight),
@@ -217,6 +239,7 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
       section.style.setProperty('--cloud-opacity', `${cloudsIn}`);
       section.style.setProperty('--intro-opacity', `${1 - phase(progress, 0.2, 0.34)}`);
       section.style.setProperty('--reveal-opacity', `${phase(progress, 0.84, 0.96)}`);
+      section.classList.toggle('journey--started', -rect.top >= 48);
       setCloudAperture(
         section,
         stageWidth,
@@ -228,17 +251,20 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
     const requestUpdate = () => {
       if (!raf) raf = window.requestAnimationFrame(update);
     };
+    const handleVisibility = () => {
+      // Hidden tabs may suspend animation frames, so pause synchronously.
+      if (document.hidden) setPlayback(false);
+      else requestUpdate();
+    };
     const addListeners = () => {
       if (listening) return;
       listening = true;
       window.addEventListener('scroll', requestUpdate, { passive: true });
       window.addEventListener('resize', requestUpdate, { passive: true });
-      const video = cloudVideoRef.current;
-      if (video?.paused) void video.play().catch(() => undefined);
       requestUpdate();
     };
     const removeListeners = () => {
-      cloudVideoRef.current?.pause();
+      setPlayback(false);
       if (!listening) return;
       listening = false;
       window.removeEventListener('scroll', requestUpdate);
@@ -250,15 +276,17 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
       { rootMargin: '100% 0px' },
     );
     observer.observe(section);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       observer.disconnect();
+      document.removeEventListener('visibilitychange', handleVisibility);
       removeListeners();
       if (raf) window.cancelAnimationFrame(raf);
     };
-  }, [reducedMotion, lowData]);
+  }, [staticMode, lowData]);
 
-  if (reducedMotion) {
+  if (staticMode) {
     return <ReducedJourney invitation={invitation} locale={locale} />;
   }
 
@@ -286,7 +314,8 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
           <div className="journey-intro">
             <p className="eyebrow">{t.flightTheme}</p>
             <h1>{t.welcome}</h1>
-            <p>{t.welcomeBody}</p>
+            <p className="journey-welcome-body">{t.welcomeBody}</p>
+            <ScrollCue locale={locale} />
           </div>
         </div>
 

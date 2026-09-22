@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import InvitationExperience from '../components/InvitationExperience';
 import { copy } from '../copy';
 import { invitationForClass } from '../invitations';
+import { mapUrl } from '../venue';
 import type { Invitation } from '../types';
 import { invitationWith } from './fixtures';
 
@@ -19,6 +20,15 @@ function renderExperience(invitation: Invitation = invitationWith()) {
       onToggleLocale={() => undefined}
     />,
   );
+}
+
+function followFragment(link: HTMLElement) {
+  // jsdom queues link navigation in a timer, unlike browsers' native default
+  // action. Complete the fragment change after React's handler and before its
+  // next animation frame, leaving the actual browser behavior to the e2e tests.
+  document.addEventListener('click', (event) => event.preventDefault(), { once: true });
+  fireEvent.click(link);
+  window.history.pushState(null, '', link.getAttribute('href'));
 }
 
 describe('invitation details', () => {
@@ -43,8 +53,7 @@ describe('invitation details', () => {
     renderExperience();
     const storyHeading = screen.getByRole('heading', { name: 'Our Story' });
     const itineraryHeading = screen.getByRole('heading', { name: 'Your itinerary' });
-    const dashboardHeading = screen.getByRole('heading', { name: 'Flight Dashboard' });
-    expect(dashboardHeading.compareDocumentPosition(storyHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Flight Dashboard' })).toBeNull();
     expect(storyHeading.compareDocumentPosition(itineraryHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText('“Some meetings feel less like chance and more like a promise finally finding its way home.”')).toBeTruthy();
     expect(screen.getByText('What began with an ordinary conversation grew into friendship, and then a quiet certainty.')).toBeTruthy();
@@ -79,17 +88,84 @@ describe('invitation details', () => {
     expect(screen.getByRole('link', { name: 'Mixkit' }).getAttribute('href')).toBe('https://mixkit.co/');
   });
 
-  it('fast-tracks into the dashboard with focus and no journey or cabin/video assets', async () => {
+  it('provides keyboard-focusable shortcuts past the journey to practical sections', async () => {
+    renderExperience();
+    const navigation = screen.getByRole('navigation', { name: copy.en.controls });
+    const itinerary = within(navigation).getByRole('link', { name: copy.en.itinerary });
+    expect(itinerary.getAttribute('href')).toBe('#itinerary-title');
+    followFragment(itinerary);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: copy.en.itinerary })));
+    const rsvp = within(navigation).getByRole('link', { name: copy.en.rsvpShort });
+    expect(rsvp.getAttribute('href')).toBe('#rsvp');
+    followFragment(rsvp);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: copy.en.rsvpTitle })));
+  });
+
+  it('focuses the RSVP heading after native fragment navigation focuses its section', async () => {
+    renderExperience();
+    const navigation = screen.getByRole('navigation', { name: copy.en.controls });
+    const heading = screen.getByRole('heading', { name: copy.en.rsvpTitle });
+    const section = heading.closest('section') as HTMLElement;
+    section.tabIndex = -1;
+    followFragment(within(navigation).getByRole('link', { name: copy.en.rsvpShort }));
+    // Browsers perform this native default action after the click handler.
+    section.focus();
+    expect(document.activeElement).toBe(section);
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+    expect(window.location.hash).toBe('#rsvp');
+  });
+
+  it('cancels pending shortcut focus on unmount and ignores modified clicks', () => {
+    const { unmount } = renderExperience();
+    const scheduleFocus = vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(123);
+    const cancelFocus = vi.spyOn(window, 'cancelAnimationFrame');
+    const shortcut = within(screen.getByRole('navigation', { name: copy.en.controls })).getByRole('link', { name: copy.en.rsvpShort });
+    shortcut.addEventListener('click', (event) => event.preventDefault());
+    for (const modifier of ['metaKey', 'ctrlKey', 'shiftKey', 'altKey']) {
+      fireEvent.click(shortcut, { [modifier]: true });
+    }
+    expect(scheduleFocus).not.toHaveBeenCalled();
+    fireEvent.click(shortcut);
+    expect(scheduleFocus).toHaveBeenCalledOnce();
+    unmount();
+    expect(cancelFocus).toHaveBeenCalledWith(123);
+  });
+
+  it.each([
+    ['economy', 'bride', ['AN2108']],
+    ['economy', 'groom', ['AN2208']],
+    ['business', 'groom', ['AN2108', 'AN2208']],
+    ['first', 'bride', ['AN2108', 'AN2208']],
+  ] as const)('shows itinerary details for %s on the %s side', (cabin, side, flights) => {
+    const invitation = invitationForClass(cabin, side);
+    const { container } = renderExperience(invitation);
+    const cards = container.querySelectorAll<HTMLElement>('.itinerary-card');
+    expect(cards).toHaveLength(flights.length);
+    cards.forEach((card, index) => {
+      const event = invitation.events[index];
+      expect(card.textContent).toContain(flights[index]);
+      expect(within(card).getByRole('heading', { name: event.title.en, level: 4 })).toBeTruthy();
+      expect(within(card).getByRole('heading', { name: event.dateLabel.en, level: 3 })).toBeTruthy();
+      expect(card.textContent).toContain(event.time);
+      expect(card.textContent).toContain(invitation.hotel);
+      expect(card.textContent).toContain(invitation.ballroom);
+      expect(within(card).getByRole('link', { name: /Get directions/ }).getAttribute('href')).toBe(mapUrl);
+    });
+  });
+
+  it('fast-tracks into the itinerary with focus and no journey or cabin/video assets', async () => {
     const scrollIntoView = vi.fn();
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
     const { container } = render(
       <InvitationExperience invitation={invitationWith(2)} accessCredential={{ kind: 'class-code', value: 'ALPHA123' }} fingerprint="fast-track" locale="en" reducedMotion={false} entryMode="fast-track" onBack={() => undefined} onToggleLocale={() => undefined} />,
     );
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Flight Dashboard' })));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Your itinerary' })));
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'instant', block: 'start' });
     expect(container.querySelector('.journey, .static-journey, video, img[src*="journey/cabin"], source[srcset*="journey/cabin"]')).toBeNull();
     expect(container.querySelector('#invitation')).toBeTruthy();
-    expect(container.querySelectorAll('.dashboard-flight')).toHaveLength(2);
+    expect(container.querySelector('#flight-dashboard')).toBeNull();
+    expect(container.querySelectorAll('.itinerary-card')).toHaveLength(2);
+    expect(screen.getByRole('link', { name: /Confirm your attendance/ }).getAttribute('href')).toBe('#rsvp');
     expect(container.querySelector('#rsvp')).toBeTruthy();
   });
 });

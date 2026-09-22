@@ -1,10 +1,50 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BoardingPass } from '../components/BoardingPass';
 import { invitationForClass } from '../invitations';
 import { invitationWith } from './fixtures';
 
 describe('BoardingPass', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('ignores repeated scans while boarding', () => {
+    vi.useFakeTimers();
+    const onBoard = vi.fn();
+    render(<BoardingPass invitation={invitationWith(2)} locale="en" onBoard={onBoard} />);
+    const button = screen.getByRole('button', { name: 'Tap ticket to scan and board' }) as HTMLButtonElement;
+    act(() => {
+      button.click();
+      button.click();
+    });
+    expect(button.disabled).toBe(true);
+    expect(screen.getByRole('status').textContent).toBe('Scanning ticket…');
+    act(() => vi.advanceTimersByTime(905));
+    expect(onBoard).toHaveBeenCalledOnce();
+  });
+
+  it('cancels a pending scan when the boarding pass is unmounted', () => {
+    vi.useFakeTimers();
+    const onBoard = vi.fn();
+    const { unmount } = render(<BoardingPass invitation={invitationWith()} locale="en" onBoard={onBoard} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Tap ticket to scan and board' }));
+    unmount();
+    act(() => vi.runAllTimers());
+    expect(onBoard).not.toHaveBeenCalled();
+  });
+
+  it('boards promptly with reduced motion and translated scan guidance', () => {
+    vi.useFakeTimers();
+    vi.spyOn(window, 'matchMedia').mockReturnValueOnce({ matches: true } as MediaQueryList);
+    const onBoard = vi.fn();
+    render(<BoardingPass invitation={invitationWith()} locale="ms" onBoard={onBoard} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Ketik tiket untuk imbas dan naik pesawat' }));
+    expect(screen.getByRole('status').textContent).toBe('Sedang mengimbas tiket…');
+    act(() => vi.advanceTimersByTime(79));
+    expect(onBoard).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(1));
+    expect(onBoard).toHaveBeenCalledOnce();
+  });
+
   it('renders two reference-style passes for a both-days invitation', () => {
     const invitation = invitationWith(2);
     const { container } = render(<BoardingPass invitation={invitation} locale="en" />);

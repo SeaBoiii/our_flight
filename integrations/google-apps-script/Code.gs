@@ -168,6 +168,9 @@ function doPost(event) {
     let result;
     try {
       result = storeSubmission_(submission, properties);
+      // Commit pending Sheets writes while the script lock still protects the
+      // response ID, so a concurrent retry sees the accepted row.
+      SpreadsheetApp.flush();
     } finally {
       lock.releaseLock();
     }

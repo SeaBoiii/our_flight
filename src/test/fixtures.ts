@@ -2,6 +2,7 @@ import type { Invitation, InvitationEvent, RsvpStatus } from '../types';
 
 const day21: InvitationEvent = {
   id: 'day21',
+  calendarKey: 'day21-full',
   flightCode: 'AN2108',
   dateIso: '2027-08-21',
   dateLabel: { en: 'Saturday, 21 August 2027', ms: 'Sabtu, 21 Ogos 2027' },
@@ -23,6 +24,7 @@ const day21: InvitationEvent = {
 
 const day22: InvitationEvent = {
   id: 'day22',
+  calendarKey: 'day22',
   flightCode: 'AN2208',
   dateIso: '2027-08-22',
   dateLabel: { en: 'Sunday, 22 August 2027', ms: 'Ahad, 22 Ogos 2027' },

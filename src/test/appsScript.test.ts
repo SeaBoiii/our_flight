@@ -15,6 +15,8 @@ type NormalizedSubmission = {
   [key: string]: unknown;
 };
 type ScriptApi = {
+  doPost(event: unknown): { html: string };
+  operations: string[];
   normalizeInvitationCode(value: string): string;
   normalizeSubmission(payload: unknown, properties: Properties, version: number): NormalizedSubmission;
   configuredCodeInvitations(properties: Properties): Array<{
@@ -38,14 +40,37 @@ function properties(values: Record<string, string>): Properties {
   return { getProperty: (name) => values[name] ?? null };
 }
 
-function loadScript(): ScriptApi {
+function loadScript(options: { properties?: Record<string, string>; lockAvailable?: boolean; flushFails?: boolean } = {}): ScriptApi {
   const source = readFileSync(resolve(process.cwd(), 'integrations/google-apps-script/Code.gs'), 'utf8');
   let activeSheet: unknown = null;
+  const operations: string[] = [];
   const context = vm.createContext({
-    console,
+    console: { ...console, error: () => undefined },
+    PropertiesService: { getScriptProperties: () => properties(options.properties ?? {}) },
+    LockService: {
+      getScriptLock: () => ({
+        tryLock: () => {
+          operations.push('lock');
+          return options.lockAvailable !== false;
+        },
+        releaseLock: () => { operations.push('release'); },
+      }),
+    },
+    HtmlService: {
+      XFrameOptionsMode: { ALLOWALL: 'ALLOWALL' },
+      createHtmlOutput: (html: string) => ({
+        html,
+        setXFrameOptionsMode() { return this; },
+        addMetaTag() { return this; },
+      }),
+    },
     SpreadsheetApp: {
       openById: () => ({ getSheetByName: () => activeSheet }),
       BorderStyle: { SOLID: 'SOLID' },
+      flush: () => {
+        operations.push('flush');
+        if (options.flushFails) throw new Error('Sheet commit failed');
+      },
     },
     Utilities: {
       DigestAlgorithm: { SHA_256: 'SHA_256' },
@@ -55,6 +80,7 @@ function loadScript(): ScriptApi {
     },
   });
   vm.runInContext(`${source}\n;globalThis.__testApi = {
+    doPost,
     normalizeInvitationCode: normalizeInvitationCode_,
     normalizeSubmission: normalizeSubmission_,
     configuredCodeInvitations: configuredCodeInvitations_,
@@ -63,8 +89,14 @@ function loadScript(): ScriptApi {
     setCombinedSummaryFormulas: setCombinedSummaryFormulas_,
     storeSubmission: storeSubmission_,
   };`, context);
-  const api = (context as unknown as { __testApi: Omit<ScriptApi, 'setSheet'> }).__testApi;
-  return { ...api, setSheet: (sheet) => { activeSheet = sheet; } };
+  const api = (context as unknown as { __testApi: Omit<ScriptApi, 'setSheet' | 'operations'> }).__testApi;
+  return { ...api, operations, setSheet: (sheet) => { activeSheet = sheet; } };
+}
+
+function receiptFrom(html: string): Record<string, unknown> {
+  const message = /window\.top\.postMessage\((.+),("[^"]*")\);/.exec(html);
+  expect(message, 'HTML bridge must return a correlated receipt').not.toBeNull();
+  return JSON.parse(message![1]) as Record<string, unknown>;
 }
 
 const responseId = '123e4567-e89b-42d3-a456-426614174000';
@@ -82,6 +114,100 @@ describe('Apps Script access credential contract', () => {
     INVITE_CODE_HASH_BRIDE_BUSINESS: sha256('GOLF1234'),
     INVITE_CODE_HASH_BRIDE_FIRST: sha256('HOTEL567'),
   };
+
+  const nonce = '223e4567-e89b-42d3-a456-426614174001';
+  const validPayload = {
+    version: 2,
+    credential: { kind: 'class-code', value: 'ALPHA123' },
+    responseId,
+    locale: 'en',
+    inviteeName: 'Guest',
+    responses: [response('day22')],
+  };
+  const openProperties = {
+    ...codeValues,
+    RSVP_STATUS: 'open',
+    PARENT_ORIGIN: 'https://invitation.example',
+    SPREADSHEET_ID: 'private-workbook-id',
+  };
+
+  it('commits the row before releasing the lock and only then confirms success', () => {
+    const postApi = loadScript({ properties: openProperties });
+    const appended: unknown[][] = [];
+    postApi.setSheet({
+      getLastRow: () => 1,
+      appendRow: (row: unknown[]) => {
+        postApi.operations.push('append');
+        appended.push(row);
+      },
+    });
+    const result = postApi.doPost({ parameter: {
+      bridgeVersion: '2', nonce, payload: JSON.stringify({
+        ...validPayload, inviteeName: '=HYPERLINK("https://example.test")', message: '+Dangerous formula',
+      }),
+    } });
+    expect(postApi.operations).toEqual(['lock', 'append', 'flush', 'release']);
+    expect(appended).toHaveLength(1);
+    expect(appended[0][6]).toBe('\'=HYPERLINK("https://example.test")');
+    expect(appended[0][11]).toBe("'+Dangerous formula");
+    expect(appended[0]).not.toContain('ALPHA123');
+    expect(receiptFrom(result.html)).toEqual({
+      type: 'our-flight:rsvp-result', version: 2, nonce, responseId, ok: true, duplicate: false,
+    });
+    expect(result.html).toContain(',"https://invitation.example");');
+    for (const privateValue of ['ALPHA123', 'private-workbook-id', 'HYPERLINK', '+Dangerous formula', sha256('ALPHA123')]) {
+      expect(result.html).not.toContain(privateValue);
+    }
+  });
+
+  it('releases the lock and returns failure when a pending write cannot be committed', () => {
+    const postApi = loadScript({ properties: openProperties, flushFails: true });
+    postApi.setSheet({ getLastRow: () => 1, appendRow: () => { postApi.operations.push('append'); } });
+    const result = postApi.doPost({ parameter: { bridgeVersion: '2', nonce, payload: JSON.stringify(validPayload) } });
+    expect(postApi.operations).toEqual(['lock', 'append', 'flush', 'release']);
+    expect(receiptFrom(result.html)).toMatchObject({ ok: false, error: 'server_error', nonce, responseId });
+    expect(result.html).not.toContain('Sheet commit failed');
+  });
+
+  it.each(['preview', 'closed'])('returns a correlated %s response without touching storage', (status) => {
+    const postApi = loadScript({ properties: { ...openProperties, RSVP_STATUS: status } });
+    const result = postApi.doPost({ parameter: { bridgeVersion: '2', nonce, payload: JSON.stringify(validPayload) } });
+    expect(receiptFrom(result.html)).toMatchObject({ ok: false, error: status, nonce, responseId });
+    expect(postApi.operations).toEqual([]);
+  });
+
+  it('rejects invalid credentials, unauthorized event days and invalid attendance before acquiring a write lock', () => {
+    const postApi = loadScript({ properties: openProperties });
+    const invalidPayloads = [
+      { ...validPayload, credential: { kind: 'class-code', value: 'UNKNOWN9' } },
+      { ...validPayload, responses: [response('day21')] },
+      { ...validPayload, responses: [response('day22'), response('day22')] },
+      { ...validPayload, responses: [{ ...response('day22'), partySize: 1.5 }] },
+      { ...validPayload, responses: [{ ...response('day22'), attendance: 'not-attending' }] },
+      { ...validPayload, message: 'x'.repeat(501) },
+    ];
+    for (const payload of invalidPayloads) {
+      const result = postApi.doPost({ parameter: { bridgeVersion: '2', nonce, payload: JSON.stringify(payload) } });
+      expect(receiptFrom(result.html)).toMatchObject({ ok: false, nonce, responseId });
+    }
+    expect(postApi.operations).toEqual([]);
+  });
+
+  it('returns busy without attempting a write when the lock is unavailable', () => {
+    const postApi = loadScript({ properties: openProperties, lockAvailable: false });
+    const result = postApi.doPost({ parameter: { bridgeVersion: '2', nonce, payload: JSON.stringify(validPayload) } });
+    expect(receiptFrom(result.html)).toMatchObject({ ok: false, error: 'busy', nonce, responseId });
+    expect(postApi.operations).toEqual(['lock']);
+  });
+
+  it('rejects malformed and oversized requests without acquiring a write lock', () => {
+    const postApi = loadScript({ properties: openProperties });
+    for (const payload of ['{invalid json', 'x'.repeat(16385)]) {
+      const result = postApi.doPost({ parameter: { bridgeVersion: '2', nonce, payload } });
+      expect(receiptFrom(result.html)).toMatchObject({ ok: false, nonce });
+    }
+    expect(postApi.operations).toEqual([]);
+  });
 
   it('normalizes class codes and enforces the server-derived one-day scope', () => {
     expect(api.normalizeInvitationCode('  ａｌｐｈａ‑１２３ ')).toBe('ALPHA123');
