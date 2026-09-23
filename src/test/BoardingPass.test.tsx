@@ -45,7 +45,29 @@ describe('BoardingPass', () => {
     expect(onBoard).toHaveBeenCalledOnce();
   });
 
-  it('renders two reference-style passes for a both-days invitation', () => {
+  it('only scans the boarding passes on tap, leaving the chop for the scroll journey', () => {
+    vi.useFakeTimers();
+    const onBoard = vi.fn();
+    const { container } = render(<BoardingPass invitation={invitationWith(2)} locale="en" onBoard={onBoard} />);
+    expect(container.querySelectorAll('.boarding-stamp--visible')).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Tap ticket to scan and board' }));
+    act(() => vi.advanceTimersByTime(904));
+    expect(container.querySelectorAll('.boarding-stamp--visible')).toHaveLength(0);
+    expect(screen.getByRole('status').textContent).toBe('Scanning ticket…');
+    expect(onBoard).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(1));
+    expect(onBoard).toHaveBeenCalledOnce();
+  });
+
+  it('retains a supplied keepsake stamp without starting a boarding timer', () => {
+    vi.useFakeTimers();
+    const { container } = render(<BoardingPass invitation={invitationWith()} locale="en" stamped />);
+    expect(container.querySelector('.boarding-stamp--visible')).toBeTruthy();
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('renders two complete passes for a both-days invitation', () => {
     const invitation = invitationWith(2);
     const { container } = render(<BoardingPass invitation={invitation} locale="en" />);
     expect(container.querySelectorAll('.full-ticket')).toHaveLength(2);
@@ -54,6 +76,9 @@ describe('BoardingPass', () => {
     expect(screen.getByText("Groom's Reception")).toBeTruthy();
     expect(screen.getAllByText('AN2108').length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText('AN2208').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('Saturday, 21 August 2027').getAttribute('datetime')).toBe('2027-08-21');
+    expect(screen.getByText('Sunday, 22 August 2027').getAttribute('datetime')).toBe('2027-08-22');
+    expect(screen.getAllByText('Wedding keepsake · Not valid for travel')).toHaveLength(2);
   });
 
   it('renders only the 22 August pass for a one-day invitation', () => {

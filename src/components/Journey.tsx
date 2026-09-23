@@ -1,328 +1,237 @@
-import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { copy } from '../copy';
-import {
-  getTicketFitScale,
-  getWindowAperture,
-  getWindowExitScale,
-} from '../journeyMotion';
+import { getJourneyFrame, getWindowAperture, getWindowGeometry } from '../journeyMotion';
+import { sceneAssets, type SceneAsset } from '../sceneAssets';
 import type { Invitation, Locale } from '../types';
 import { useLowDataMode } from '../useLowDataMode';
-import { BoardingPass } from './BoardingPass';
+import { createCloudRenderer, type CloudRenderer } from '../cloudRenderer';
+import '../journey.css';
 
-type JourneyProps = {
-  invitation: Invitation;
-  locale: Locale;
-  reducedMotion: boolean;
-};
+type JourneyProps = { invitation: Invitation; locale: Locale; reducedMotion: boolean };
 
-function CabinPicture({ alt, eager = false }: { alt: string; eager?: boolean }) {
+const journeyCopy = {
+  en: {
+    boarding: 'The beginning of forever', pass: 'Boarding pass', routeFrom: 'TODAY', routeTo: 'FOREVER',
+    routeLabel: 'A journey together', takeoff: 'Some journeys change everything.', takeoffLabel: '01 / Taking flight',
+    cabin: 'And some bring you home.', cabinLabel: '02 / Above the clouds', arrival: 'Our next chapter. With you.',
+    staticBody: 'Our next chapter begins with the people we love. Welcome to our wedding celebration.',
+    scroll: 'Scroll to take flight', accepted: 'CLEARED FOR FOREVER',
+  },
+  ms: {
+    boarding: 'Permulaan sebuah selamanya', pass: 'Pas masuk', routeFrom: 'HARI INI', routeTo: 'SELAMANYA',
+    routeLabel: 'Perjalanan bersama', takeoff: 'Ada perjalanan yang mengubah segalanya.', takeoffLabel: '01 / Mula terbang',
+    cabin: 'Ada yang membawa kita pulang.', cabinLabel: '02 / Di atas awan', arrival: 'Bab seterusnya. Bersama anda.',
+    staticBody: 'Bab seterusnya bermula bersama insan tersayang. Selamat datang ke majlis perkahwinan kami.',
+    scroll: 'Tatal untuk memulakan perjalanan', accepted: 'MENUJU SELAMANYA',
+  },
+} satisfies Record<Locale, Record<string, string>>;
+
+function ScenePicture({ asset }: { asset: SceneAsset }) {
   const base = import.meta.env.BASE_URL;
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
   return (
-    <picture>
-      <source
-        type="image/avif"
-        srcSet={`${base}journey/cabin-480.avif 480w, ${base}journey/cabin-768.avif 768w, ${base}journey/cabin-1024.avif 1024w`}
-        sizes="1024px"
-      />
-      <source
-        type="image/webp"
-        srcSet={`${base}journey/cabin-480.webp 480w, ${base}journey/cabin-768.webp 768w, ${base}journey/cabin-1024.webp 1024w`}
-        sizes="1024px"
-      />
-      <img
-        src={`${base}journey/cabin-768.webp`}
-        width="1024"
-        height="1536"
-        loading={eager ? 'eager' : 'lazy'}
-        decoding="async"
-        alt={alt}
-      />
+    <picture className="flight-scene-picture" style={{
+      '--portrait-focus': `${asset.portrait.focalPoint.x * 100}% ${asset.portrait.focalPoint.y * 100}%`,
+      '--landscape-focus': `${asset.landscape.focalPoint.x * 100}% ${asset.landscape.focalPoint.y * 100}%`,
+    } as CSSProperties}>
+      <source media="(min-width: 768px)" type="image/avif" srcSet={`${base}${asset.landscape.avif}`} />
+      <source media="(min-width: 768px)" type="image/webp" srcSet={`${base}${asset.landscape.webp}`} />
+      <source type="image/avif" srcSet={`${base}${asset.portrait.avif}`} />
+      <img src={`${base}${asset.portrait.webp}`} width={asset.portrait.width} height={asset.portrait.height}
+        decoding="async" alt="" onError={() => setFailed(true)} />
     </picture>
   );
 }
 
-function CloudPoster({ alt }: { alt: string }) {
-  const base = import.meta.env.BASE_URL;
+function DecorativeTicket({ invitation, locale, showChop = false }: Pick<JourneyProps, 'invitation' | 'locale'> & { showChop?: boolean }) {
+  const t = journeyCopy[locale];
   return (
-    <img
-      src={`${base}journey/clouds-video-poster.webp`}
-      width="1280"
-      height="720"
-      loading="lazy"
-      decoding="async"
-      alt={alt}
-    />
+    <div className="ceremonial-ticket" aria-hidden="true">
+      <div className="ceremonial-ticket-band"><span>A&amp;N AIRWAYS</span><span>{t.pass}</span></div>
+      <div className="ceremonial-ticket-content">
+        <p className="ceremonial-ticket-label">{t.boarding}</p>
+        <p className="ceremonial-ticket-names">Aleem <em>&amp;</em> Nurulain</p>
+        <div className="ceremonial-ticket-route"><span>{t.routeFrom}</span><svg viewBox="0 0 64 20" aria-hidden="true"><path d="M1 10h58M50 2l10 8-10 8" /></svg><span>{t.routeTo}</span></div>
+        <div className="ceremonial-ticket-details"><span>{invitation.flightCode}</span><span>{invitation.cabinLabel[locale]}</span></div>
+      </div>
+      <div className="ceremonial-ticket-stub"><span>{t.accepted}</span><span className="ceremonial-ticket-barcode" /></div>
+      {showChop && <div className="ceremonial-ticket-chop" aria-hidden="true">
+        <span>{locale === 'en' ? 'SINGAPORE' : 'SINGAPURA'}</span>
+        <strong>A&amp;N</strong>
+        <span>{locale === 'en' ? 'CLEARED TO BOARD' : 'SEDIA BERLEPAS'}</span>
+        <small>OUR FLIGHT · 2027</small>
+      </div>}
+    </div>
   );
 }
 
-function CloudVideo({ videoRef }: { videoRef: RefObject<HTMLVideoElement | null> }) {
-  const base = import.meta.env.BASE_URL;
-  return (
-    <video
-      ref={videoRef}
-      className="journey-cloud-video"
-      loop
-      muted
-      playsInline
-      preload="none"
-      poster={`${base}journey/clouds-video-poster.webp`}
-      aria-hidden="true"
-      tabIndex={-1}
-      disablePictureInPicture
-    >
-      <source src={`${base}journey/clouds-ping-pong.mp4`} type="video/mp4" />
-    </video>
-  );
-}
-
-function ScrollCue({ locale }: { locale: Locale }) {
-  return (
-    <p className="journey-scroll-cue">
-      <span>{copy[locale].scrollJourney}</span>
-      <svg aria-hidden="true" viewBox="0 0 24 24">
-        <path d="m6 6 6 6 6-6M6 13l6 6 6-6" />
-      </svg>
-    </p>
-  );
-}
-
-function ReducedJourney({ invitation, locale }: Omit<JourneyProps, 'reducedMotion'>) {
+function StaticJourney({ invitation, locale }: Omit<JourneyProps, 'reducedMotion'>) {
   const t = copy[locale];
   return (
-    <section className="static-journey" aria-label={t.journeyLabel}>
+    <section className="static-journey static-journey--daylight" aria-label={t.journeyLabel}>
       <div className="static-journey-intro">
-        <p className="eyebrow">{t.flightTheme}</p>
+        <p className="eyebrow">{journeyCopy[locale].boarding}</p>
         <h1>{t.welcome}</h1>
-        <p className="journey-welcome-body">{t.welcomeBody}</p>
-        <ScrollCue locale={locale} />
+        <p className="journey-welcome-body">{journeyCopy[locale].staticBody}</p>
       </div>
-      <figure className="static-scene">
-        <CabinPicture alt={t.cabinAlt} />
-      </figure>
-      <figure className="static-scene static-window-scene">
-        <div className="static-window-frame">
-          <CloudPoster alt={t.cloudsAlt} />
-        </div>
-        <figcaption>{t.throughWindow}</figcaption>
-      </figure>
-      <div className="static-ticket">
-        <BoardingPass invitation={invitation} locale={locale} compact stamped />
-      </div>
+      <div className="static-ticket"><DecorativeTicket invitation={invitation} locale={locale} /></div>
+      <p className="static-journey-arrival">{journeyCopy[locale].arrival}</p>
     </section>
   );
 }
 
-function phase(value: number, start: number, end: number): number {
-  return Math.min(1, Math.max(0, (value - start) / (end - start)));
-}
-
-function smoothstep(value: number): number {
-  return value * value * (3 - 2 * value);
-}
-
-function mix(from: number, to: number, amount: number): number {
-  return from + (to - from) * amount;
-}
-
-/**
- * Keeps the cloud reveal attached to the real photographed window while the
- * cabin camera advances. The cloud photograph itself never scales.
- */
-function setCloudAperture(
-  section: HTMLElement,
-  viewportWidth: number,
-  viewportHeight: number,
-  cameraScale: number,
-): void {
-  const aperture = getWindowAperture(viewportWidth, viewportHeight, cameraScale);
-  const setPixelProperty = (name: string, value: number) => {
-    section.style.setProperty(name, `${value}px`);
-  };
-
-  // Negative insets carry the rounded corners beyond the viewport instead of
-  // flattening the opening into a separate full-screen rounded rectangle.
-  setPixelProperty('--cloud-clip-left', aperture.left);
-  setPixelProperty('--cloud-clip-right', viewportWidth - aperture.right);
-  setPixelProperty('--cloud-clip-top', aperture.top);
-  setPixelProperty('--cloud-clip-bottom', viewportHeight - aperture.bottom);
-  setPixelProperty('--cloud-clip-radius-x', aperture.width * 0.48);
-  setPixelProperty('--cloud-clip-radius-y', aperture.height * 0.18);
-}
-
 export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
   const lowData = useLowDataMode();
-  const staticMode = reducedMotion || typeof IntersectionObserver === 'undefined';
+  const staticMode = reducedMotion || lowData || typeof IntersectionObserver === 'undefined';
   const sectionRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
-  const ticketSlotRef = useRef<HTMLDivElement>(null);
-  const ticketRef = useRef<HTMLDivElement>(null);
-  const cloudVideoRef = useRef<HTMLVideoElement>(null);
+  const cloudCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [assetTier, setAssetTier] = useState(0);
   const t = copy[locale];
-  const logo = `${import.meta.env.BASE_URL}monogram-a-and-n-display.png`;
-
-  useLayoutEffect(() => {
-    if (staticMode) return undefined;
-    const slot = ticketSlotRef.current;
-    const ticket = ticketRef.current;
-    if (!slot || !ticket) return undefined;
-
-    const fitTicket = () => {
-      const slotWidth = slot.clientWidth;
-      const slotHeight = slot.clientHeight;
-      const ticketWidth = ticket.offsetWidth;
-      const ticketHeight = ticket.offsetHeight;
-      if (!slotWidth || !slotHeight || !ticketWidth || !ticketHeight) return;
-
-      const preferredScale = Number.parseFloat(
-        window.getComputedStyle(ticket).getPropertyValue('--journey-ticket-preferred-scale'),
-      ) || 1;
-      const fitScale = getTicketFitScale({
-        preferredScale,
-        slotWidth,
-        slotHeight,
-        ticketWidth,
-        ticketHeight,
-      });
-      ticket.style.setProperty('--journey-ticket-fit-scale', `${fitScale}`);
-    };
-
-    fitTicket();
-    if (typeof ResizeObserver === 'undefined') return undefined;
-    const observer = new ResizeObserver(fitTicket);
-    observer.observe(slot);
-    observer.observe(ticket);
-    return () => observer.disconnect();
-  }, [invitation, locale, staticMode]);
+  const words = journeyCopy[locale];
+  const base = import.meta.env.BASE_URL;
 
   useEffect(() => {
     if (staticMode) return undefined;
     const section = sectionRef.current;
     const stage = stageRef.current;
     if (!section || !stage) return undefined;
-
     let raf = 0;
+    let visible = false;
     let listening = false;
-    let playbackRequested = false;
-    const video = cloudVideoRef.current;
-
-    const setPlayback = (play: boolean) => {
-      if (!video || play === playbackRequested) return;
-      playbackRequested = play;
-      if (play) void video.play().catch(() => undefined);
-      else video.pause();
-    };
+    let cloudRenderer: CloudRenderer | null = null;
+    let cloudAttempted = false;
+    const canvas = cloudCanvasRef.current;
 
     const update = () => {
       raf = 0;
+      if (!visible || document.hidden) return;
       const rect = section.getBoundingClientRect();
-      const stageWidth = Math.max(1, stage.clientWidth);
-      const stageHeight = Math.max(1, stage.clientHeight);
-      const distance = Math.max(1, rect.height - stageHeight);
-      const progress = Math.min(1, Math.max(0, -rect.top / distance));
-      const ticketExit = phase(progress, 0.17, 0.37);
-      const cabinIn = phase(progress, 0.18, 0.34);
-      const windowProgress = smoothstep(phase(progress, 0.34, 0.79));
-      const cloudsIn = phase(progress, 0.32, 0.43);
-      const cabinOut = phase(progress, 0.77, 0.88);
-      setPlayback(!document.hidden && rect.bottom > 0 && rect.top < window.innerHeight && cloudsIn > 0);
-      const cameraScale = mix(
-        1,
-        getWindowExitScale(stageWidth, stageHeight),
-        windowProgress,
-      );
-
-      section.style.setProperty('--ticket-y', `${ticketExit * stageHeight * -0.38}px`);
-      section.style.setProperty('--ticket-opacity', `${1 - ticketExit}`);
-      section.style.setProperty('--stamp-opacity', `${phase(progress, 0.03, 0.14) * (1 - ticketExit)}`);
-      section.style.setProperty('--cabin-opacity', `${cabinIn * (1 - cabinOut)}`);
-      section.style.setProperty('--cabin-scale', `${cameraScale}`);
-      section.style.setProperty('--cloud-opacity', `${cloudsIn}`);
-      section.style.setProperty('--intro-opacity', `${1 - phase(progress, 0.2, 0.34)}`);
-      section.style.setProperty('--reveal-opacity', `${phase(progress, 0.84, 0.96)}`);
-      section.classList.toggle('journey--started', -rect.top >= 48);
-      setCloudAperture(
-        section,
-        stageWidth,
-        stageHeight,
-        cameraScale,
-      );
+      const width = Math.max(1, stage.clientWidth);
+      const height = Math.max(1, stage.clientHeight);
+      const frame = getJourneyFrame(-rect.top / Math.max(1, rect.height - height), width, height);
+      const px = (name: string, value: number) => section.style.setProperty(name, `${value}px`);
+      const number = (name: string, value: number) => section.style.setProperty(name, `${value}`);
+      number('--ticket-opacity', frame.ticketOpacity);
+      number('--ticket-chop-opacity', frame.stampOpacity);
+      number('--ticket-chop-scale', frame.stampScale);
+      section.style.setProperty('--ticket-chop-rotate', `${frame.stampRotate}deg`);
+      px('--ticket-y', frame.ticketY);
+      section.style.setProperty('--ticket-rotate', `${frame.ticketRotate}deg`);
+      number('--intro-opacity', frame.introOpacity);
+      number('--airport-opacity', frame.airportOpacity);
+      number('--departure-opacity', frame.departureOpacity);
+      number('--airport-scale', frame.airportScale);
+      number('--aircraft-opacity', frame.aircraftOpacity);
+      px('--aircraft-x', frame.aircraftX);
+      px('--aircraft-y', frame.aircraftY);
+      number('--aircraft-scale', frame.aircraftScale);
+      number('--takeoff-copy-opacity', frame.takeoffCopyOpacity);
+      number('--cabin-copy-opacity', frame.cabinCopyOpacity);
+      number('--cabin-opacity', frame.cabinOpacity);
+      number('--cabin-scale', frame.cameraScale);
+      number('--sky-opacity', frame.skyOpacity);
+      number('--reveal-opacity', frame.revealOpacity);
+      px('--reveal-y', frame.revealY);
+      number('--daylight-opacity', frame.daylightOpacity);
+      number('--journey-progress', frame.progress);
+      const geometry = getWindowGeometry(width, height);
+      const aperture = getWindowAperture(width, height, frame.cameraScale);
+      px('--window-origin-x', geometry.originX);
+      px('--window-origin-y', geometry.originY);
+      px('--cloud-clip-left', aperture.left);
+      px('--cloud-clip-right', width - aperture.right);
+      px('--cloud-clip-top', aperture.top);
+      px('--cloud-clip-bottom', height - aperture.bottom);
+      px('--cloud-clip-radius-x', aperture.width * 0.48);
+      px('--cloud-clip-radius-y', aperture.height * 0.18);
+      section.classList.toggle('journey--started', frame.progress > 0.012);
+      setAssetTier((current) => Math.max(current, frame.assetTier));
+      if (canvas && frame.progress >= .48 && !cloudAttempted) {
+        cloudAttempted = true;
+        cloudRenderer = createCloudRenderer(canvas);
+        canvas.dataset.renderer = cloudRenderer ? 'webgl' : 'fallback';
+      }
+      if (cloudRenderer && frame.skyOpacity > 0) {
+        cloudRenderer.draw(frame.progress, width, height);
+      }
     };
 
     const requestUpdate = () => {
-      if (!raf) raf = window.requestAnimationFrame(update);
+      if (!raf && visible && !document.hidden) raf = window.requestAnimationFrame(update);
     };
-    const handleVisibility = () => {
-      // Hidden tabs may suspend animation frames, so pause synchronously.
-      if (document.hidden) setPlayback(false);
-      else requestUpdate();
-    };
-    const addListeners = () => {
-      if (listening) return;
-      listening = true;
-      window.addEventListener('scroll', requestUpdate, { passive: true });
-      window.addEventListener('resize', requestUpdate, { passive: true });
-      requestUpdate();
-    };
-    const removeListeners = () => {
-      setPlayback(false);
+    const stop = () => {
+      if (raf) window.cancelAnimationFrame(raf);
+      raf = 0;
       if (!listening) return;
       listening = false;
       window.removeEventListener('scroll', requestUpdate);
       window.removeEventListener('resize', requestUpdate);
     };
-
-    const observer = new IntersectionObserver(
-      ([entry]) => entry.isIntersecting ? addListeners() : removeListeners(),
-      { rootMargin: '100% 0px' },
-    );
+    const resume = () => {
+      if (!visible || document.hidden) return;
+      if (!listening) {
+        listening = true;
+        window.addEventListener('scroll', requestUpdate, { passive: true });
+        window.addEventListener('resize', requestUpdate, { passive: true });
+      }
+      requestUpdate();
+    };
+    const onVisibility = () => document.hidden ? stop() : resume();
+    const onContextLost = (event: Event) => {
+      event.preventDefault();
+      cloudRenderer?.dispose();
+      cloudRenderer = null;
+      if (canvas) canvas.dataset.renderer = 'fallback';
+    };
+    const onContextRestored = () => { cloudAttempted = false; requestUpdate(); };
+    const observer = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      if (visible) resume(); else stop();
+    });
     observer.observe(section);
-    document.addEventListener('visibilitychange', handleVisibility);
-
+    document.addEventListener('visibilitychange', onVisibility);
+    canvas?.addEventListener('webglcontextlost', onContextLost);
+    canvas?.addEventListener('webglcontextrestored', onContextRestored);
     return () => {
       observer.disconnect();
-      document.removeEventListener('visibilitychange', handleVisibility);
-      removeListeners();
-      if (raf) window.cancelAnimationFrame(raf);
+      document.removeEventListener('visibilitychange', onVisibility);
+      stop();
+      canvas?.removeEventListener('webglcontextlost', onContextLost);
+      canvas?.removeEventListener('webglcontextrestored', onContextRestored);
+      cloudRenderer?.dispose();
     };
-  }, [staticMode, lowData]);
+  }, [staticMode]);
 
-  if (staticMode) {
-    return <ReducedJourney invitation={invitation} locale={locale} />;
-  }
+  if (staticMode) return <StaticJourney invitation={invitation} locale={locale} />;
 
   return (
-    <section ref={sectionRef} className="journey" aria-label={t.journeyLabel}>
+    <section ref={sectionRef} className="journey journey--cinematic" aria-label={t.journeyLabel}>
       <div ref={stageRef} className="journey-stage">
-        <div className="journey-cabin" aria-hidden="true">
-          <CabinPicture alt="" eager />
-        </div>
+        <div className="flight-airport" aria-hidden="true">{assetTier >= 1 && <ScenePicture asset={sceneAssets.airport} />}</div>
+        <div className="flight-departure" aria-hidden="true">{assetTier >= 1 && <ScenePicture asset={sceneAssets.runway} />}</div>
+        <div className="flight-runway-glow" aria-hidden="true" />
+        <div className="flight-aircraft" aria-hidden="true">{assetTier >= 1 && <img src={`${base}flight/aircraft-960.webp`} width="960" height="640" alt="" decoding="async" onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }} />}</div>
+        <div className="journey-cabin" aria-hidden="true">{assetTier >= 2 && <ScenePicture asset={sceneAssets.cabin} />}</div>
         <div className="journey-clouds" aria-hidden="true">
-          {lowData ? <CloudPoster alt="" /> : <CloudVideo videoRef={cloudVideoRef} />}
+          {assetTier >= 2 && <ScenePicture asset={sceneAssets.sky} />}
+          <canvas ref={cloudCanvasRef} className="flight-cloud-volume" />
         </div>
-
+        <div className="flight-daylight" aria-hidden="true" />
         <div className="journey-opening">
-          <div ref={ticketSlotRef} className="journey-ticket-slot">
-            <div
-              ref={ticketRef}
-              className={`journey-ticket journey-ticket--${invitation.cabinClass}`}
-              aria-hidden="true"
-            >
-              <BoardingPass invitation={invitation} locale={locale} compact stamped />
-            </div>
-          </div>
-
           <div className="journey-intro">
-            <p className="eyebrow">{t.flightTheme}</p>
+            <p className="eyebrow">{words.boarding}</p>
             <h1>{t.welcome}</h1>
             <p className="journey-welcome-body">{t.welcomeBody}</p>
-            <ScrollCue locale={locale} />
           </div>
+          <div className="journey-ticket-slot"><div className="journey-ticket"><DecorativeTicket invitation={invitation} locale={locale} showChop /></div></div>
+          <p className="journey-scroll-cue"><span>{words.scroll}</span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v17m-5-5 5 5 5-5" /></svg></p>
         </div>
-
-        <div className="journey-reveal" aria-hidden="true">
-          <img src={logo} alt="" />
-          <p>{t.throughWindow}</p>
-        </div>
+        <div className="flight-caption flight-caption--takeoff" aria-hidden="true"><p className="eyebrow">{words.takeoffLabel}</p><p>{words.takeoff}</p></div>
+        <div className="flight-caption flight-caption--cabin" aria-hidden="true"><p className="eyebrow">{words.cabinLabel}</p><p>{words.cabin}</p></div>
+        <div className="journey-reveal" aria-hidden="true"><img src={`${base}monogram-a-and-n-display.png`} width="640" height="640" alt="" decoding="async" /><p>{words.arrival}</p></div>
+        <div className="flight-progress" aria-hidden="true"><span /></div>
       </div>
     </section>
   );

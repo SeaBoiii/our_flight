@@ -1,134 +1,96 @@
-const CABIN_SOURCE_WIDTH = 1024;
-const CABIN_SOURCE_HEIGHT = 1536;
-const WINDOW_ORIGIN_X = 0.51;
-const WINDOW_ORIGIN_Y = 0.34;
+import { sceneAssets, sceneVariant } from './sceneAssets';
 
-// Inner edge of the photographed window, measured from the 768 x 1152 master.
-const WINDOW_APERTURE = {
-  left: CABIN_SOURCE_WIDTH * (316 / 768),
-  right: CABIN_SOURCE_WIDTH * (468 / 768),
-  top: CABIN_SOURCE_HEIGHT * (241 / 1152),
-  bottom: CABIN_SOURCE_HEIGHT * (543 / 1152),
-};
+export const JOURNEY_PHASES = {
+  ticket: [0, 0.18],
+  takeoff: [0.18, 0.40],
+  cabin: [0.40, 0.56],
+  window: [0.56, 0.82],
+  arrival: [0.82, 1],
+} as const;
 
 export type WindowAperture = {
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-  width: number;
-  height: number;
+  left: number; right: number; top: number; bottom: number;
+  width: number; height: number;
 };
 
-export type TicketFitDimensions = {
-  preferredScale: number;
-  slotWidth: number;
-  slotHeight: number;
-  ticketWidth: number;
-  ticketHeight: number;
-};
+const clamp = (value: number) => Math.min(1, Math.max(0, Number.isFinite(value) ? value : 0));
+export const phase = (value: number, start: number, end: number) => clamp((value - start) / (end - start));
+const smooth = (value: number) => value * value * (3 - 2 * value);
 
-/**
- * Fits the complete ticket stack inside its dedicated grid row. The row clips
- * as a first-paint safeguard; this scale keeps the passes fully readable once
- * measurements settle without ever enlarging them past their preferred size.
- */
-export function getTicketFitScale({
-  preferredScale,
-  slotWidth,
-  slotHeight,
-  ticketWidth,
-  ticketHeight,
-}: TicketFitDimensions): number {
-  const dimensions = [preferredScale, slotWidth, slotHeight, ticketWidth, ticketHeight];
-  if (dimensions.some((value) => !Number.isFinite(value) || value <= 0)) return 0;
-
-  return Math.min(
-    preferredScale,
-    slotWidth / ticketWidth,
-    slotHeight / ticketHeight,
-  );
+export function getWindowGeometry(viewportWidth: number, viewportHeight: number) {
+  const width = Math.max(1, viewportWidth);
+  const height = Math.max(1, viewportHeight);
+  const asset = sceneVariant(sceneAssets.cabin, width);
+  const aperture = asset.window!;
+  const scale = Math.max(width / asset.width, height / asset.height);
+  const renderedWidth = asset.width * scale;
+  const renderedHeight = asset.height * scale;
+  const offsetX = (width - renderedWidth) * asset.focalPoint.x;
+  const offsetY = (height - renderedHeight) * asset.focalPoint.y;
+  const left = offsetX + aperture.left * renderedWidth;
+  const right = offsetX + aperture.right * renderedWidth;
+  const top = offsetY + aperture.top * renderedHeight;
+  const bottom = offsetY + aperture.bottom * renderedHeight;
+  return { left, right, top, bottom, width: right - left, height: bottom - top,
+    originX: (left + right) / 2, originY: (top + bottom) / 2 };
 }
 
-type WindowGeometry = WindowAperture & {
-  originX: number;
-  originY: number;
-};
-
-function getWindowGeometry(viewportWidth: number, viewportHeight: number): WindowGeometry {
-  const safeWidth = Math.max(1, viewportWidth);
-  const safeHeight = Math.max(1, viewportHeight);
-  const coverScale = Math.max(
-    safeWidth / CABIN_SOURCE_WIDTH,
-    safeHeight / CABIN_SOURCE_HEIGHT,
-  );
-  const renderedWidth = CABIN_SOURCE_WIDTH * coverScale;
-  const renderedHeight = CABIN_SOURCE_HEIGHT * coverScale;
-  const offsetX = (safeWidth - renderedWidth) * WINDOW_ORIGIN_X;
-  const offsetY = (safeHeight - renderedHeight) * WINDOW_ORIGIN_Y;
-  const left = offsetX + WINDOW_APERTURE.left * coverScale;
-  const right = offsetX + WINDOW_APERTURE.right * coverScale;
-  const top = offsetY + WINDOW_APERTURE.top * coverScale;
-  const bottom = offsetY + WINDOW_APERTURE.bottom * coverScale;
-
-  return {
-    left,
-    right,
-    top,
-    bottom,
-    width: right - left,
-    height: bottom - top,
-    originX: safeWidth * WINDOW_ORIGIN_X,
-    originY: safeHeight * WINDOW_ORIGIN_Y,
-  };
-}
-
-/**
- * Returns the photographed window aperture after the cabin camera has zoomed.
- * The cloud plane is deliberately not part of this transform.
- */
-export function getWindowAperture(
-  viewportWidth: number,
-  viewportHeight: number,
-  cameraScale: number,
-): WindowAperture {
+export function getWindowAperture(viewportWidth: number, viewportHeight: number, cameraScale: number): WindowAperture {
   const geometry = getWindowGeometry(viewportWidth, viewportHeight);
-  const throughCamera = (coordinate: number, origin: number) =>
-    origin + (coordinate - origin) * cameraScale;
-  const left = throughCamera(geometry.left, geometry.originX);
-  const right = throughCamera(geometry.right, geometry.originX);
-  const top = throughCamera(geometry.top, geometry.originY);
-  const bottom = throughCamera(geometry.bottom, geometry.originY);
-
-  return {
-    left,
-    right,
-    top,
-    bottom,
-    width: right - left,
-    height: bottom - top,
-  };
+  const zoom = Math.max(1, Number.isFinite(cameraScale) ? cameraScale : 1);
+  const left = geometry.originX + (geometry.left - geometry.originX) * zoom;
+  const right = geometry.originX + (geometry.right - geometry.originX) * zoom;
+  const top = geometry.originY + (geometry.top - geometry.originY) * zoom;
+  const bottom = geometry.originY + (geometry.bottom - geometry.originY) * zoom;
+  return { left, right, top, bottom, width: right - left, height: bottom - top };
 }
 
-/**
- * Calculates the zoom needed for the real window opening to pass every edge of
- * the viewport. A small overscan keeps the cabin frame from lingering onscreen.
- */
-export function getWindowExitScale(
-  viewportWidth: number,
-  viewportHeight: number,
-): number {
-  const safeWidth = Math.max(1, viewportWidth);
-  const safeHeight = Math.max(1, viewportHeight);
-  const geometry = getWindowGeometry(safeWidth, safeHeight);
-  const edgeScales = [
-    geometry.originX / Math.max(1, geometry.originX - geometry.left),
-    (safeWidth - geometry.originX) / Math.max(1, geometry.right - geometry.originX),
-    geometry.originY / Math.max(1, geometry.originY - geometry.top),
-    (safeHeight - geometry.originY) / Math.max(1, geometry.bottom - geometry.originY),
-  ];
+export function getWindowExitScale(viewportWidth: number, viewportHeight: number): number {
+  const width = Math.max(1, viewportWidth);
+  const height = Math.max(1, viewportHeight);
+  const aperture = getWindowGeometry(width, height);
+  // Carry the rounded corners clear of the screen before the cabin fades.
+  return Math.max(1,
+    aperture.originX / (aperture.width / 2),
+    (width - aperture.originX) / (aperture.width / 2),
+    aperture.originY / (aperture.height / 2),
+    (height - aperture.originY) / (aperture.height / 2),
+  ) * 1.35;
+}
 
-  // The extra distance carries the aperture's rounded corners—not only its
-  // straight edges—past the screen before the cabin layer fades away.
-  return Math.max(1, ...edgeScales) * 1.2;
+export function getJourneyFrame(rawProgress: number, viewportWidth: number, viewportHeight: number) {
+  const progress = clamp(rawProgress);
+  const chopLanding = smooth(phase(progress, 0.025, 0.060));
+  const chopSettle = smooth(phase(progress, 0.060, 0.075));
+  const ticket = smooth(phase(progress, 0.085, JOURNEY_PHASES.ticket[1]));
+  const takeoff = smooth(phase(progress, ...JOURNEY_PHASES.takeoff));
+  const camera = smooth(phase(progress, ...JOURNEY_PHASES.window));
+  const arrival = smooth(phase(progress, ...JOURNEY_PHASES.arrival));
+  return {
+    progress,
+    stampOpacity: phase(progress, 0.025, 0.040),
+    stampScale: 1.75 - chopLanding * 0.83 + chopSettle * 0.08,
+    stampRotate: -22 + chopLanding * 9,
+    ticketY: -ticket * viewportHeight * 0.7,
+    ticketRotate: ticket * -32,
+    ticketOpacity: 1 - phase(progress, 0.10, 0.18),
+    introOpacity: 1 - phase(progress, 0.07, 0.15),
+    airportOpacity: 1 - phase(progress, 0.16, 0.26),
+    departureOpacity: phase(progress, 0.16, 0.26) * (1 - phase(progress, 0.40, 0.48)),
+    airportScale: 1 + takeoff * 0.08,
+    aircraftOpacity: phase(progress, 0.15, 0.22) * (1 - phase(progress, 0.36, 0.43)),
+    aircraftX: (takeoff * 0.85 - 0.48) * viewportWidth,
+    aircraftY: (0.20 - takeoff * 0.44) * viewportHeight,
+    aircraftScale: 0.76 + takeoff * 0.42,
+    takeoffCopyOpacity: phase(progress, 0.19, 0.23) * (1 - phase(progress, 0.33, 0.39)),
+    cabinOpacity: phase(progress, 0.39, 0.47) * (1 - phase(progress, 0.80, 0.85)),
+    cabinCopyOpacity: phase(progress, 0.44, 0.48) * (1 - phase(progress, 0.55, 0.59)),
+    cameraScale: 1 + (getWindowExitScale(viewportWidth, viewportHeight) - 1) * camera,
+    skyOpacity: phase(progress, 0.55, 0.61),
+    revealOpacity: phase(progress, 0.85, 0.95),
+    revealY: (1 - arrival) * 36,
+    daylightOpacity: phase(progress, 0.91, 1),
+    // Prefetch the next scene early, without requesting the entire journey at boarding.
+    assetTier: progress >= 0.075 ? 2 : 1,
+  };
 }

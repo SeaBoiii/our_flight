@@ -58,15 +58,15 @@ describe('invitation gate', () => {
     vi.stubEnv('VITE_LEGACY_INVITES_ENABLED', 'false');
   });
 
-  it('uses responsive Changi artwork as a decorative background', () => {
+  it('uses responsive airport artwork as a decorative background without blocking check-in', () => {
     const { container } = render(<App />);
     const picture = container.querySelector('.gate-background');
     const source = picture?.querySelector('source');
     const image = picture?.querySelector('img');
 
     expect(picture?.getAttribute('aria-hidden')).toBe('true');
-    expect(source?.getAttribute('srcset')).toContain('gate/changi-jewel-landscape.webp');
-    expect(image?.getAttribute('src')).toContain('gate/changi-jewel-portrait.webp');
+    expect(source?.getAttribute('srcset')).toContain('flight/airport-landscape-1440.avif');
+    expect(image?.getAttribute('src')).toContain('flight/airport-portrait-640.webp');
     expect(image?.getAttribute('alt')).toBe('');
     expect(container.querySelector('.gate-pass')).not.toBeNull();
     expect(screen.queryByText('Invitation link required')).toBeNull();

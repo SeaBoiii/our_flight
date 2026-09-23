@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#fbfaf7" />
+    <meta name="theme-color" content="#081B31" />
     <meta name="color-scheme" content="light" />
     <meta name="referrer" content="no-referrer" />
     <meta name="robots" content="noindex, nofollow, noarchive" />
@@ -26,6 +26,8 @@
     <meta name="twitter:image:alt" content="Aleem and Nurulain - Our Flight wedding invitation" />
     <link rel="canonical" href="__PUBLIC_SITE_URL__" />
     <link rel="icon" href="%BASE_URL%favicon.png" type="image/png" />
+    <link rel="preload" as="image" type="image/avif" href="%BASE_URL%flight/airport-portrait-640.avif" media="(max-width: 799px)" fetchpriority="high" />
+    <link rel="preload" as="image" type="image/avif" href="%BASE_URL%flight/airport-landscape-1440.avif" media="(min-width: 800px)" fetchpriority="high" />
     <title>Aleem &amp; Nurulain - Wedding Invitation</title>
   </head>
   <body>
@@ -33,8 +35,11 @@
       <main class="startup-fallback" aria-labelledby="startup-title">
         <h1 id="startup-title">Aleem &amp; Nurulain</h1>
         <p>Welcome to our wedding invitation.</p>
-        <p>If your invitation does not open, check your connection and reload. If you opened this link in a messaging app, try opening it in Safari or Chrome.</p>
-        <p lang="ms-SG">Selamat datang ke jemputan perkahwinan kami. Jika jemputan tidak dibuka, semak sambungan internet dan muat semula. Jika anda membuka pautan ini dalam aplikasi pemesejan, cuba buka dalam Safari atau Chrome.</p>
+        <details class="startup-help">
+          <summary>Connection help / Bantuan sambungan</summary>
+          <p>If your invitation does not open, check your connection and reload. If you opened this link in a messaging app, try opening it in Safari or Chrome.</p>
+          <p lang="ms-SG">Selamat datang ke jemputan perkahwinan kami. Jika jemputan tidak dibuka, semak sambungan internet dan muat semula. Jika anda membuka pautan ini dalam aplikasi pemesejan, cuba buka dalam Safari atau Chrome.</p>
+        </details>
         <noscript>
           <p>Enable JavaScript in your browser to open your invitation.</p>
           <p lang="ms-SG">Aktifkan JavaScript dalam pelayar anda untuk membuka jemputan.</p>

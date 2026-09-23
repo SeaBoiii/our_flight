@@ -1,0 +1,192 @@
+/* Daylight: a quiet invitation after the flight. */
+.experience {
+  --ink: #081b31;
+  --muted: #59636c;
+  --ivory: #f7f2e8;
+  --paper: #fffcf6;
+  --line: #dcd6ca;
+  --accent: #8e7548;
+  --accent-deep: #081b31;
+  --metal: #c4a367;
+  --soft: #f0e9dc;
+  color: var(--ink);
+  background: var(--ivory);
+  min-height: 100svh;
+  overflow-anchor: none;
+}
+.experience :focus-visible { outline-color: #987741; outline-offset: 5px; }
+.experience .eyebrow { font-size: 0.69rem; font-weight: 600; letter-spacing: 0.18em; line-height: 1.6; }
+.experience .button { min-height: 48px; border-radius: 3px; font-size: 0.875rem; font-weight: 600; letter-spacing: 0.025em; }
+.experience .button-primary { color: #fffaf0; background: #081b31; box-shadow: none; }
+.experience .button-secondary { color: #081b31; border-color: #c9c0b0; background: transparent; }
+.experience .button:hover { transform: none; }
+.experience .button-primary:not(:disabled):hover { background: #15344f; }
+.experience .button-secondary:hover { background: #eee6d8; }
+
+/* Utility controls stay at the top; the two essential destinations live by the thumb. */
+.experience .experience-nav { position: fixed; top: max(14px, env(safe-area-inset-top)); right: max(18px, env(safe-area-inset-right)); left: max(18px, env(safe-area-inset-left)); z-index: 100; display: flex; align-items: center; justify-content: space-between; gap: 14px; pointer-events: none; }
+.experience .experience-nav button { flex: 0 0 auto; pointer-events: auto; backdrop-filter: blur(12px); }
+.experience .experience-nav svg { display: block; width: 18px; height: 18px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.experience .experience-nav .experience-back,
+.experience .experience-nav .language-toggle { height: 44px; min-height: 44px; border: 1px solid #d3c9b8; border-radius: 50%; color: #081b31; background: #f7f2e8ed; box-shadow: 0 4px 22px #081b310d; }
+.experience .experience-nav .experience-back { display: inline-flex; align-items: center; justify-content: center; width: 44px; min-width: 44px; padding: 0; }
+.experience .experience-back span { display: none; }
+.experience .experience-nav .language-toggle { font-size: 0.72rem; }
+.experience-nav-monogram { position: absolute; left: 50%; display: flex; gap: 3px; align-items: baseline; color: #c4a367; font-family: var(--font-display, Georgia, serif); font-size: 1.45rem; text-shadow: 0 1px 10px #081b3140; transform: translateX(-50%); }
+.experience-nav-monogram > span { font-size: 0.7em; }
+.experience .experience-shortcuts { position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: max(14px, calc(env(safe-area-inset-bottom) + 8px)); left: max(18px, env(safe-area-inset-left)); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px; width: auto; max-width: 430px; margin: auto; padding: 5px; border: 1px solid #c4a36780; border-radius: 4px; background: #081b31f5; box-shadow: 0 6px 28px #081b3140; backdrop-filter: blur(12px); pointer-events: auto; transition: opacity 150ms ease; }
+.experience .experience-shortcuts a { display: flex; align-items: center; justify-content: center; min-height: 46px; padding: 10px 8px; border: 0; border-radius: 1px; color: #f7f2e8; background: transparent; font-size: 0.875rem; font-weight: 600; letter-spacing: 0.025em; line-height: 1.4; text-align: center; text-decoration: none; pointer-events: auto; }
+.experience .experience-shortcuts a:last-child { color: #081b31; background: #e0c796; }
+.experience .experience-shortcuts a:focus-visible { outline-color: #fff8ec; outline-offset: -3px; }
+.experience[data-editing] .experience-shortcuts { opacity: 0; visibility: hidden; pointer-events: none; }
+.experience #rsvp, .experience #rsvp-title, .experience #itinerary-title, .experience input, .experience textarea { scroll-margin-top: max(92px, calc(env(safe-area-inset-top) + 76px)); scroll-margin-bottom: 112px; }
+
+.experience .invitation-reveal { position: relative; display: grid; place-items: center; min-height: 100svh; padding: clamp(96px, 15vw, 180px) 24px; overflow: hidden; background: radial-gradient(ellipse at 50% 0%, #fffdf7 0%, #f7f2e8 72%); }
+.experience .invitation-reveal::before, .experience .invitation-reveal::after { content: none; }
+.experience .invitation-card { position: relative; min-width: 0; width: min(100%, 800px); max-width: 800px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; text-align: center; overflow-wrap: break-word; }
+.experience .invitation-logo { width: 138px; height: 95px; margin: 0 auto 44px; object-fit: contain; mix-blend-mode: multiply; }
+.experience .bismillah { margin: 0; color: #081b31; font-family: Amiri, 'Traditional Arabic', 'Segoe UI', Tahoma, serif; font-synthesis: none; font-weight: 400; font-size: clamp(1.55rem, 5.8vw, 2.25rem); line-height: 1.85; }
+.experience .salam { max-width: 40ch; margin: 16px auto 28px; color: #59636c; font-size: 0.8rem; font-weight: 500; line-height: 1.7; letter-spacing: 0.02em; }
+.experience .formal-copy, .experience .blessing { max-width: 46ch; margin: 0 auto; color: #59636c; font-family: inherit; font-size: clamp(0.94rem, 2.6vw, 1.05rem); line-height: 1.9; }
+.experience .invitation-names-label { margin: 48px 0 18px; color: #77613e; font-size: 0.63rem; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; }
+.experience .invitation-card h1 { margin: 0 auto 42px; color: #081b31; font-family: var(--font-display, Georgia, serif); font-size: clamp(4.25rem, 17vw, 8.5rem); font-weight: 400; line-height: 0.96; letter-spacing: -0.045em; }
+.experience .invitation-card h1 span { display: block; margin: 9px 0; color: #a3824d; font-size: 0.48em; font-style: italic; line-height: 0.9; }
+.experience .blessing::after { display: block; width: 42px; height: 1px; margin: 40px auto 0; background: #c4a367; content: ''; }
+
+.experience .our-story-section { position: relative; padding: clamp(60px, 13vw, 150px) 28px clamp(90px, 14vw, 160px); background: #f7f2e8; text-align: center; }
+.experience .our-story-section::before { content: none; }
+.experience .our-story-inner { width: min(100%, 880px); margin-inline: auto; }
+.experience .our-story-inner > .eyebrow { margin-bottom: 18px; color: #77613e; }
+.experience .our-story-inner h2 { margin: 0; color: #081b31; font-family: var(--font-display, Georgia, serif); font-size: clamp(3.3rem, 13vw, 6.6rem); font-weight: 400; letter-spacing: -0.045em; line-height: 1.03; }
+.story-flight-line { display: block; width: min(90%, 500px); height: auto; margin: 30px auto 20px; color: #a0824e; }
+.experience .our-story-inner blockquote { max-width: 720px; margin: 22px auto 0; padding: 0; border: 0; }
+.experience .our-story-inner blockquote::after { content: none; }
+.experience .our-story-inner blockquote p { margin: 0; color: #081b31; font-family: var(--font-display, Georgia, serif); font-size: clamp(1.95rem, 6.3vw, 3.25rem); font-style: normal; font-weight: 400; line-height: 1.26; letter-spacing: -0.025em; }
+.experience .our-story-copy { display: grid; max-width: 51ch; gap: 20px; margin: 36px auto 0; }
+.experience .our-story-copy p { margin: 0; color: #59636c; font-family: inherit; font-size: 0.98rem; line-height: 1.85; }
+.experience .our-story-copy .our-story-closing { margin-top: 10px; color: #081b31; font-family: var(--font-display, Georgia, serif); font-size: 1.65rem; line-height: 1.4; }
+
+/* The departures board carries plain-language event names and fully readable dates. */
+.experience .itinerary-section { width: 100%; margin: 0; padding: clamp(80px, 10vw, 124px) max(20px, calc((100% - 1120px) / 2)); color: #f7f2e8; background: #081b31; }
+.experience .section-heading { max-width: 780px; margin: 0 auto 38px; text-align: center; }
+.experience .section-heading h2 { margin: 0; font-family: var(--font-display, Georgia, serif); font-size: clamp(3.1rem, 11vw, 5.8rem); font-weight: 400; letter-spacing: -0.04em; line-height: 1.04; text-transform: none; overflow-wrap: normal; }
+.experience .section-heading > p:last-child { margin-top: 20px; font-size: 0.875rem; line-height: 1.7; }
+.experience .itinerary-section .section-heading .eyebrow { color: #dec898; }
+.experience .itinerary-section .section-heading > p:last-child { color: #c2ccd5; }
+.experience .itinerary-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; max-width: 860px; margin: auto; }
+.experience .itinerary-card { min-width: 0; padding: clamp(22px, 5vw, 36px); border: 1px solid #425365; border-top: 2px solid #c4a367; border-radius: 2px; background: #10263d; box-shadow: none; }
+.experience .itinerary-card::before { content: none; }
+.experience .itinerary-flight { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin: 0; color: #c3ced8; font-size: 0.71rem; font-weight: 500; line-height: 1.5; letter-spacing: 0.09em; text-transform: uppercase; }
+.experience .itinerary-flight span:first-child { padding: 5px 7px; color: #f0d9a8; background: #081b31; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 1rem; font-weight: 500; line-height: 1; letter-spacing: 0.12em; white-space: nowrap; }
+.experience .itinerary-flight span:last-child { max-width: 17ch; text-align: right; }
+.experience .itinerary-date { margin: 34px 0 32px; font-family: var(--font-display, Georgia, serif); }
+.experience .itinerary-date time { display: grid; gap: 12px; }
+.experience .itinerary-weekday { color: #d9e0e5; font-family: inherit; font-size: 1.1rem; letter-spacing: 0; }
+.experience .itinerary-date-core { display: flex; align-items: center; gap: 20px; color: #fff9ee; }
+.experience .itinerary-date-core strong { font-size: clamp(5.3rem, 18vw, 7.5rem); font-weight: 400; letter-spacing: -0.05em; line-height: 0.85; }
+.experience .itinerary-date-core > span { max-width: 8ch; color: #f7f2e8; font-size: 1.7rem; line-height: 1.06; }
+.experience .itinerary-event-heading { display: block; margin-bottom: 24px; padding-top: 22px; border-top: 1px solid #425365; }
+.experience .itinerary-event-heading h4 { margin: 0; color: #fff9ee; font-family: var(--font-display, Georgia, serif); font-size: clamp(1.9rem, 7vw, 2.5rem); font-weight: 400; line-height: 1.15; letter-spacing: -0.02em; }
+.experience .itinerary-event-heading p { margin: 12px 0 0; color: #dec898; font-size: 1rem; font-weight: 500; line-height: 1.5; white-space: normal; }
+.experience .event-programme { margin: 0; padding: 0; border-top: 1px solid #425365; list-style: none; }
+.experience .event-programme li { display: grid; grid-template-columns: minmax(68px, max-content) minmax(0, 1fr); gap: 16px; align-items: baseline; padding-block: 15px; border-bottom: 1px solid #425365; color: #e3e8eb; font-size: 0.875rem; line-height: 1.55; }
+.experience .programme-time { color: #dec898; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.78rem; font-weight: 400; letter-spacing: 0; }
+.experience .programme-time--placeholder { color: #dec898; letter-spacing: 0.12em; }
+.experience .venue-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin: 22px 0 0; }
+.experience .venue-fields > div { padding: 0; }
+.experience .venue-fields > div:first-child { grid-column: 1 / -1; }
+.experience .venue-fields dt { margin-bottom: 6px; color: #becbd5; font-size: 0.69rem; font-weight: 500; letter-spacing: 0.05em; line-height: 1.6; }
+.experience .venue-fields dd { margin: 0; color: #fff9ee; font-size: 0.91rem; font-weight: 500; line-height: 1.5; overflow-wrap: break-word; }
+.experience .venue-hotel dd { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.experience .venue-hotel dd > span { max-width: 22ch; }
+.experience .venue-logo { width: 82px; height: 50px; flex: 0 0 82px; padding: 6px; border-radius: 2px; object-fit: contain; background: #fffaf1; opacity: 1; }
+.experience .itinerary-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 26px; }
+.experience .itinerary-actions .button { min-height: 48px; color: #f7f2e8; border-color: #6c7a84; background: transparent; }
+.experience .itinerary-actions .button:hover { border-color: #c4a367; background: #1d354c; }
+.experience .itinerary-rsvp { display: flex; width: fit-content; margin: 36px auto 0; color: #dec898; text-decoration: underline; text-underline-offset: 7px; text-decoration-thickness: 1px; }
+.experience .itinerary-section :focus-visible { outline-color: #dec898; }
+
+.experience .travel-section { width: min(100% - 48px, 1120px); margin: 0 auto; padding: clamp(80px, 12vw, 144px) 0 0; overflow: visible; border-radius: 0; color: #081b31; background: transparent; box-shadow: none; }
+.travel-arrival { display: grid; grid-template-columns: minmax(0, 1fr); gap: 42px; }
+.experience .travel-section .eyebrow { margin-bottom: 16px; color: #77613e; }
+.travel-introduction h2 { margin: 0; font-family: var(--font-display, Georgia, serif); font-size: clamp(3.4rem, 12vw, 6.3rem); font-weight: 400; letter-spacing: -0.04em; line-height: 1; }
+.travel-destination { display: flex; align-items: center; gap: 22px; margin-top: 30px; }
+.travel-destination > span:first-child { color: #9b8050; font-family: var(--font-display, Georgia, serif); font-size: 3.8rem; line-height: 1; letter-spacing: -0.02em; }
+.travel-destination > span:last-child { max-width: 12ch; padding-left: 22px; border-left: 1px solid #c4a367; color: #59636c; font-size: 0.7rem; line-height: 1.6; letter-spacing: 0.08em; text-transform: uppercase; }
+.travel-venue { min-width: 0; }
+.travel-venue-logo { width: 102px; height: 62px; margin: 0 0 24px; object-fit: contain; mix-blend-mode: multiply; }
+.travel-venue h3 { max-width: 16ch; margin: 0; font-family: var(--font-display, Georgia, serif); font-size: clamp(2.1rem, 7.5vw, 3.4rem); font-weight: 400; line-height: 1.12; letter-spacing: -0.02em; }
+.travel-ballroom { margin: 18px 0 0; font-size: 0.95rem; line-height: 1.7; }
+.experience .travel-section address { max-width: 30ch; margin: 12px 0 24px; color: #59636c; font-family: inherit; font-size: 0.95rem; font-style: normal; line-height: 1.7; }
+.experience .travel-directions { width: 100%; justify-content: space-between; max-width: 320px; }
+.travel-directions > span { font-size: 1.2em; }
+.travel-guidance { margin-top: 38px; border-block: 1px solid #cbc3b5; }
+.experience .travel-guidance summary { display: flex; align-items: center; justify-content: space-between; min-height: 78px; padding: 16px 0; gap: 20px; color: #081b31; font-size: 0.9rem; font-weight: 500; line-height: 1.55; list-style: none; cursor: pointer; }
+.experience .travel-guidance summary::-webkit-details-marker { display: none; }
+.experience .travel-guidance summary:focus-visible { outline-color: #987741; outline-offset: 4px; }
+.experience .travel-summary-chevron { position: relative; width: 44px; height: 44px; flex: 0 0 auto; border: 1px solid #cbc3b5; border-radius: 50%; transition: transform 200ms ease; }
+.experience .travel-summary-chevron::before, .experience .travel-summary-chevron::after { position: absolute; left: 50%; top: 50%; width: 14px; height: 1px; background: #081b31; transform: translate(-50%, -50%); content: ''; }
+.experience .travel-summary-chevron::after { transform: translate(-50%, -50%) rotate(90deg); }
+.experience .travel-guidance[open] .travel-summary-chevron { transform: rotate(180deg); }
+.experience .travel-guidance[open] .travel-summary-chevron::after { transform: translate(-50%, -50%) rotate(0); }
+.experience .travel-details { display: block; padding: 0 0 28px; border: 0; }
+.experience .travel-section ul { display: grid; gap: 18px; max-width: 78ch; margin: 0; padding: 0; list-style: none; }
+.experience .travel-section li { position: relative; padding-left: 22px; color: #59636c; font-size: 0.95rem; line-height: 1.75; }
+.experience .travel-section li::before { position: absolute; left: 0; top: 0.8em; width: 9px; height: 1px; background: #a0824e; content: ''; }
+.experience .travel-details > p { max-width: 70ch; margin: 24px 0 0; color: #59636c; font-size: 0.875rem; line-height: 1.75; }
+
+.experience .rsvp-section { width: min(100% - 40px, 780px); margin: 0 auto; padding: clamp(90px, 14vw, 150px) 0 40px; }
+.experience .rsvp-section > .section-heading { max-width: 670px; margin-bottom: 36px; }
+.experience .rsvp-section > .section-heading .eyebrow { color: #77613e; }
+.experience .rsvp-form { padding: clamp(24px, 6vw, 50px); border: 1px solid #d8cdbb; border-top: 3px solid #c4a367; border-radius: 2px; background: #fffcf6; box-shadow: 0 14px 48px #081b3107; }
+.experience .form-field { gap: 10px; margin-bottom: 30px; }
+.experience .event-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.experience .event-actions .button { flex: 1 1 140px; }
+.experience .rsvp-form .form-field > label { color: #081b31; font-size: 0.875rem; font-weight: 600; line-height: 1.5; }
+.experience .rsvp-form .form-field input, .experience .rsvp-form textarea { min-height: 52px; padding: 14px; border: 1px solid #bdb6ab; border-radius: 2px; color: #081b31; background: #fffefa; font-size: 1rem; line-height: 1.5; }
+.experience .rsvp-form input:focus, .experience .rsvp-form textarea:focus { border-color: #77613e; box-shadow: 0 0 0 2px #c4a36733; }
+.experience .rsvp-form [aria-invalid='true'] { border-color: #a4433f; }
+.experience .rsvp-form .attendance-card { margin: 0 0 32px !important; padding: 0 0 26px !important; border: 0 !important; border-bottom: 1px solid #dcd6ca !important; border-radius: 0; background: transparent; }
+.experience .attendance-card legend { margin-bottom: 8px; color: #081b31; font-family: inherit; font-size: 1rem; font-weight: 500; line-height: 1.6; }
+.experience .attendance-card legend > span:first-child { margin-bottom: 6px; color: #59636c; font-family: inherit; font-size: 0.78rem; font-weight: 500; letter-spacing: 0.02em; }
+.experience .attendance-card legend > span:nth-child(2) { margin-bottom: 14px; color: #081b31; font-family: var(--font-display, Georgia, serif); font-size: 1.9rem; font-weight: 400; line-height: 1.12; letter-spacing: -0.02em; }
+.experience .radio-option { min-height: 54px; gap: 12px; margin: 10px 0; padding: 12px; border-color: #cfc7ba; border-radius: 2px; font-size: 1rem; line-height: 1.5; }
+.experience .radio-option:has(input:checked) { border-color: #987741; background: #f0e9dc; }
+.experience .radio-option input { width: 20px; height: 20px; accent-color: #081b31; }
+.experience .form-field--party { margin-bottom: 0; }
+.experience .rsvp-section .field-help, .experience .rsvp-section .form-note { color: #59636c; font-size: 0.81rem; line-height: 1.7; }
+.experience .character-count { color: #59636c; font-size: 0.75rem; }
+.experience .form-actions { margin-top: 6px; }
+.experience .form-actions .button-primary { min-height: 54px; }
+.experience .status-callout { border-color: #d8cdbb; border-radius: 2px; background: #f0e9dc; }
+.experience .error-summary { border-radius: 2px; }
+.experience .error-summary ul { font-size: 0.875rem; line-height: 1.75; }
+.experience .submission-status { border-radius: 2px; font-size: 0.9rem; }
+
+.experience .site-footer { display: grid; place-items: center; padding: 66px 24px max(122px, calc(env(safe-area-inset-bottom) + 110px)); color: #59636c; text-align: center; }
+.experience .site-footer img { width: 120px; height: 83px; object-fit: contain; mix-blend-mode: multiply; }
+.experience .site-footer p { max-width: 35ch; margin-top: 20px; font-size: 0.68rem; font-weight: 500; line-height: 1.8; letter-spacing: 0.14em; }
+.experience .site-footer .invitation-forget { margin-top: 16px; color: #59636c; font-size: 0.75rem; }
+
+@media (min-width: 640px) {
+  .experience .itinerary-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .experience .rsvp-form .form-actions { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
+}
+@media (min-width: 800px) {
+  .experience .experience-nav { right: max(26px, env(safe-area-inset-right)); left: max(26px, env(safe-area-inset-left)); }
+  .experience .experience-nav .experience-back { width: auto; gap: 8px; padding: 0 18px; border-radius: 2px; }
+  .experience .experience-back span { display: block; font-size: 0.8rem; }
+  .experience-nav-monogram { display: none; }
+  .experience .experience-shortcuts { position: static; width: auto; min-width: 290px; max-width: 420px; margin: 0 auto; padding: 4px; box-shadow: 0 4px 24px #081b3120; }
+  .experience .experience-shortcuts a { min-height: 44px; padding: 8px 20px; }
+  .experience[data-editing] .experience-shortcuts { visibility: visible; opacity: 1; pointer-events: auto; }
+  .experience .itinerary-list { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); max-width: none; }
+  .experience .itinerary-card:only-child { width: min(100%, 720px); margin-inline: auto; }
+  .travel-arrival { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 60px; }
+  .experience .travel-section { width: min(100% - 96px, 1000px); }
+  .travel-guidance { margin-top: 50px; }
+  .experience .site-footer { padding-bottom: 80px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .experience .experience-shortcuts, .experience .travel-summary-chevron, .experience .travel-summary-chevron::after { transition: none; }
+}

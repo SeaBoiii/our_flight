@@ -1,5 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
+const port = Number(process.env.E2E_PORT || 4173);
+
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.spec.ts',
@@ -14,7 +16,7 @@ export default defineConfig({
   },
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: `http://127.0.0.1:${port}`,
     browserName: 'chromium',
     isMobile: true,
     hasTouch: true,
@@ -25,14 +27,16 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'mobile-small', use: { viewport: { width: 375, height: 667 } } },
-    { name: 'mobile-standard', use: { viewport: { width: 390, height: 844 } } },
-    { name: 'mobile-android', use: { viewport: { width: 412, height: 915 } } },
-    { name: 'mobile-large', use: { viewport: { width: 430, height: 932 } } },
+    { name: 'mobile-small', testIgnore: ['**/redesign.spec.ts', '**/clouds.spec.ts'], use: { viewport: { width: 375, height: 667 } } },
+    { name: 'mobile-standard', testIgnore: ['**/redesign.spec.ts', '**/clouds.spec.ts'], use: { viewport: { width: 390, height: 844 } } },
+    { name: 'mobile-android', testIgnore: ['**/redesign.spec.ts', '**/clouds.spec.ts'], use: { viewport: { width: 412, height: 915 } } },
+    { name: 'mobile-large', testIgnore: ['**/redesign.spec.ts', '**/clouds.spec.ts'], use: { viewport: { width: 430, height: 932 } } },
+    { name: 'design-chromium', testMatch: ['**/redesign.spec.ts', '**/clouds.spec.ts'], use: { viewport: { width: 390, height: 844 } } },
+    { name: 'webkit-iphone', testMatch: ['**/redesign.spec.ts', '**/clouds.spec.ts'], use: { browserName: 'webkit', viewport: { width: 390, height: 844 } } },
   ],
   webServer: {
-    command: 'npx vite --config e2e/vite.config.ts --mode e2e --host 127.0.0.1 --port 4173 --strictPort',
-    url: 'http://127.0.0.1:4173',
+    command: `npx vite --config e2e/vite.config.ts --mode e2e --host 127.0.0.1 --port ${port} --strictPort`,
+    url: `http://127.0.0.1:${port}`,
     reuseExistingServer: false,
     timeout: 30_000,
   },

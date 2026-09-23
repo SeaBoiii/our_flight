@@ -2,18 +2,20 @@ import { test, expect } from '@playwright/test';
 import { comfortableTargets, noHorizontalOverflow, programmeDoesNotOverlap, unlock } from './helpers';
 import { testCodes } from './test-config';
 
-test('first-time guests can skip the journey and use browser history', async ({ page }) => {
+test('first-time guests scroll to the itinerary and use RSVP browser history', async ({ page }) => {
   await unlock(page);
   await page.getByRole('button', { name: 'Tap ticket to scan and board', exact: true }).click();
   await expect(page.locator('.journey')).toBeVisible();
-  await page.locator('.experience-shortcuts a[href="#itinerary-title"]').click();
-  await expect(page.locator('#itinerary-title')).toBeFocused();
+  await expect(page.locator('.experience-nav a')).toHaveCount(0);
+  await page.waitForTimeout(120); // Allow entry scroll restoration to finish.
+  await page.locator('#itinerary-title').scrollIntoViewIfNeeded();
   await expect(page.locator('#itinerary-title')).toBeInViewport();
-  await page.locator('.experience-shortcuts a[href="#rsvp"]').click();
+  await expect(page.locator('#itinerary-title')).toBeInViewport();
+  await page.locator('.itinerary-rsvp').click();
   await expect(page.locator('#rsvp-title')).toBeFocused();
   await expect(page).toHaveURL(/#rsvp$/);
   await page.goBack();
-  await expect(page).toHaveURL(/#itinerary-title$/);
+  await expect(page).not.toHaveURL(/#rsvp$/);
   await expect(page.locator('.experience')).toBeVisible();
   await page.goForward();
   await expect(page).toHaveURL(/#rsvp$/);
@@ -55,7 +57,7 @@ test('older browser APIs fall back to a readable invitation', async ({ page }) =
   await page.getByRole('button', { name: 'Tap ticket to scan and board', exact: true }).click();
   await expect(page.locator('.static-journey')).toBeVisible();
   await expect(page.locator('video')).toHaveCount(0);
-  await page.locator('.experience-shortcuts a[href="#rsvp"]').click();
+  await page.locator('.itinerary-rsvp').click();
   await page.getByLabel('Your name', { exact: true }).fill('Compatibility Guest');
   await expect(page.getByLabel('Your name', { exact: true })).toHaveValue('Compatibility Guest');
   expect(errors).toEqual([]);
@@ -71,14 +73,14 @@ test('360px Malay at 200 percent text keeps practical controls and details reada
   await expect(page.locator('#itinerary-title')).toBeFocused();
   await page.getByRole('button', { name: 'Bahasa Melayu (BM)', exact: true }).click();
   await page.addStyleTag({ content: 'html { font-size: 200% !important; }' });
-  await page.locator('.experience-shortcuts a[href="#itinerary-title"]').click();
+  await page.locator('#itinerary-title').scrollIntoViewIfNeeded();
   await noHorizontalOverflow(page);
   await programmeDoesNotOverlap(page);
   await comfortableTargets(page.locator('.experience-nav a, .experience-nav button'));
   const nav = await page.locator('.experience-nav').boundingBox();
   const heading = await page.locator('#itinerary-title').boundingBox();
   expect(heading!.y).toBeGreaterThan(nav!.y + nav!.height);
-  await page.locator('.experience-shortcuts a[href="#rsvp"]').click();
+  await page.locator('.itinerary-rsvp').click();
   await expect(page.locator('#rsvp-title')).toBeFocused();
   await noHorizontalOverflow(page);
   const headingText = await page.locator('#rsvp-title').evaluate((element) => {

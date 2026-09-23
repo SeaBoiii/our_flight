@@ -5,7 +5,7 @@ import { testEnvironment } from './test-config';
 
 // Separate from the deployment config so test runs cannot read local .env files
 // or accidentally submit responses using a real Apps Script deployment.
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   envDir: false,
   envPrefix: '__E2E_NO_PROCESS_ENV__',
   base: '/',
@@ -26,7 +26,10 @@ export default defineConfig({
       );
     },
   }],
-  define: Object.fromEntries(Object.entries(testEnvironment).map(([key, value]) => [
+  define: Object.fromEntries(Object.entries({
+    ...testEnvironment,
+    ...(mode === 'demo' ? { VITE_RSVP_STATUS: 'preview', VITE_APPS_SCRIPT_URL: '' } : {}),
+  }).map(([key, value]) => [
     `import.meta.env.${key}`, JSON.stringify(value),
   ])),
-});
+}));

@@ -366,12 +366,17 @@ export default function App() {
     <main className={invitation ? `boarding-page cabin-${invitation.cabinClass}` : 'gate-page'}>
       {!invitation ? (
         <picture className="gate-background" aria-hidden="true">
-          <source media="(min-width: 800px)" srcSet={`${base}gate/changi-jewel-landscape.webp`} type="image/webp" />
-          <img src={`${base}gate/changi-jewel-portrait.webp`} alt="" decoding="async" fetchPriority="high" />
+          <source media="(min-width: 800px)" srcSet={`${base}flight/airport-landscape-1440.avif`} type="image/avif" />
+          <source media="(min-width: 800px)" srcSet={`${base}flight/airport-landscape-1440.webp`} type="image/webp" />
+          <source srcSet={`${base}flight/airport-portrait-640.avif`} type="image/avif" />
+          <img src={`${base}flight/airport-portrait-640.webp`} width="640" height="960" alt="" decoding="async" fetchPriority="high" />
         </picture>
       ) : null}
       <header className="site-header">
-        <img src={logo} alt="Aleem and Nurulain" />
+        <div className="site-brand">
+          <span className="site-brand-monogram"><img src={logo} width="84" height="56" alt="Aleem and Nurulain" /></span>
+          <span>OUR FLIGHT<small>{locale === 'en' ? 'A wedding invitation' : 'Jemputan perkahwinan'}</small></span>
+        </div>
         <div className="header-actions">
           <LanguageToggle locale={locale} label={t.language} onToggle={toggleLocale} />
         </div>
@@ -401,18 +406,18 @@ export default function App() {
         </section>
       ) : (
         <section className="gate-stage" aria-labelledby="check-in-title">
-          <div className="gate-pass" aria-hidden="true">
-            <div className="gate-pass-top"><span>OUR FLIGHT</span><span>2027</span></div>
-            <div className="gate-route">
-              <strong>SIN</strong>
-              <span><i /></span>
-              <strong>CROWNE PLAZA</strong>
+          <div className="gate-introduction">
+            <p className="gate-departure"><span /> {locale === 'en' ? 'A new chapter is departing' : 'Bab baharu bakal bermula'}</p>
+            <p className="gate-names">Aleem <span>&amp;</span><br />Nurulain</p>
+            <p className="gate-dedication">{locale === 'en' ? 'Two hearts. One destination.' : 'Dua hati. Satu destinasi.'}</p>
+            <div className="gate-pass" aria-hidden="true">
+              <div><small>{locale === 'en' ? 'DEPARTING' : 'BERLEPAS'}</small><strong>SIN</strong><span>Singapore</span></div>
+              <svg viewBox="0 0 160 30" fill="none"><path d="M0 15h65m32 0h63" stroke="currentColor" strokeDasharray="3 5" /><path d="m80 3 4 10 11 5-1 3-11-3-2 8h-3l-2-8-10 3-1-3 11-5z" fill="currentColor" /></svg>
+              <div><small>{locale === 'en' ? 'ARRIVING' : 'TIBA'}</small><strong>{locale === 'en' ? 'Forever' : 'Selamanya'}</strong><span>August 2027</span></div>
             </div>
-            <p>CHANGI AIRPORT &middot; SINGAPORE</p>
-            <img src={logo} alt="" />
           </div>
           <div className="gate-copy">
-            <p className="eyebrow">{t.flightTheme}</p>
+            <p className="eyebrow"><span>01 /</span> {locale === 'en' ? 'YOUR JOURNEY BEGINS' : 'PERJALANAN ANDA BERMULA'}</p>
             <h1 ref={checkInHeadingRef} id="check-in-title" tabIndex={-1}>{t.checkIn}</h1>
             <p>{t.gateBody}</p>
             <form onSubmit={handleUnlock} noValidate>
@@ -439,12 +444,14 @@ export default function App() {
               {gateErrorMessage ? <p id="gate-error" className="gate-error" role="alert">{gateErrorMessage}</p> : null}
               <button className="button button-primary" type="submit" disabled={unlocking || restoring}>
                 {unlocking || restoring ? t.checking : t.viewInvitation}
+                <span aria-hidden="true">↗</span>
               </button>
             </form>
             <small>{t.gateDate}</small>
           </div>
         </section>
       )}
+      {!invitation ? <div className="gate-footer"><span>ALEEM &amp; NURULAIN</span><span>CHANGI AIRPORT · SINGAPORE</span></div> : null}
     </main>
   );
 }

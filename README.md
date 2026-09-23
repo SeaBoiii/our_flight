@@ -4,7 +4,7 @@ A mobile-first Vite/React wedding invitation published as one static GitHub Page
 
 `https://rsvp.aleemxnurul.love/`
 
-The A&N monogram, boarding-pass designs, ticket scan, cabin/window/cloud journey, bilingual invitation, itinerary, calendar actions and RSVP are shared across all invitations. The invitation side and cabin class derived from the entered code determine what the guest receives:
+The A&N monogram, boarding-pass designs, ticket scan, Midnight to Daylight flight journey, bilingual invitation, itinerary, calendar actions and RSVP are shared across all invitations. The invitation side and cabin class derived from the entered code determine what the guest receives:
 
 | Invitation side | Cabin class | Invitation scope |
 | --- | --- | --- |
@@ -23,13 +23,13 @@ This release discards old `sessionStorage` access records; existing guests check
 
 ## Guest journey and remembered invitations
 
-The first manual check-in shows the boarding pass with the scan interaction. Scanning begins the cabin/window/cloud journey, followed by the formal invitation, Our Story, detailed itinerary, Getting here, RSVP and footer. The former Flight Dashboard has been retired from the guest experience; its implementation remains available in Git history.
+The first manual check-in shows ivory boarding passes with navy class bands, gold accents and a scan interaction. The Midnight to Daylight design moves from a blue-hour airport into warm ivory wedding content. Scanning begins the cinematic journey, followed by the formal invitation, Our Story, departures-board-inspired itinerary, visible venue/address/directions, expandable transport guidance, RSVP and footer. The former Flight Dashboard has been retired from the guest experience; its implementation remains available in Git history.
 
-A prominent tap instruction sits above the tickets. Three gentle scale/glow pulses draw attention, then leave a highlighted border; reduced-motion guests see static highlighting. After scanning, a bilingual scroll prompt appears beneath the welcome text and fades after the first 48px of scrolling, returning at the top. The reduced-motion reading flow keeps a static prompt.
+A prominent tap instruction sits above the tickets. After scanning, a bilingual scroll prompt introduces five phases: the ceremonial ticket lifts away (0–18%), an aircraft takes off over the runway (18–40%), a premium cabin appears (40–56%), the camera advances through its photographed window (56–82%), and daylight clouds open around the A&N monogram (82–100%). Native scrolling controls the sequence in both directions, within a sticky stage spanning `600svh` on phones and `700svh` from tablet width upward. The welcome prompt disappears as the journey begins and returns when guests scroll back to the top.
 
-Only an invitation restored from device storage offers the **Fast Track to Your Itinerary** button above the tickets, so returning guests can reach details without scrolling through both passes. Fast Track never mounts Journey or its cabin/video elements and focuses the itinerary heading. The formal invitation and Our Story stay available above the itinerary. Browser Back returns to boarding; Forward preserves the chosen entry mode. Reload always restores the boarding pass, allowing the guest to choose again.
+Only an invitation restored from device storage offers the **Fast Track to Your Itinerary** button above the tickets, so returning guests can reach details without scrolling through both passes. Fast Track never mounts Journey or requests its cinematic artwork and focuses the itinerary heading. The formal invitation and Our Story stay available above the itinerary. Browser Back returns to boarding; Forward preserves the chosen entry mode. Reload always restores the boarding pass, allowing the guest to choose again.
 
-Once guests board, the fixed **Your itinerary** and **RSVP** links provide a direct route past the decorative journey. These native section links focus the relevant heading and participate in browser history; **Back to boarding pass** returns past section-link entries in one action. The boarding-page Fast Track remains exclusive to remembered invitations.
+The fixed **Your itinerary** and **RSVP** shortcuts are temporarily hidden so guests scroll through the journey before reaching the wedding details. The RSVP link after the itinerary still focuses the form heading and participates in browser history. **Back to boarding pass** and the language control remain at the top; boarding-page Fast Track remains exclusive to remembered invitations.
 
 The invitation experience is loaded separately from check-in. While it loads, guests can read their event dates, times and venue, open directions or calendar links, and return to their tickets. An error boundary preserves the same practical information if the experience fails to load or render, with an explicit reload action. Browser storage failures leave the current visit usable. Older Web Crypto implementations use secure random bytes when `randomUUID` is unavailable, and reduced-motion subscriptions support the older media-query listener API.
 
@@ -47,9 +47,11 @@ location.reload();
 
 Storage belongs to the exact browser origin. The custom domain, an old `github.io` URL, and localhost each remember invitations separately. Clearing browser site data also clears remembered access and drafts.
 
-Data saver (`navigator.connection.saveData`) and `slow-2g`/`2g` connections use the existing cloud poster in the cinematic sequence without mounting or requesting the MP4. The reusable hook subscribes to supported connection changes; browsers without the Network Information API retain normal video playback. Reduced-motion preferences continue to use the static cabin/cloud/ticket reading order. Fast Track omits both journey variants.
+Reduced motion, data saver (`navigator.connection.saveData`), `slow-2g`/`2g` connections and browsers without IntersectionObserver receive a compact static welcome and ceremonial ticket without requesting cinematic images. The reusable network hook subscribes to supported connection changes; browsers without the Network Information API use the normal scroll journey. Fast Track omits both journey variants.
 
-The video uses `preload="none"` and starts only when the cloud reveal is visible. It pauses offscreen and immediately when the page is backgrounded. Browsers without IntersectionObserver receive the static reading flow. No separate music or audible autoplay is required.
+The cinematic sequence combines responsive AVIF/WebP backgrounds, a transparent WebP aircraft and a procedural WebGL cloud volume. Airport, runway and aircraft artwork mount when the journey becomes visible; cabin/sky load progressively, and the 3D renderer initializes only as guests reach the cabin. The camera's perspective follows the viewport aspect ratio, with capped drawing resolution on phones and desktop. One animation-frame controller follows native scroll progress and suspends work offscreen or when the page is hidden. The clouds need no downloaded texture or 3D library. Unavailable or lost WebGL reveals the sky artwork; failed artwork leaves gradients while text and navigation remain usable. There is no cloud video or audio.
+
+Tapping a boarding pass keeps the scan effect. The circular Singapore/A&N chop lands on the ceremonial ticket during the opening scroll, settles, then the ticket lifts away into the flight. This motion follows scroll progress in both directions; the compact reduced-motion composition omits the chop.
 
 RSVP drafts are validated before restoration. Storage errors are disclosed without blocking the current visit; requests are cancelled when the form is left, preserving retry identity. The original submission language is retained across retries because it forms part of the server's duplicate-detection digest.
 
@@ -86,6 +88,8 @@ npm run hash:code -- "YOUR-CLASS-CODE"
 Hash old opaque tokens and the old shared passcode without class-code normalization.
 
 The original monogram master is `public/monogram-a-and-n.png`; do not optimise or overwrite it. Display, favicon and social-preview derivatives live beside it.
+
+Instrument Serif is self-hosted for display typography, system sans-serif remains the body font, and the existing self-hosted Amiri font handles Arabic. Generated scene masters, source prompts and instructions for rebuilding the responsive delivery assets and social preview are documented in [`artwork/flight/README.md`](artwork/flight/README.md). Delivery artwork lives in `public/flight/`; measured cabin-window geometry lives beside its source metadata in `src/sceneAssets.ts`.
 
 ## Editing the displayed programme
 
@@ -157,6 +161,7 @@ GitHub Pages cannot hide the Apps Script `/exec` URL. Apps Script therefore deri
 ## Commands
 
 - `npm run dev` — local Vite server
+- `npm run dev:demo` — isolated preview at http://127.0.0.1:4175/; use E2EGROOM03, with RSVP sending disabled
 - `npm run lint` — static analysis
 - `npm test` — unit and contract tests
 - `npm run build` — TypeScript and production build
@@ -173,16 +178,19 @@ Install browser binaries once after dependencies, then run the suite:
 
 ```sh
 npm ci
-npx playwright install chromium
+npx playwright install chromium webkit
 npm run test:e2e:mobile
+npx playwright test --project=design-chromium --project=webkit-iphone
 ```
 
-On Linux CI, use `npx playwright install --with-deps chromium` to install browser system dependencies too. Playwright starts its own isolated Vite server with test-only invitation hashes and mocked Google receipts; it does not require real codes or a live Apps Script deployment. Never replace these fixtures with production credentials.
+On Linux CI, use `npx playwright install --with-deps chromium webkit` to install browser system dependencies too. Playwright starts its own isolated Vite server with test-only invitation hashes and mocked Google receipts; it does not require real codes or a live Apps Script deployment. Never replace these fixtures with production credentials.
 
-Chromium phone projects cover 375 × 667, 390 × 844, 412 × 915 and 430 × 932. They exercise check-in, first/reopened boarding passes, returning-only Fast Track, itinerary focus and event scope, full and reduced-motion journeys, static low-data clouds, itinerary, RSVP and confirmation. Layout checks include document overflow, text clipping/collisions inside cards, touch targets, Malay copy and increased text size.
+Chromium phone projects cover 375 × 667, 390 × 844, 412 × 915 and 430 × 932. They exercise check-in, first/reopened boarding passes, returning-only Fast Track, itinerary focus and event scope, full and reduced-motion journeys, compact low-data invitations, itinerary, RSVP and confirmation. Layout checks include document overflow, text clipping/collisions inside cards, touch targets, Malay copy and increased text size.
 
-The checked-in screenshots were captured on Windows with the installed Playwright Chromium version. Baseline filenames include the OS because system fonts can differ. On another OS, run `npm run test:e2e:update`, review the generated images, then run the regular suite; commit reviewed baselines for that platform if it becomes a maintained runner. Existing baselines should only be updated after reviewing the visual changes. Browser emulation does not reproduce Safari, physical iPhone notches or all OS text-size settings, so retain a physical iOS/Android release smoke check.
+The `design-chromium` and `webkit-iphone` projects run the redesign suite in Chromium and WebKit. They cover check-in and wedding-content layouts at 360, 390, 412, 430, 768 and 1440px; capture each cinematic phase, reverse scrolling and landscape orientation; verify all invitation profiles and artwork-failure navigation; check keyboard-focused forms and RSVP receipts; and run automated accessibility checks. `npm run test:e2e` runs the phone and design projects together.
+
+The checked-in screenshots were captured on Windows with the installed Playwright Chromium version. Baseline filenames include the OS because system fonts can differ. On another OS, run `npm run test:e2e:update`, review the generated images, then run the regular suite; commit reviewed baselines for that platform if it becomes a maintained runner. Existing baselines should only be updated after reviewing the visual changes. Playwright WebKit provides engine coverage but does not reproduce physical iPhone Safari, notches, native keyboards or all OS text-size settings, so retain a physical iOS/Android release smoke check.
 
 Run `npm run lint`, `npm test`, `npm run build` and `npm run check:artifact` as well. Unit tests use jsdom browser storage, including on Node 25+ where the native Node storage API otherwise shadows it.
 
-The [launch-readiness audit](LAUNCH_AUDIT.md) records the fixes, local verification results, and outstanding release-environment, live RSVP and physical-phone checks. The launch browser tests additionally exercise blocked chunks, older APIs, direct section navigation and 360px Malay text at 200%.
+The [Midnight to Daylight validation report](REVAMP_VALIDATION.md) records current redesign verification and remaining checks. The earlier [launch-readiness audit](LAUNCH_AUDIT.md) documents prior fixes and release-environment, live RSVP and physical-phone checks. The launch browser tests additionally exercise blocked chunks, older APIs, direct section navigation and 360px Malay text at 200%.

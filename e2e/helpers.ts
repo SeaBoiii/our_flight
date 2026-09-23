@@ -31,7 +31,7 @@ export async function ticketInstructionPrecedesTickets(page: Page, label = 'Tap 
   expect(instructionBox!.y + instructionBox!.height, 'Scan guidance belongs above the tickets').toBeLessThanOrEqual(ticketBox!.y + 1);
 }
 
-export async function journeyCueFitsFirstScreen(page: Page, label = 'Scroll down to begin your journey') {
+export async function journeyCueFitsFirstScreen(page: Page, label = 'Scroll to take flight') {
   const cue = page.locator('.journey-scroll-cue');
   await expect(cue).toHaveText(label);
   await expect(cue).toHaveCSS('opacity', '1');
@@ -122,7 +122,9 @@ export async function cardTextDoesNotClipOrOverlap(cards: Locator) {
       for (const right of text.slice(index + 1)) {
         // A font's ascender/descender bounds can extend beyond its line box.
         // Require distinct, colliding layout boxes before flagging text overlap.
-        if (left.parent === right.parent) continue;
+        // Inline emphasis belongs to its ancestor's text flow, so their font
+        // bounding boxes may intersect across tightly set display type.
+        if (left.parent === right.parent || left.parent.contains(right.parent) || right.parent.contains(left.parent)) continue;
         const layoutWidth = Math.min(left.layout.right, right.layout.right) - Math.max(left.layout.left, right.layout.left);
         const layoutHeight = Math.min(left.layout.bottom, right.layout.bottom) - Math.max(left.layout.top, right.layout.top);
         const width = Math.min(left.rect.right, right.rect.right) - Math.max(left.rect.left, right.rect.left);
@@ -164,9 +166,10 @@ export async function mockRsvpBridge(page: Page, duplicate = false) {
       type: 'our-flight:rsvp-result', version: 2, nonce: form.get('nonce'),
       responseId: payload.responseId, ok: true, duplicate,
     }).replaceAll('<', '\\u003c');
+    const parentOrigin = JSON.stringify(new URL(page.url()).origin);
     await route.fulfill({
       contentType: 'text/html',
-      body: `<!doctype html><html><body><script>parent.postMessage(${receipt}, 'http://127.0.0.1:4173');</script></body></html>`,
+      body: `<!doctype html><html><body><script>parent.postMessage(${receipt}, ${parentOrigin});</script></body></html>`,
     });
   });
   return submissions;
@@ -182,5 +185,11 @@ export async function fillRsvp(page: Page, answers: ('attending' | 'not-attendin
 
 export async function snapshot(locator: Locator, name: string) {
   await locator.page().evaluate(() => document.fonts.ready);
-  await expect(locator).toHaveScreenshot(name);
+  // Component captures can be taller than the viewport. Exclude the separately
+  // tested fixed navigation so its current scroll position cannot hide content
+  // or create unstable baselines when Playwright resizes the screenshot clip.
+  const component = await locator.evaluate(element => element.matches('.itinerary-section, .rsvp-section, .static-journey'));
+  const style = await locator.page().addStyleTag({ content: `html { scroll-behavior: auto !important; } ${component ? '.experience .experience-nav, .experience .experience-nav * { visibility: hidden !important; }' : ''}` });
+  try { await expect(locator).toHaveScreenshot(name); }
+  finally { await style.evaluate(element => element.parentNode?.removeChild(element)); }
 }

@@ -70,44 +70,55 @@ describe('invitation details', () => {
     expect(container.textContent).not.toMatch(/nikah/i);
   });
 
-  it('keeps Getting here collapsed until the guest opens it', () => {
+  it('keeps the venue, address, and directions visible while transport guidance is collapsed', () => {
     renderExperience();
     const heading = screen.getByRole('heading', { name: 'Getting here' });
-    const details = heading.closest('details') as HTMLDetailsElement;
+    const venue = heading.closest('section') as HTMLElement;
+    const details = venue.querySelector('details') as HTMLDetailsElement;
     const summary = details.querySelector('summary');
     expect(details.open).toBe(false);
     expect(summary).not.toBeNull();
+    expect(heading.closest('details')).toBeNull();
+    expect(within(venue).getByText(copy.en.address).closest('details')).toBeNull();
+    const directions = within(venue).getByRole('link', { name: /Get directions/ });
+    expect(directions.closest('details')).toBeNull();
+    expect(directions.getAttribute('href')).toBe(mapUrl);
     fireEvent.click(summary as HTMLElement);
     expect(details.open).toBe(true);
     expect(screen.getByText(/Alight at Changi Airport station/)).toBeTruthy();
   });
 
-  it('credits the cloud video and Mixkit source', () => {
-    renderExperience();
-    expect(screen.getByRole('link', { name: 'Clouds and blue sky background' }).getAttribute('href')).toContain('clouds-and-blue-sky-background-2408');
-    expect(screen.getByRole('link', { name: 'Mixkit' }).getAttribute('href')).toBe('https://mixkit.co/');
+  it('clears mobile shortcuts out of the way while editing a keyboard field', () => {
+    const { container } = renderExperience();
+    const experience = container.querySelector('main') as HTMLElement;
+    const name = screen.getByRole('textbox', { name: copy.en.name });
+    fireEvent.focusIn(name);
+    expect(experience.hasAttribute('data-editing')).toBe(true);
+    fireEvent.focusOut(name, { relatedTarget: screen.getByRole('radio', { name: copy.en.attending }) });
+    expect(experience.hasAttribute('data-editing')).toBe(false);
+    const message = screen.getByRole('textbox', { name: copy.en.message });
+    fireEvent.focusIn(message);
+    expect(experience.hasAttribute('data-editing')).toBe(true);
+    fireEvent.focusOut(message);
+    expect(experience.hasAttribute('data-editing')).toBe(false);
   });
 
-  it('provides keyboard-focusable shortcuts past the journey to practical sections', async () => {
-    renderExperience();
+  it('omits journey shortcuts while retaining the RSVP link after the itinerary', async () => {
+    const { container } = renderExperience();
     const navigation = screen.getByRole('navigation', { name: copy.en.controls });
-    const itinerary = within(navigation).getByRole('link', { name: copy.en.itinerary });
-    expect(itinerary.getAttribute('href')).toBe('#itinerary-title');
-    followFragment(itinerary);
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: copy.en.itinerary })));
-    const rsvp = within(navigation).getByRole('link', { name: copy.en.rsvpShort });
+    expect(within(navigation).queryByRole('link')).toBeNull();
+    const rsvp = container.querySelector('.itinerary-rsvp') as HTMLElement;
     expect(rsvp.getAttribute('href')).toBe('#rsvp');
     followFragment(rsvp);
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: copy.en.rsvpTitle })));
   });
 
   it('focuses the RSVP heading after native fragment navigation focuses its section', async () => {
-    renderExperience();
-    const navigation = screen.getByRole('navigation', { name: copy.en.controls });
+    const { container } = renderExperience();
     const heading = screen.getByRole('heading', { name: copy.en.rsvpTitle });
     const section = heading.closest('section') as HTMLElement;
     section.tabIndex = -1;
-    followFragment(within(navigation).getByRole('link', { name: copy.en.rsvpShort }));
+    followFragment(container.querySelector('.itinerary-rsvp') as HTMLElement);
     // Browsers perform this native default action after the click handler.
     section.focus();
     expect(document.activeElement).toBe(section);
@@ -116,10 +127,10 @@ describe('invitation details', () => {
   });
 
   it('cancels pending shortcut focus on unmount and ignores modified clicks', () => {
-    const { unmount } = renderExperience();
+    const { unmount, container } = renderExperience();
     const scheduleFocus = vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(123);
     const cancelFocus = vi.spyOn(window, 'cancelAnimationFrame');
-    const shortcut = within(screen.getByRole('navigation', { name: copy.en.controls })).getByRole('link', { name: copy.en.rsvpShort });
+    const shortcut = container.querySelector('.itinerary-rsvp') as HTMLElement;
     shortcut.addEventListener('click', (event) => event.preventDefault());
     for (const modifier of ['metaKey', 'ctrlKey', 'shiftKey', 'altKey']) {
       fireEvent.click(shortcut, { [modifier]: true });
@@ -161,7 +172,7 @@ describe('invitation details', () => {
     );
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Your itinerary' })));
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'instant', block: 'start' });
-    expect(container.querySelector('.journey, .static-journey, video, img[src*="journey/cabin"], source[srcset*="journey/cabin"]')).toBeNull();
+    expect(container.querySelector('.journey, .static-journey, video, img[src*="flight/cabin"], source[srcset*="flight/cabin"]')).toBeNull();
     expect(container.querySelector('#invitation')).toBeTruthy();
     expect(container.querySelector('#flight-dashboard')).toBeNull();
     expect(container.querySelectorAll('.itinerary-card')).toHaveLength(2);

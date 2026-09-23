@@ -89,7 +89,7 @@ async function exists(path) {
 
 async function trackedSourceFiles() {
   try {
-    const { stdout } = await execFileAsync('git', ['ls-files'], { cwd: workspace, encoding: 'utf8' });
+    const { stdout } = await execFileAsync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], { cwd: workspace, encoding: 'utf8' });
     return stdout
       .split(/\r?\n/)
       .filter(Boolean)
@@ -208,20 +208,33 @@ for (const requiredAsset of ['favicon.png', 'monogram-a-and-n-display.png', 'og.
   if (!(await exists(join(root, requiredAsset)))) failures.push(`Required brand asset missing: ${requiredAsset}.`);
 }
 
-const cloudVideoPath = join(root, 'journey', 'clouds-ping-pong.mp4');
-const cloudPosterPath = join(root, 'journey', 'clouds-video-poster.webp');
-if (!(await exists(cloudVideoPath))) {
-  failures.push('Required cloud video missing: journey/clouds-ping-pong.mp4.');
-} else if ((await stat(cloudVideoPath)).size > 10 * 1024 * 1024) {
-  failures.push('Cloud video exceeds the 10 MiB mobile delivery budget.');
+// The journey uses stills and a procedural cloud volume, never an eager video.
+// Budget selected stills, including the sky fallback and transparent aircraft.
+const flightLayers = ['aircraft-960.webp'];
+const portraitScenes = ['airport-portrait-640', 'runway-portrait-640', 'cabin-portrait-768', 'sky-portrait-768'];
+const landscapeScenes = ['airport-landscape-1440', 'runway-landscape-1440', 'cabin-landscape-1440', 'sky-landscape-1440'];
+const flightAssets = [
+  ...flightLayers,
+  ...[...portraitScenes, ...landscapeScenes].flatMap((name) => [`${name}.avif`, `${name}.webp`]),
+];
+const mobileSceneBudgets = {};
+for (const asset of flightAssets) {
+  if (!(await exists(join(root, 'flight', asset)))) failures.push(`Required flight artwork missing: flight/${asset}.`);
 }
-if (!(await exists(cloudPosterPath))) {
-  failures.push('Required cloud video poster missing: journey/clouds-video-poster.webp.');
+for (const format of ['avif', 'webp']) {
+  let sceneBytes = 0;
+  for (const asset of [...portraitScenes.map((name) => `${name}.${format}`), ...flightLayers]) {
+    if (await exists(join(root, 'flight', asset))) sceneBytes += (await stat(join(root, 'flight', asset))).size;
+  }
+  if (sceneBytes > 2 * 1024 * 1024) failures.push(`Mobile ${format} scene artwork exceeds the 2 MiB budget.`);
+  mobileSceneBudgets[format] = sceneBytes;
 }
+if (files.some(file => /\.(?:mp4|webm)$/i.test(file))) failures.push('Retired cinematic video is still present in the artifact.');
+if (await exists(join(root, 'flight', 'clouds-960.webp'))) failures.push('Retired foreground cloud cutout is still present in the artifact.');
 
 const indexHtml = await readFile(join(root, 'index.html'), 'utf8');
 if (/__[A-Z][A-Z0-9_]+__|%BASE_URL%/.test(indexHtml)) failures.push('Unresolved build placeholder found in index.html.');
-if (/journey\/(?:cabin|clouds)-/i.test(indexHtml)) failures.push('Cinematic assets must not be loaded by the locked-page HTML.');
+if (/(?:journey\/(?:cabin|clouds)-|flight\/(?:runway|cabin|sky|aircraft|clouds)-)/i.test(indexHtml)) failures.push('Cinematic assets must not be loaded by the locked-page HTML.');
 if (!/rel="icon"[^>]+favicon\.png/.test(indexHtml)) failures.push('The restored A&N favicon is not referenced by index.html.');
 
 const initialAssetNames = [...indexHtml.matchAll(/(?:src|href)="([^"]+\.(?:js|css|png))"/g)]
@@ -256,3 +269,4 @@ if (failures.length) {
 console.log(
   `Artifact check passed: ${files.length} files, ${initialBytes} estimated initial bytes, ${initialScriptGzipBytes} gzip JS bytes.`,
 );
+console.log(`Selected mobile artwork: ${mobileSceneBudgets.avif} bytes with AVIF, ${mobileSceneBudgets.webp} bytes with WebP (limit 2097152).`);

@@ -1,14 +1,15 @@
 .rsvp-confirmation {
   overflow-wrap: anywhere;
   padding: clamp(20px, 5vw, 42px);
-  border: 1px solid #dedbd1;
-  border-top: 5px solid var(--metal);
-  border-radius: 24px;
-  background: var(--paper);
-  box-shadow: 0 18px 55px rgba(37, 61, 65, 0.08);
+  border: 1px solid #d8cdbb;
+  border-top: 3px solid #c4a367;
+  border-radius: 2px;
+  color: #081b31;
+  background: #fffcf6;
+  box-shadow: 0 14px 48px #081b3107;
 }
 
-.rsvp-confirmation__header { text-align: center; }
+.rsvp-confirmation__header { padding-block: 10px; text-align: center; }
 .rsvp-confirmation__stamp {
   display: grid;
   width: 80px;
@@ -17,54 +18,60 @@
   justify-items: center;
   gap: 1px;
   margin: 0 auto 24px;
-  border: 1px solid var(--accent-deep);
-  outline: 1px solid color-mix(in srgb, var(--metal) 75%, transparent);
+  border: 1px solid #c4a367;
+  outline: 1px solid #d8cdbb;
   outline-offset: 5px;
   border-radius: 50%;
-  color: var(--accent-deep);
-  background: var(--soft);
-  transform: rotate(-8deg);
+  color: #081b31;
+  background: #f7f2e8;
+  transform: rotate(-6deg);
   animation: confirmation-stamp 460ms ease-out both;
 }
 .rsvp-confirmation__stamp svg { width: 32px; height: 32px; }
-.rsvp-confirmation__stamp span { font-family: Georgia, 'Times New Roman', serif; font-size: 0.9rem; letter-spacing: 0.06em; }
+.rsvp-confirmation__stamp span { font-family: var(--font-display, Georgia, serif); font-size: 1.05rem; letter-spacing: 0.04em; }
 .rsvp-section .rsvp-confirmation h2 {
   margin: 0;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: clamp(1.9rem, 7vw, 3.2rem);
-  line-height: 1.15;
-  letter-spacing: -0.025em;
-  text-transform: uppercase;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: clamp(2.6rem, 9vw, 4.8rem);
+  font-weight: 400;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  text-transform: none;
   scroll-margin-top: max(84px, calc(env(safe-area-inset-top) + 72px));
 }
-.rsvp-confirmation__message { max-width: 50ch; margin: 16px auto 0; color: var(--muted); font-size: 0.94rem; line-height: 1.7; }
-.rsvp-confirmation__passenger { display: grid; gap: 20px; margin: 28px 0; padding: 24px 0; border-block: 1px dashed #c4ccc6; }
+.rsvp-confirmation__message { max-width: 47ch; margin: 20px auto 0; color: #59636c; font-size: 0.95rem; line-height: 1.85; }
+.rsvp-confirmation__passenger { display: grid; gap: 20px; margin: 32px 0; padding: 24px 0; border-block: 1px dashed #cfc4b2; }
 .rsvp-confirmation__passenger > div { min-width: 0; }
-.rsvp-confirmation__passenger dt { margin-bottom: 7px; color: var(--muted); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; }
-.rsvp-confirmation__passenger dd { margin: 0; font-size: 1.1rem; font-weight: 700; line-height: 1.4; }
+.rsvp-confirmation__passenger dt { margin-bottom: 7px; color: #59636c; font-size: 0.72rem; font-weight: 500; letter-spacing: 0.05em; }
+.rsvp-confirmation__passenger dd { margin: 0; font-size: 1.05rem; font-weight: 600; line-height: 1.5; }
 .rsvp-confirmation__events { display: grid; gap: 16px; }
-.rsvp-confirmation__event { min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+.rsvp-confirmation__event { min-width: 0; padding: 22px; border: 1px solid #d8cdbb; border-radius: 2px; background: #f7f2e8; }
 .rsvp-confirmation__flight { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
-.rsvp-confirmation__flight-code { color: var(--accent-deep); font-size: 0.92rem; font-weight: 800; letter-spacing: 0.08em; }
-.rsvp-confirmation__attendance { display: inline-flex; align-items: baseline; gap: 5px; padding: 7px 10px; border-radius: 8px; color: #525b53; background: #f1f0e9; font-size: 0.76rem; font-weight: 700; line-height: 1.4; }
-.rsvp-confirmation__attendance--attending { color: #245746; background: #eaf5ee; }
+.rsvp-confirmation__flight-code { color: #081b31; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.92rem; font-weight: 500; letter-spacing: 0.08em; }
+.rsvp-confirmation__attendance { display: inline-flex; align-items: baseline; gap: 5px; padding: 7px 10px; border-radius: 2px; color: #59636c; background: #e9e4da; font-size: 0.76rem; font-weight: 600; line-height: 1.4; }
+.rsvp-confirmation__attendance--attending { color: #214b3c; background: #e0ebe1; }
 .rsvp-confirmation__date { margin: 20px 0 8px; color: var(--muted); font-size: 0.82rem; line-height: 1.55; }
-.rsvp-confirmation__event h3 { margin: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 1.35rem; line-height: 1.3; }
-.rsvp-confirmation__time { margin: 12px 0; font-size: 1.05rem; font-weight: 700; }
+.rsvp-confirmation__event h3 { margin: 0; font-family: var(--font-display, Georgia, serif); font-size: 1.95rem; font-weight: 400; line-height: 1.15; }
+.rsvp-confirmation__time { margin: 14px 0; font-size: 1.05rem; font-weight: 500; line-height: 1.5; }
 .rsvp-confirmation__time span { font-size: 0.72rem; font-weight: 500; }
 .rsvp-confirmation__party { margin: 14px 0 18px; color: var(--muted); font-size: 0.84rem; line-height: 1.55; }
 .rsvp-confirmation__party strong { color: var(--ink); }
 .rsvp-confirmation__event .event-actions { margin-top: 16px; }
 .rsvp-confirmation__event .button { width: 100%; min-height: 48px; padding-block: 12px; text-align: center; }
-.rsvp-confirmation__venue { margin-top: 24px; padding-top: 24px; border-top: 1px dashed #c4ccc6; line-height: 1.6; }
+.rsvp-confirmation__venue { margin-top: 28px; padding-top: 24px; border-top: 1px dashed #cfc4b2; line-height: 1.6; }
 .rsvp-confirmation__venue .eyebrow { margin-bottom: 8px; }
 .rsvp-confirmation__venue strong { font-size: 0.96rem; }
 .rsvp-confirmation__venue p:not(.eyebrow) { margin: 6px 0 0; color: var(--muted); font-size: 0.84rem; }
-.rsvp-confirmation__receipt { margin: 24px 0 0; color: var(--muted); font-size: 0.76rem; line-height: 1.6; }
+.rsvp-confirmation__receipt { margin: 24px 0 0; color: #59636c; font-size: 0.8rem; line-height: 1.75; }
+.rsvp-confirmation--attending .rsvp-confirmation__stamp { color: #f7f2e8; background: #081b31; }
+.rsvp-confirmation--declining { border-top-color: #a29580; }
+.rsvp-confirmation--declining .rsvp-confirmation__stamp { border-color: #b8aa96; background: #eee9df; }
+.rsvp-confirmation--declining .rsvp-confirmation__event { background: transparent; }
+.rsvp-confirmation--mixed .rsvp-confirmation__stamp { background: #e9d9b6; }
 
 @keyframes confirmation-stamp {
-  from { opacity: 0; transform: rotate(-8deg) scale(1.06); }
-  to { opacity: 1; transform: rotate(-8deg) scale(1); }
+  from { opacity: 0.5; transform: rotate(-6deg) scale(1.04); }
+  to { opacity: 1; transform: rotate(-6deg) scale(1); }
 }
 
 @media (min-width: 560px) {

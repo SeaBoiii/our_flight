@@ -3,10 +3,12 @@ import { copy } from '../copy';
 import type { AccessCredential, Invitation, Locale } from '../types';
 import { localized } from '../types';
 import { crownePlazaLogo } from '../venueLogo';
+import { mapUrl } from '../venue';
 import { Journey } from './Journey';
 import { LanguageToggle } from './LanguageToggle';
 import { RsvpForm } from './RsvpForm';
 import { EventActions } from './EventActions';
+import '../experience.css';
 
 type InvitationExperienceProps = {
   invitation: Invitation;
@@ -45,6 +47,62 @@ export default function InvitationExperience({
 
   useEffect(() => () => window.cancelAnimationFrame(sectionFocusFrameRef.current), []);
 
+  useEffect(() => {
+    const experience = experienceRef.current;
+    if (!experience) return;
+    let pointerDown = false;
+    let restoreTimer = 0;
+    const isEditing = (target: EventTarget | null) => target instanceof HTMLElement
+      && target.matches('input:not([type="radio"]):not([type="checkbox"]), textarea, select');
+    const updateKeyboardState = (event: FocusEvent) => {
+      const target = event.type === 'focusout' ? event.relatedTarget : event.target;
+      window.clearTimeout(restoreTimer);
+      // A tap can blur an input before its click fires. Keep the dock hidden
+      // until that tap finishes so it cannot intercept a footer/form button.
+      if (!isEditing(target) && pointerDown) return;
+      experience.toggleAttribute('data-editing', isEditing(target));
+    };
+    const startPointer = () => { pointerDown = true; };
+    const finishPointer = () => {
+      pointerDown = false;
+      restoreTimer = window.setTimeout(() => experience.toggleAttribute('data-editing', isEditing(document.activeElement)), 0);
+    };
+    experience.addEventListener('focusin', updateKeyboardState);
+    experience.addEventListener('focusout', updateKeyboardState);
+    document.addEventListener('pointerdown', startPointer, true);
+    document.addEventListener('pointerup', finishPointer, true);
+    document.addEventListener('pointercancel', finishPointer, true);
+    return () => {
+      window.clearTimeout(restoreTimer);
+      experience.removeEventListener('focusin', updateKeyboardState);
+      experience.removeEventListener('focusout', updateKeyboardState);
+      document.removeEventListener('pointerdown', startPointer, true);
+      document.removeEventListener('pointerup', finishPointer, true);
+      document.removeEventListener('pointercancel', finishPointer, true);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Content is visible by default; motion only embellishes its first arrival.
+    if (reducedMotion || typeof IntersectionObserver !== 'function' || typeof Element.prototype.animate !== 'function') return;
+    const animations: Animation[] = [];
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        observer.unobserve(entry.target);
+        if (!document.hidden) animations.push(entry.target.animate(
+          [{ opacity: 0.65, transform: 'translateY(22px)' }, { opacity: 1, transform: 'translateY(0)' }],
+          { duration: 750, easing: 'cubic-bezier(.2,.7,.2,1)' },
+        ));
+      }
+    }, { threshold: 0.12 });
+    experienceRef.current?.querySelectorAll('[data-reveal]').forEach((element) => observer.observe(element));
+    return () => {
+      observer.disconnect();
+      animations.forEach((animation) => animation.cancel());
+    };
+  }, [reducedMotion]);
+
   const focusSection = (event: MouseEvent<HTMLAnchorElement>, id: string) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     navigatedRef.current = true;
@@ -81,7 +139,7 @@ export default function InvitationExperience({
     const frame = window.requestAnimationFrame(() => {
       resetScroll();
       if (!navigatedRef.current) experienceRef.current?.focus({ preventScroll: true });
-      // A second frame wins over scroll anchoring when the 360svh sticky
+      // A second frame wins over scroll anchoring when the sticky
       // journey is replaced by the shorter reduced-motion reading order.
       settleFrame = window.requestAnimationFrame(() => {
         resetScroll();
@@ -105,30 +163,34 @@ export default function InvitationExperience({
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 12H6m5-5-5 5 5 5" /></svg>
           <span>{t.back}</span>
         </button>
-        <div className="experience-shortcuts">
-          <a href="#itinerary-title" onClick={(event) => focusSection(event, 'itinerary-title')}>{t.itinerary}</a>
-          <a href="#rsvp" onClick={(event) => focusSection(event, 'rsvp-title')}>{t.rsvpShort}</a>
-        </div>
+        <span className="experience-nav-monogram" aria-hidden="true">A<span>&amp;</span>N</span>
         <LanguageToggle locale={locale} label={t.language} onToggle={onToggleLocale} />
       </nav>
 
       {entryMode === 'journey' ? <Journey invitation={invitation} locale={locale} reducedMotion={reducedMotion} /> : null}
 
       <section id="invitation" className="invitation-reveal" tabIndex={-1}>
-        <div className="invitation-card">
-          <img className="invitation-logo" src={`${import.meta.env.BASE_URL}monogram-a-and-n-display.png`} alt="Aleem and Nurulain" />
+        <div className="invitation-card" data-reveal>
+          <img className="invitation-logo" src={`${import.meta.env.BASE_URL}monogram-a-and-n-display.png`} alt="Aleem and Nurulain" width="160" height="110" loading="lazy" decoding="async" />
           <p className="bismillah" lang="ar" dir="rtl">{t.bismillah}</p>
           <p className="salam">{t.salam}</p>
           <p className="formal-copy">{t.formalInvite}</p>
+          <p className="invitation-names-label">{locale === 'ms' ? 'Majlis perkahwinan' : 'The wedding of'}</p>
           <h1>Aleem <span>&amp;</span> Nurulain</h1>
           <p className="blessing">{t.blessing}</p>
         </div>
       </section>
 
       <section className="our-story-section" aria-labelledby="our-story-title">
-        <div className="our-story-inner">
+        <div className="our-story-inner" data-reveal>
           <p className="eyebrow">Aleem &amp; Nurulain</p>
           <h2 id="our-story-title">{t.ourStory}</h2>
+          <svg className="story-flight-line" viewBox="0 0 560 96" fill="none" aria-hidden="true">
+            <path d="M8 70C94 70 109 19 181 19C280 19 282 81 376 81C455 81 480 28 552 28" stroke="currentColor" strokeDasharray="3 7" />
+            <circle cx="8" cy="70" r="4" fill="currentColor" />
+            <circle cx="552" cy="28" r="4" fill="currentColor" />
+            <path d="m271 41 3 10 14 8-1 3-16-4-6 5-3-1 3-8-4-8 2-2 5 5 1-9Z" fill="currentColor" />
+          </svg>
           <blockquote>
             <p>{t.storyQuote}</p>
           </blockquote>
@@ -141,7 +203,7 @@ export default function InvitationExperience({
       </section>
 
       <section className="itinerary-section" aria-labelledby="itinerary-title">
-        <div className="section-heading">
+        <div className="section-heading" data-reveal>
           <p className="eyebrow">{localized(invitation.cabinLabel, locale)}</p>
           <h2 id="itinerary-title" ref={itineraryHeadingRef} tabIndex={-1}>{t.itinerary}</h2>
           <p>{t.singaporeTime}</p>
@@ -152,7 +214,7 @@ export default function InvitationExperience({
             const displayDate = localized(event.dateLabel, locale);
             const date = dateParts(displayDate);
             return (
-              <article className="itinerary-card" key={event.id}>
+              <article className="itinerary-card" key={event.id} data-reveal>
                 <p className="itinerary-flight"><span>{event.flightCode}</span><span>{localized(invitation.cabinLabel, locale)}</span></p>
                 <h3 className="itinerary-date">
                   <time dateTime={event.dateIso}>
@@ -211,27 +273,39 @@ export default function InvitationExperience({
         <a className="itinerary-rsvp button button-text" href="#rsvp" onClick={(event) => focusSection(event, 'rsvp-title')}>{t.rsvpTitle}<span aria-hidden="true"> ↓</span></a>
       </section>
 
-      <details className="travel-section">
-        <summary>
-          <span className="travel-summary-copy">
-            <span className="eyebrow">{t.venue}</span>
-            <span className="travel-summary-title" role="heading" aria-level={2}>{t.gettingHere}</span>
-            <span className="travel-summary-venue">{invitation.hotel} &middot; {t.terminal} {invitation.terminal}</span>
-            <span className="travel-summary-action">{t.travelSummary}</span>
-          </span>
-          <span className="travel-summary-chevron" aria-hidden="true" />
-        </summary>
-        <div className="travel-details">
-          <address>{invitation.hotel}<br />{t.address}</address>
-          <ul>
-            <li>{t.travelMrt}</li>
-            <li>{t.travelJewel}</li>
-            <li>{t.travelCar}</li>
-            <li>{t.travelParking}</li>
-          </ul>
-          <p>{t.travelTime}</p>
+      <section id="venue" className="travel-section" aria-labelledby="venue-title">
+        <div className="travel-arrival" data-reveal>
+          <div className="travel-introduction">
+            <p className="eyebrow">{t.venue}</p>
+            <h2 id="venue-title">{t.gettingHere}</h2>
+            <div className="travel-destination" aria-hidden="true"><span>SIN</span><span>Singapore<br />Changi Airport</span></div>
+          </div>
+          <div className="travel-venue">
+            <img className="travel-venue-logo" src={crownePlazaLogo} width="140" height="85" loading="lazy" decoding="async" alt="" />
+            <h3>{invitation.hotel}</h3>
+            <p className="travel-ballroom">{locale === 'ms' ? `${t.ballroom} ${invitation.ballroom}` : `${invitation.ballroom} ${t.ballroom}`} &middot; {t.terminal} {invitation.terminal}</p>
+            <address>{t.address}</address>
+            <a className="button button-primary travel-directions" href={mapUrl} target="_blank" rel="noreferrer" aria-label={`${t.directions} (${t.newTab})`}>
+              {t.directions}<span aria-hidden="true">↗</span>
+            </a>
+          </div>
         </div>
-      </details>
+        <details className="travel-guidance">
+          <summary>
+            <span>{t.travelSummary}</span>
+            <span className="travel-summary-chevron" aria-hidden="true" />
+          </summary>
+          <div className="travel-details">
+            <ul>
+              <li>{t.travelMrt}</li>
+              <li>{t.travelJewel}</li>
+              <li>{t.travelCar}</li>
+              <li>{t.travelParking}</li>
+            </ul>
+            <p>{t.travelTime}</p>
+          </div>
+        </details>
+      </section>
 
       <RsvpForm
         invitation={invitation}
@@ -241,27 +315,9 @@ export default function InvitationExperience({
       />
 
       <footer className="site-footer">
-        <img src={`${import.meta.env.BASE_URL}monogram-a-and-n-display.png`} alt="" />
+        <img src={`${import.meta.env.BASE_URL}monogram-a-and-n-display.png`} alt="" width="120" height="83" loading="lazy" decoding="async" />
         <p>{t.footer}</p>
         {onForget ? <button className="button button-text invitation-forget" type="button" onClick={onForget}>{t.forgetInvitation}</button> : null}
-        <small className="video-credit">
-          Video:{' '}
-          <a
-            href="https://mixkit.co/free-stock-video/clouds-and-blue-sky-background-2408/"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Clouds and blue sky background
-          </a>
-          {' '}from{' '}
-          <a
-            href="https://mixkit.co/"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Mixkit
-          </a>
-        </small>
       </footer>
     </main>
   );

@@ -24,23 +24,23 @@ test('first bride unlock preserves boarding scan and cinematic content order', a
   await expect(page.locator('.journey')).toBeVisible();
   await journeyCueFitsFirstScreen(page);
   await snapshot(page.locator('.journey-stage'), 'journey-opening.png');
-  await page.evaluate(() => window.scrollTo({ top: 48, behavior: 'instant' }));
-  await expect(page.locator('.journey-scroll-cue')).toHaveCSS('opacity', '0');
+  await page.evaluate(() => window.scrollTo({ top: 120, behavior: 'instant' }));
+  await expect(page.locator('.journey-scroll-cue')).toHaveCSS('visibility', 'hidden');
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
-  await expect(page.locator('.journey-scroll-cue')).toHaveCSS('opacity', '1');
-  await expect(page.locator('.journey video')).toHaveCount(1);
-  await expect(page.locator('.journey video source')).toHaveAttribute('src', /clouds-ping-pong\.mp4$/);
+  await expect(page.locator('.journey-scroll-cue')).toHaveCSS('visibility', 'visible');
+  await expect(page.locator('.journey video')).toHaveCount(0);
+  await expect(page.locator('.flight-aircraft img')).toHaveAttribute('src', /flight\/aircraft-960\.webp$/);
   await noHorizontalOverflow(page);
   await page.locator('.journey').evaluate((element) => {
     window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY + element.clientHeight * 0.5, behavior: 'instant' });
   });
-  await expect.poll(() => page.locator('.journey').evaluate((element) => Number(element.style.getPropertyValue('--cloud-opacity')))).toBeGreaterThan(0);
+  await expect.poll(() => page.locator('.journey').evaluate((element) => Number(element.style.getPropertyValue('--sky-opacity')))).toBeGreaterThan(0);
   const order = await page.locator('main.experience > section, main.experience > details, main.experience > footer').evaluateAll(
     (elements) => elements.map((element) => element.id || element.classList[0]),
   );
   expect(order).toEqual([
     'journey', 'invitation', 'our-story-section',
-    'itinerary-section', 'travel-section', 'rsvp', 'site-footer',
+    'itinerary-section', 'venue', 'rsvp', 'site-footer',
   ]);
   await page.locator('#invitation').scrollIntoViewIfNeeded();
   await expect(page.locator('#invitation h1')).toContainText('Aleem');
@@ -57,7 +57,7 @@ test('first bride unlock preserves boarding scan and cinematic content order', a
 test('reopened groom invitation restores two tickets and fast tracks without journey requests', async ({ page, context }) => {
   const journeyRequests: string[] = [];
   page.on('request', (request) => {
-    if (/\/journey\//.test(request.url())) journeyRequests.push(request.url());
+    if (/\/flight\/(?:runway|cabin|sky|aircraft|clouds)/.test(request.url())) journeyRequests.push(request.url());
   });
   await returnToInvitation(page, testCodes.BUSINESS);
   await expect(page.getByLabel('Invitation code', { exact: true })).toHaveCount(0);
@@ -73,7 +73,7 @@ test('reopened groom invitation restores two tickets and fast tracks without jou
   await page.getByRole('button', { name: 'Fast Track to Your Itinerary', exact: true }).click();
   await expect(page.locator('#itinerary-title')).toBeFocused();
   await expect(page.locator('#itinerary-title')).toBeInViewport();
-  await expect(page.locator('.journey, .static-journey, video')).toHaveCount(0);
+  await expect(page.locator('.journey, .static-journey, video, canvas')).toHaveCount(0);
   await expect(page.locator('.itinerary-card')).toHaveCount(2);
   await expect(page.locator('.itinerary-section')).toContainText('AN2108');
   await expect(page.locator('.itinerary-section')).toContainText('AN2208');
@@ -100,7 +100,7 @@ test('reopened groom invitation restores two tickets and fast tracks without jou
   await expect(page.getByRole('button', { name: /Fast Track/i })).toBeVisible();
   await page.goForward();
   await expect(page.locator('#itinerary-title')).toBeFocused();
-  await expect(page.locator('.journey, .static-journey, video')).toHaveCount(0);
+  await expect(page.locator('.journey, .static-journey, video, canvas')).toHaveCount(0);
   expect(journeyRequests).toEqual([]);
   await page.goBack();
   await expect(page.locator('.boarding-page')).toBeVisible();
@@ -123,10 +123,10 @@ test('switching invitation preserves drafts and new manual unlock has no fast tr
   await expect(page.getByRole('button', { name: /Fast Track/i })).toHaveCount(0);
 });
 
-test('reduced-motion scan uses static cabin and clouds with no MP4 request', async ({ page }) => {
+test('reduced-motion scan uses a compact static invitation without cinematic media', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  const mp4Requests: string[] = [];
-  page.on('request', (request) => { if (/\.mp4(?:\?|$)/.test(request.url())) mp4Requests.push(request.url()); });
+  const cinematicRequests: string[] = [];
+  page.on('request', (request) => { if (/\/flight\/(?:runway|cabin|sky|aircraft|clouds)|\.mp4(?:\?|$)/.test(request.url())) cinematicRequests.push(request.url()); });
   await unlock(page);
   await ticketInstructionPrecedesTickets(page);
   const animatedTicketElements = await page.locator('.ticket-stack, .boarding-pass, .ticket-scan-instruction').evaluateAll((elements) => elements
@@ -135,14 +135,12 @@ test('reduced-motion scan uses static cabin and clouds with no MP4 request', asy
   await page.getByRole('button', { name: 'Tap ticket to scan and board', exact: true }).click();
   await expect(page.locator('.static-journey')).toBeVisible();
   await expect(page.locator('video')).toHaveCount(0);
-  await expect(page.locator('.static-journey img[src*="clouds-video-poster"]')).toBeVisible();
-  await journeyCueFitsFirstScreen(page);
-  await expect(page.locator('.journey-scroll-cue')).toHaveCSS('animation-name', 'none');
-  const staticCuePosition = await page.locator('.journey-scroll-cue').evaluate((element) => getComputedStyle(element).position);
-  expect(['static', 'relative']).toContain(staticCuePosition);
+  await expect(page.locator('.static-journey .ceremonial-ticket')).toBeVisible();
+  await expect(page.locator('.static-journey .flight-scene-picture, canvas')).toHaveCount(0);
+  await expect(page.locator('.static-journey h1')).toHaveText('Welcome aboard');
   await snapshot(page.locator('.static-journey'), 'reduced-motion-journey.png');
   await noHorizontalOverflow(page);
-  expect(mp4Requests).toEqual([]);
+  expect(cinematicRequests).toEqual([]);
 });
 
 for (const connection of [
@@ -150,28 +148,24 @@ for (const connection of [
   { saveData: false, effectiveType: '2g' },
   { saveData: false, effectiveType: 'slow-2g' },
 ]) {
-  test(`low-data ${connection.saveData ? 'saveData' : connection.effectiveType} retains cinema without MP4`, async ({ page }) => {
+  test(`low-data ${connection.saveData ? 'saveData' : connection.effectiveType} uses compact invitation without cinematic requests`, async ({ page }) => {
     await page.addInitScript((value) => {
       Object.defineProperty(navigator, 'connection', {
         configurable: true,
         value: Object.assign(new EventTarget(), value),
       });
     }, connection);
-    const mp4Requests: string[] = [];
-    page.on('request', (request) => { if (/\.mp4(?:\?|$)/.test(request.url())) mp4Requests.push(request.url()); });
+    const cinematicRequests: string[] = [];
+    page.on('request', (request) => { if (/\/flight\/(?:runway|cabin|sky|aircraft|clouds)|\.mp4(?:\?|$)/.test(request.url())) cinematicRequests.push(request.url()); });
     await unlock(page);
     await page.getByRole('button', { name: 'Tap ticket to scan and board', exact: true }).click();
-    await expect(page.locator('.journey')).toBeVisible();
+    await expect(page.locator('.static-journey')).toBeVisible();
     await expect(page.locator('video, source[src$=".mp4"]')).toHaveCount(0);
-    await expect(page.locator('.journey-clouds img')).toHaveAttribute('src', /clouds-video-poster/);
-    await page.locator('.journey').evaluate((element) => {
-      window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY + element.clientHeight * 0.7, behavior: 'instant' });
-    });
-    await expect.poll(() => page.locator('.journey').evaluate((element) => Number(element.style.getPropertyValue('--cloud-opacity')))).toBe(1);
+    await expect(page.locator('.static-journey .ceremonial-ticket')).toBeVisible();
     await noHorizontalOverflow(page);
     await page.locator('.itinerary-section').scrollIntoViewIfNeeded();
     await expect(page.locator('#itinerary-title')).toBeVisible();
-    expect(mp4Requests).toEqual([]);
+    expect(cinematicRequests).toEqual([]);
   });
 }
 
@@ -312,14 +306,14 @@ test('two-ticket Malay journey has visible guidance and supports keyboard boardi
   await page.keyboard.press('Enter');
   await expect(page.locator('.ticket-scan-action')).toBeDisabled();
   await expect(page.locator('.journey')).toBeVisible();
-  await journeyCueFitsFirstScreen(page, 'Tatal ke bawah untuk memulakan perjalanan anda');
+  await journeyCueFitsFirstScreen(page, 'Tatal untuk memulakan perjalanan');
   await noHorizontalOverflow(page);
   await page.locator('.journey-stage').screenshot({ path: testInfo.outputPath('malay-scaled-journey.png') });
   await page.getByRole('button', { name: 'Kembali ke pas masuk', exact: true }).click();
   await scan.focus();
   await page.keyboard.press('Space');
   await expect(page.locator('.journey')).toBeVisible();
-  await journeyCueFitsFirstScreen(page, 'Tatal ke bawah untuk memulakan perjalanan anda');
+  await journeyCueFitsFirstScreen(page, 'Tatal untuk memulakan perjalanan');
 });
 
 test('desktop tickets and scroll prompt remain clear', async ({ page }, testInfo) => {
