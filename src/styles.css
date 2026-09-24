@@ -55,6 +55,8 @@ a { color: inherit; text-underline-offset: 4px; }
 .site-brand { display: flex; align-items: center; gap: 12px; }
 .site-brand-monogram { display: grid; width: 52px; height: 40px; place-items: center; padding: 3px; border-radius: 3px; background: var(--ivory); }
 .site-brand-monogram img { width: 46px; height: auto; }
+.gate-page .site-brand-monogram { padding: 0; background: transparent; }
+.gate-page .site-brand-monogram img { filter: brightness(0) invert(1); opacity: .94; }
 .site-brand > span:last-child { font: 500 .75rem/1.5 var(--font-mono); letter-spacing: .19em; }
 .site-brand small { display: block; margin-top: 2px; font: 400 .625rem/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: .02em; opacity: .65; }
 .header-actions { display: flex; align-items: center; }
