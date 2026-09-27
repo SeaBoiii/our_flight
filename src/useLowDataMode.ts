@@ -25,7 +25,7 @@ function subscribe(onChange: () => void): () => void {
 }
 
 // Read synchronously on the first render so a data-saving visit never mounts
-// a video source, even briefly. Browsers without the API keep normal playback.
+// cinematic artwork, even briefly. Reduced motion remains an independent fallback.
 export function useLowDataMode(): boolean {
   return useSyncExternalStore(subscribe, snapshot, () => false);
 }

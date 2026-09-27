@@ -7,7 +7,7 @@ import { useLowDataMode } from '../useLowDataMode';
 import { createCloudRenderer, type CloudRenderer } from '../cloudRenderer';
 import '../journey.css';
 
-type JourneyProps = { invitation: Invitation; locale: Locale; reducedMotion: boolean };
+type JourneyProps = { invitation: Invitation; locale: Locale; reducedMotion: boolean; guestName?: string };
 
 const journeyCopy = {
   en: {
@@ -44,13 +44,13 @@ function ScenePicture({ asset }: { asset: SceneAsset }) {
   );
 }
 
-function DecorativeTicket({ invitation, locale, showChop = false }: Pick<JourneyProps, 'invitation' | 'locale'> & { showChop?: boolean }) {
+function DecorativeTicket({ invitation, locale, guestName, showChop = false }: Pick<JourneyProps, 'invitation' | 'locale' | 'guestName'> & { showChop?: boolean }) {
   const t = journeyCopy[locale];
   return (
     <div className="ceremonial-ticket" aria-hidden="true">
       <div className="ceremonial-ticket-band"><span>A&amp;N AIRWAYS</span><span>{t.pass}</span></div>
       <div className="ceremonial-ticket-content">
-        <p className="ceremonial-ticket-label">{t.boarding}</p>
+        <p className="ceremonial-ticket-label">{guestName?.trim() || t.boarding}</p>
         <p className="ceremonial-ticket-names">Aleem <em>&amp;</em> Nurulain</p>
         <div className="ceremonial-ticket-route"><span>{t.routeFrom}</span><svg viewBox="0 0 64 20" aria-hidden="true"><path d="M1 10h58M50 2l10 8-10 8" /></svg><span>{t.routeTo}</span></div>
         <div className="ceremonial-ticket-details"><span>{invitation.flightCode}</span><span>{invitation.cabinLabel[locale]}</span></div>
@@ -66,7 +66,7 @@ function DecorativeTicket({ invitation, locale, showChop = false }: Pick<Journey
   );
 }
 
-function StaticJourney({ invitation, locale }: Omit<JourneyProps, 'reducedMotion'>) {
+function StaticJourney({ invitation, locale, guestName }: Omit<JourneyProps, 'reducedMotion'>) {
   const t = copy[locale];
   return (
     <section className="static-journey static-journey--daylight" aria-label={t.journeyLabel}>
@@ -75,13 +75,13 @@ function StaticJourney({ invitation, locale }: Omit<JourneyProps, 'reducedMotion
         <h1>{t.welcome}</h1>
         <p className="journey-welcome-body">{journeyCopy[locale].staticBody}</p>
       </div>
-      <div className="static-ticket"><DecorativeTicket invitation={invitation} locale={locale} /></div>
+      <div className="static-ticket"><DecorativeTicket invitation={invitation} locale={locale} guestName={guestName} /></div>
       <p className="static-journey-arrival">{journeyCopy[locale].arrival}</p>
     </section>
   );
 }
 
-export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
+export function Journey({ invitation, locale, reducedMotion, guestName }: JourneyProps) {
   const lowData = useLowDataMode();
   const staticMode = reducedMotion || lowData || typeof IntersectionObserver === 'undefined';
   const sectionRef = useRef<HTMLElement>(null);
@@ -204,7 +204,7 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
     };
   }, [staticMode]);
 
-  if (staticMode) return <StaticJourney invitation={invitation} locale={locale} />;
+  if (staticMode) return <StaticJourney invitation={invitation} locale={locale} guestName={guestName} />;
 
   return (
     <section ref={sectionRef} className="journey journey--cinematic" aria-label={t.journeyLabel}>
@@ -225,12 +225,12 @@ export function Journey({ invitation, locale, reducedMotion }: JourneyProps) {
             <h1>{t.welcome}</h1>
             <p className="journey-welcome-body">{t.welcomeBody}</p>
           </div>
-          <div className="journey-ticket-slot"><div className="journey-ticket"><DecorativeTicket invitation={invitation} locale={locale} showChop /></div></div>
+          <div className="journey-ticket-slot"><div className="journey-ticket"><DecorativeTicket invitation={invitation} locale={locale} guestName={guestName} showChop /></div></div>
           <p className="journey-scroll-cue"><span>{words.scroll}</span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v17m-5-5 5 5 5-5" /></svg></p>
         </div>
         <div className="flight-caption flight-caption--takeoff" aria-hidden="true"><p className="eyebrow">{words.takeoffLabel}</p><p>{words.takeoff}</p></div>
         <div className="flight-caption flight-caption--cabin" aria-hidden="true"><p className="eyebrow">{words.cabinLabel}</p><p>{words.cabin}</p></div>
-        <div className="journey-reveal" aria-hidden="true"><img src={`${base}monogram-a-and-n-display.png`} width="640" height="640" alt="" decoding="async" /><p>{words.arrival}</p></div>
+        <div className="journey-reveal" aria-hidden="true"><img src={`${base}monogram-a-and-n-display.webp`} width="640" height="640" alt="" decoding="async" /><p>{words.arrival}</p></div>
         <div className="flight-progress" aria-hidden="true"><span /></div>
       </div>
     </section>

@@ -44,6 +44,13 @@ test('three-dimensional clouds fit every aspect ratio and reverse with scrolling
   await expect.poll(() => journey.evaluate(el => Number(el.style.getPropertyValue('--ticket-chop-opacity')))).toBe(0);
   for (const [width, height] of [[360, 740], [390, 844], [412, 915], [430, 932], [768, 1024], [1440, 900], [844, 390]]) {
     await page.setViewportSize({ width, height });
+    if (width === 390 || width === 1440) {
+      await scrollCloudProgress(journey, 0);
+      await page.screenshot({ path: testInfo.outputPath(`restored-ticket-opening-${width}.png`) });
+      await scrollCloudProgress(journey, .075);
+      await expect.poll(() => journey.evaluate(el => Number(el.style.getPropertyValue('--ticket-chop-opacity')))).toBe(1);
+      await page.screenshot({ path: testInfo.outputPath(`restored-ticket-chop-${width}.png`) });
+    }
     for (const progress of [.68, .80, .91, .72]) {
       await scrollCloudProgress(journey, progress);
       await expect(canvas).toHaveAttribute('data-renderer', /webgl|fallback/);

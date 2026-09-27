@@ -2,23 +2,40 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { testCodes, testEndpoint } from './test-config';
 
 export async function unlock(page: Page, code: string = testCodes.BRIDE_BUSINESS) {
+  await page.clock.setFixedTime(new Date('2026-09-27T06:00:00+08:00'));
   await page.goto('/');
   await page.getByLabel('Invitation code', { exact: true }).fill(code);
   await page.getByRole('button', { name: 'View invitation', exact: true }).click();
   await expect(page.locator('#boarding-title')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Fast Track/i })).toHaveCount(0);
 }
 
 export async function returnToInvitation(page: Page, code: string = testCodes.BRIDE_BUSINESS) {
   await unlock(page, code);
   await page.reload();
-  await expect(page.getByRole('button', { name: /Fast Track/i })).toBeVisible();
+  await expect(page.locator('#itinerary-title')).toBeFocused();
+  await expect(page.locator('.returning-welcome')).toContainText('Welcome back');
 }
 
 export async function fastTrack(page: Page, code: string = testCodes.BRIDE_BUSINESS) {
   await returnToInvitation(page, code);
-  await page.getByRole('button', { name: /Fast Track/i }).click();
   await expect(page.locator('#itinerary-title')).toBeFocused();
+}
+
+export async function openJourney(page: Page) {
+  if (await page.locator('.ticket-scan-action').count()) await page.locator('.ticket-scan-action').click();
+  else await page.locator('.invitation-replay').click();
+  await expect(page.locator('.journey, .static-journey')).toBeVisible();
+}
+
+export async function showBoarding(page: Page, locale: 'en' | 'ms' = 'en') {
+  if (await page.locator('#boarding-title').count()) return;
+  const back = page.locator('.experience-back');
+  if (await page.locator('.experience--journey').count() && await back.getAttribute('aria-label') !== (locale === 'en' ? 'Back to boarding pass' : 'Kembali ke pas masuk')) {
+    await back.click();
+    await expect(page.locator('#itinerary-title')).toBeFocused();
+  }
+  await page.locator('.experience-nav').getByRole('button', { name: locale === 'en' ? 'Back to boarding pass' : 'Kembali ke pas masuk', exact: true }).click();
+  await expect(page.locator('#boarding-title')).toBeFocused();
 }
 
 export async function ticketInstructionPrecedesTickets(page: Page, label = 'Tap ticket to scan and board') {
@@ -43,18 +60,23 @@ export async function journeyCueFitsFirstScreen(page: Page, label = 'Scroll to t
   expect(cueBox!.y).toBeGreaterThanOrEqual(headingBox!.y + headingBox!.height);
   expect(cueBox!.y).toBeGreaterThanOrEqual(navBox!.y + navBox!.height);
   expect(cueBox!.y + cueBox!.height, 'Scroll guidance must fit in the first screen').toBeLessThanOrEqual(page.viewportSize()!.height);
-  const ticket = page.locator('.journey-ticket');
-  const ticketBox = await ticket.count() ? await ticket.boundingBox() : null;
+  const ticketBox = await page.locator('.journey-ticket').boundingBox();
   if (ticketBox) expect(cueBox!.y, 'Journey tickets must not cover scroll guidance').toBeGreaterThanOrEqual(ticketBox.y + ticketBox.height - 1);
   await fitsPhone(cue, page);
 }
 
 export async function noHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(() => Math.max(
-    document.documentElement.scrollWidth,
-    document.body.scrollWidth,
-  ) - window.innerWidth);
-  expect(overflow, 'The document must fit the phone viewport').toBeLessThanOrEqual(1);
+  const layout = await page.evaluate(() => {
+    const width = document.documentElement.clientWidth;
+    const overflow = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - width;
+    const outside = overflow > 1 ? Array.from(document.querySelectorAll('body *')).flatMap(element => {
+      const bounds = element.getBoundingClientRect();
+      return bounds.right > width + 1 && bounds.width > 0
+        ? [`${element.tagName}.${element.className}: right=${Math.round(bounds.right)}`] : [];
+    }).slice(-12) : [];
+    return { overflow, outside };
+  });
+  expect(layout.overflow, `The document must fit the phone viewport. Outside: ${layout.outside.join(', ')}`).toBeLessThanOrEqual(1);
 }
 
 export async function fitsPhone(locator: Locator, page: Page) {

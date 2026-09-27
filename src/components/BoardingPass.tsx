@@ -7,6 +7,7 @@ import '../boarding-pass.css';
 type BoardingPassProps = {
   invitation: Invitation;
   locale: Locale;
+  guestName?: string;
   compact?: boolean;
   stamped?: boolean;
   onBoard?: () => void;
@@ -22,9 +23,9 @@ function cabinTitle(invitation: Invitation, locale: Locale): string {
   return locale === 'ms' || /class/i.test(label) ? label : `${label} Class`;
 }
 
-export function BoardingPass({ invitation, locale, compact = false, stamped = false, onBoard }: BoardingPassProps) {
+export function BoardingPass({ invitation, locale, guestName, compact = false, stamped = false, onBoard }: BoardingPassProps) {
   const t = copy[locale];
-  const logo = `${import.meta.env.BASE_URL}monogram-a-and-n-display.png`;
+  const logo = `${import.meta.env.BASE_URL}monogram-a-and-n-display.webp`;
   const [isScanning, setIsScanning] = useState(false);
   const boardingTimer = useRef<number | null>(null);
   const classTitle = cabinTitle(invitation, locale);
@@ -67,7 +68,7 @@ export function BoardingPass({ invitation, locale, compact = false, stamped = fa
             <div className="ticket-paper-body">
               <img className="ticket-paper-watermark" src={logo} width="200" height="200" alt="" aria-hidden="true" />
               <div className="ticket-paper-passenger">
-                <div><span className="ticket-paper-label">{t.passenger}</span><strong>{localized(invitation.passengerLabel, locale)}</strong></div>
+                <div><span className="ticket-paper-label">{t.passenger}</span><strong>{guestName?.trim() || localized(invitation.passengerLabel, locale)}</strong></div>
                 <div><span className="ticket-paper-label">{t.flight}</span><strong className="ticket-paper-code">{event.flightCode}</strong></div>
               </div>
 

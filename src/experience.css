@@ -23,7 +23,7 @@
 .experience .button-primary:not(:disabled):hover { background: #15344f; }
 .experience .button-secondary:hover { background: #eee6d8; }
 
-/* Utility controls stay at the top; the two essential destinations live by the thumb. */
+/* The original small Back and language controls. */
 .experience .experience-nav { position: fixed; top: max(14px, env(safe-area-inset-top)); right: max(18px, env(safe-area-inset-right)); left: max(18px, env(safe-area-inset-left)); z-index: 100; display: flex; align-items: center; justify-content: space-between; gap: 14px; pointer-events: none; }
 .experience .experience-nav button { flex: 0 0 auto; pointer-events: auto; backdrop-filter: blur(12px); }
 .experience .experience-nav svg { display: block; width: 18px; height: 18px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
@@ -34,12 +34,7 @@
 .experience .experience-nav .language-toggle { font-size: 0.72rem; }
 .experience-nav-monogram { position: absolute; left: 50%; display: flex; gap: 3px; align-items: baseline; color: #c4a367; font-family: var(--font-display, Georgia, serif); font-size: 1.45rem; text-shadow: 0 1px 10px #081b3140; transform: translateX(-50%); }
 .experience-nav-monogram > span { font-size: 0.7em; }
-.experience .experience-shortcuts { position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: max(14px, calc(env(safe-area-inset-bottom) + 8px)); left: max(18px, env(safe-area-inset-left)); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px; width: auto; max-width: 430px; margin: auto; padding: 5px; border: 1px solid #c4a36780; border-radius: 4px; background: #081b31f5; box-shadow: 0 6px 28px #081b3140; backdrop-filter: blur(12px); pointer-events: auto; transition: opacity 150ms ease; }
-.experience .experience-shortcuts a { display: flex; align-items: center; justify-content: center; min-height: 46px; padding: 10px 8px; border: 0; border-radius: 1px; color: #f7f2e8; background: transparent; font-size: 0.875rem; font-weight: 600; letter-spacing: 0.025em; line-height: 1.4; text-align: center; text-decoration: none; pointer-events: auto; }
-.experience .experience-shortcuts a:last-child { color: #081b31; background: #e0c796; }
-.experience .experience-shortcuts a:focus-visible { outline-color: #fff8ec; outline-offset: -3px; }
-.experience[data-editing] .experience-shortcuts { opacity: 0; visibility: hidden; pointer-events: none; }
-.experience #rsvp, .experience #rsvp-title, .experience #itinerary-title, .experience input, .experience textarea { scroll-margin-top: max(92px, calc(env(safe-area-inset-top) + 76px)); scroll-margin-bottom: 112px; }
+.experience #rsvp, .experience #rsvp-title, .experience #itinerary-title, .experience input, .experience textarea { scroll-margin-top: var(--controls-clearance, 92px); scroll-margin-bottom: 24px; }
 
 .experience .invitation-reveal { position: relative; display: grid; place-items: center; min-height: 100svh; padding: clamp(96px, 15vw, 180px) 24px; overflow: hidden; background: radial-gradient(ellipse at 50% 0%, #fffdf7 0%, #f7f2e8 72%); }
 .experience .invitation-reveal::before, .experience .invitation-reveal::after { content: none; }
@@ -69,40 +64,36 @@
 /* The departures board carries plain-language event names and fully readable dates. */
 .experience .itinerary-section { width: 100%; margin: 0; padding: clamp(80px, 10vw, 124px) max(20px, calc((100% - 1120px) / 2)); color: #f7f2e8; background: #081b31; }
 .experience .section-heading { max-width: 780px; margin: 0 auto 38px; text-align: center; }
-.experience .section-heading h2 { margin: 0; font-family: var(--font-display, Georgia, serif); font-size: clamp(3.1rem, 11vw, 5.8rem); font-weight: 400; letter-spacing: -0.04em; line-height: 1.04; text-transform: none; overflow-wrap: normal; }
+.experience .section-heading h2 { margin: 0; font-family: var(--font-display, Georgia, serif); font-size: clamp(3.1rem, 11vw, 5.8rem); font-weight: 400; letter-spacing: -0.04em; line-height: 1.04; text-transform: none; overflow-wrap: anywhere; }
 .experience .section-heading > p:last-child { margin-top: 20px; font-size: 0.875rem; line-height: 1.7; }
 .experience .itinerary-section .section-heading .eyebrow { color: #dec898; }
 .experience .itinerary-section .section-heading > p:last-child { color: #c2ccd5; }
 .experience .itinerary-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; max-width: 860px; margin: auto; }
 .experience .itinerary-card { min-width: 0; padding: clamp(22px, 5vw, 36px); border: 1px solid #425365; border-top: 2px solid #c4a367; border-radius: 2px; background: #10263d; box-shadow: none; }
 .experience .itinerary-card::before { content: none; }
-.experience .itinerary-flight { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin: 0; color: #c3ced8; font-size: 0.71rem; font-weight: 500; line-height: 1.5; letter-spacing: 0.09em; text-transform: uppercase; }
+.experience .itinerary-flight { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 16px; margin: 0; color: #c3ced8; font-size: 0.71rem; font-weight: 500; line-height: 1.5; letter-spacing: 0.09em; text-transform: uppercase; }
 .experience .itinerary-flight span:first-child { padding: 5px 7px; color: #f0d9a8; background: #081b31; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 1rem; font-weight: 500; line-height: 1; letter-spacing: 0.12em; white-space: nowrap; }
 .experience .itinerary-flight span:last-child { max-width: 17ch; text-align: right; }
 .experience .itinerary-date { margin: 34px 0 32px; font-family: var(--font-display, Georgia, serif); }
 .experience .itinerary-date time { display: grid; gap: 12px; }
 .experience .itinerary-weekday { color: #d9e0e5; font-family: inherit; font-size: 1.1rem; letter-spacing: 0; }
-.experience .itinerary-date-core { display: flex; align-items: center; gap: 20px; color: #fff9ee; }
+.experience .itinerary-date-core { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; color: #fff9ee; }
 .experience .itinerary-date-core strong { font-size: clamp(5.3rem, 18vw, 7.5rem); font-weight: 400; letter-spacing: -0.05em; line-height: 0.85; }
 .experience .itinerary-date-core > span { max-width: 8ch; color: #f7f2e8; font-size: 1.7rem; line-height: 1.06; }
 .experience .itinerary-event-heading { display: block; margin-bottom: 24px; padding-top: 22px; border-top: 1px solid #425365; }
 .experience .itinerary-event-heading h4 { margin: 0; color: #fff9ee; font-family: var(--font-display, Georgia, serif); font-size: clamp(1.9rem, 7vw, 2.5rem); font-weight: 400; line-height: 1.15; letter-spacing: -0.02em; }
 .experience .itinerary-event-heading p { margin: 12px 0 0; color: #dec898; font-size: 1rem; font-weight: 500; line-height: 1.5; white-space: normal; }
 .experience .event-programme { margin: 0; padding: 0; border-top: 1px solid #425365; list-style: none; }
-.experience .event-programme li { display: grid; grid-template-columns: minmax(68px, max-content) minmax(0, 1fr); gap: 16px; align-items: baseline; padding-block: 15px; border-bottom: 1px solid #425365; color: #e3e8eb; font-size: 0.875rem; line-height: 1.55; }
-.experience .programme-time { color: #dec898; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.78rem; font-weight: 400; letter-spacing: 0; }
+.experience .event-programme li { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 16px; align-items: baseline; padding-block: 15px; border-bottom: 1px solid #425365; color: #e3e8eb; font-size: 1rem; line-height: 1.55; overflow-wrap: anywhere; }
+.experience .programme-time { color: #dec898; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .9375rem; font-weight: 400; letter-spacing: 0; }
 .experience .programme-time--placeholder { color: #dec898; letter-spacing: 0.12em; }
 .experience .venue-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin: 22px 0 0; }
 .experience .venue-fields > div { padding: 0; }
 .experience .venue-fields > div:first-child { grid-column: 1 / -1; }
-.experience .venue-fields dt { margin-bottom: 6px; color: #becbd5; font-size: 0.69rem; font-weight: 500; letter-spacing: 0.05em; line-height: 1.6; }
-.experience .venue-fields dd { margin: 0; color: #fff9ee; font-size: 0.91rem; font-weight: 500; line-height: 1.5; overflow-wrap: break-word; }
-.experience .venue-hotel dd { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.experience .venue-fields dt { margin-bottom: 6px; color: #becbd5; font-size: .875rem; font-weight: 400; line-height: 1.6; }
+.experience .venue-fields dd { margin: 0; color: #fff9ee; font-size: 1rem; font-weight: 500; line-height: 1.5; overflow-wrap: anywhere; }
+.experience .venue-hotel dd { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .experience .venue-hotel dd > span { max-width: 22ch; }
-.experience .venue-logo { width: 82px; height: 50px; flex: 0 0 82px; padding: 6px; border-radius: 2px; object-fit: contain; background: #fffaf1; opacity: 1; }
-.experience .itinerary-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-top: 26px; }
-.experience .itinerary-actions .button { min-height: 48px; color: #f7f2e8; border-color: #6c7a84; background: transparent; }
-.experience .itinerary-actions .button:hover { border-color: #c4a367; background: #1d354c; }
 .experience .itinerary-rsvp { display: flex; width: fit-content; margin: 36px auto 0; color: #dec898; text-decoration: underline; text-underline-offset: 7px; text-decoration-thickness: 1px; }
 .experience .itinerary-section :focus-visible { outline-color: #dec898; }
 
@@ -110,7 +101,7 @@
 .travel-arrival { display: grid; grid-template-columns: minmax(0, 1fr); gap: 42px; }
 .experience .travel-section .eyebrow { margin-bottom: 16px; color: #77613e; }
 .travel-introduction h2 { margin: 0; font-family: var(--font-display, Georgia, serif); font-size: clamp(3.4rem, 12vw, 6.3rem); font-weight: 400; letter-spacing: -0.04em; line-height: 1; }
-.travel-destination { display: flex; align-items: center; gap: 22px; margin-top: 30px; }
+.travel-destination { display: flex; flex-wrap: wrap; align-items: center; gap: 22px; margin-top: 30px; }
 .travel-destination > span:first-child { color: #9b8050; font-family: var(--font-display, Georgia, serif); font-size: 3.8rem; line-height: 1; letter-spacing: -0.02em; }
 .travel-destination > span:last-child { max-width: 12ch; padding-left: 22px; border-left: 1px solid #c4a367; color: #59636c; font-size: 0.7rem; line-height: 1.6; letter-spacing: 0.08em; text-transform: uppercase; }
 .travel-venue { min-width: 0; }
@@ -142,19 +133,19 @@
 .experience .form-field { gap: 10px; margin-bottom: 30px; }
 .experience .event-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .experience .event-actions .button { flex: 1 1 140px; }
-.experience .rsvp-form .form-field > label { color: #081b31; font-size: 0.875rem; font-weight: 600; line-height: 1.5; }
+.experience .rsvp-form .form-field > label { color: #081b31; font-size: 1rem; font-weight: 600; line-height: 1.5; }
 .experience .rsvp-form .form-field input, .experience .rsvp-form textarea { min-height: 52px; padding: 14px; border: 1px solid #bdb6ab; border-radius: 2px; color: #081b31; background: #fffefa; font-size: 1rem; line-height: 1.5; }
 .experience .rsvp-form input:focus, .experience .rsvp-form textarea:focus { border-color: #77613e; box-shadow: 0 0 0 2px #c4a36733; }
 .experience .rsvp-form [aria-invalid='true'] { border-color: #a4433f; }
 .experience .rsvp-form .attendance-card { margin: 0 0 32px !important; padding: 0 0 26px !important; border: 0 !important; border-bottom: 1px solid #dcd6ca !important; border-radius: 0; background: transparent; }
 .experience .attendance-card legend { margin-bottom: 8px; color: #081b31; font-family: inherit; font-size: 1rem; font-weight: 500; line-height: 1.6; }
-.experience .attendance-card legend > span:first-child { margin-bottom: 6px; color: #59636c; font-family: inherit; font-size: 0.78rem; font-weight: 500; letter-spacing: 0.02em; }
+.experience .attendance-card legend > span:first-child { margin-bottom: 6px; color: #59636c; font-family: inherit; font-size: .9375rem; font-weight: 500; letter-spacing: 0.02em; }
 .experience .attendance-card legend > span:nth-child(2) { margin-bottom: 14px; color: #081b31; font-family: var(--font-display, Georgia, serif); font-size: 1.9rem; font-weight: 400; line-height: 1.12; letter-spacing: -0.02em; }
 .experience .radio-option { min-height: 54px; gap: 12px; margin: 10px 0; padding: 12px; border-color: #cfc7ba; border-radius: 2px; font-size: 1rem; line-height: 1.5; }
 .experience .radio-option:has(input:checked) { border-color: #987741; background: #f0e9dc; }
 .experience .radio-option input { width: 20px; height: 20px; accent-color: #081b31; }
 .experience .form-field--party { margin-bottom: 0; }
-.experience .rsvp-section .field-help, .experience .rsvp-section .form-note { color: #59636c; font-size: 0.81rem; line-height: 1.7; }
+.experience .rsvp-section .field-help, .experience .rsvp-section .form-note { color: #59636c; font-size: .9375rem; line-height: 1.7; }
 .experience .character-count { color: #59636c; font-size: 0.75rem; }
 .experience .form-actions { margin-top: 6px; }
 .experience .form-actions .button-primary { min-height: 54px; }
@@ -163,13 +154,12 @@
 .experience .error-summary ul { font-size: 0.875rem; line-height: 1.75; }
 .experience .submission-status { border-radius: 2px; font-size: 0.9rem; }
 
-.experience .site-footer { display: grid; place-items: center; padding: 66px 24px max(122px, calc(env(safe-area-inset-bottom) + 110px)); color: #59636c; text-align: center; }
+.experience .site-footer { display: grid; place-items: center; padding: 66px 24px max(66px, calc(env(safe-area-inset-bottom) + 40px)); color: #59636c; text-align: center; }
 .experience .site-footer img { width: 120px; height: 83px; object-fit: contain; mix-blend-mode: multiply; }
 .experience .site-footer p { max-width: 35ch; margin-top: 20px; font-size: 0.68rem; font-weight: 500; line-height: 1.8; letter-spacing: 0.14em; }
 .experience .site-footer .invitation-forget { margin-top: 16px; color: #59636c; font-size: 0.75rem; }
 
 @media (min-width: 640px) {
-  .experience .itinerary-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .experience .rsvp-form .form-actions { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
 }
 @media (min-width: 800px) {
@@ -177,9 +167,6 @@
   .experience .experience-nav .experience-back { width: auto; gap: 8px; padding: 0 18px; border-radius: 2px; }
   .experience .experience-back span { display: block; font-size: 0.8rem; }
   .experience-nav-monogram { display: none; }
-  .experience .experience-shortcuts { position: static; width: auto; min-width: 290px; max-width: 420px; margin: 0 auto; padding: 4px; box-shadow: 0 4px 24px #081b3120; }
-  .experience .experience-shortcuts a { min-height: 44px; padding: 8px 20px; }
-  .experience[data-editing] .experience-shortcuts { visibility: visible; opacity: 1; pointer-events: auto; }
   .experience .itinerary-list { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); max-width: none; }
   .experience .itinerary-card:only-child { width: min(100%, 720px); margin-inline: auto; }
   .travel-arrival { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 60px; }
@@ -187,6 +174,20 @@
   .travel-guidance { margin-top: 50px; }
   .experience .site-footer { padding-bottom: 80px; }
 }
+
+/* Personal return visits open directly at the existing itinerary. */
+.experience--fast-track .itinerary-section { min-height: 100svh; padding-top: max(100px, calc(var(--controls-clearance, 76px) + 24px)); }
+.returning-welcome { max-width: 760px; margin: 0 auto 48px; text-align: center; overflow-wrap: anywhere; }
+.returning-welcome .returning-greeting { margin: 0; color: #fff9ee; font: 400 clamp(1.9rem, 6vw, 2.8rem)/1.2 var(--font-display); }
+.returning-welcome > p + p { color: #c2ccd5; font-size: 1rem; line-height: 1.7; }
+.experience .invitation-replay { max-width: 100%; padding: 12px 8px; color: #dec898; }
+.experience .personal-salutation { max-width: 46ch; margin: 0 auto 24px; color: #081b31; font: 400 1.3rem/1.6 var(--font-display); overflow-wrap: anywhere; }
+.journey-recovery { padding: calc(var(--controls-clearance, 76px) + 32px) 24px 48px; max-width: 700px; margin: auto; }
+.journey-recovery h2 { font: 400 2.5rem/1.1 var(--font-display); }
+.journey-recovery p { line-height: 1.6; }
+.device-settings { width: min(100%, 500px); margin-top: 12px; border-top: 1px solid var(--line); }
+.device-settings summary { padding: 14px 8px; min-height: 48px; cursor: pointer; font-size: .875rem; line-height: 1.5; }
+.experience .device-settings p { max-width: none; margin: 12px 0; font-size: .9375rem; font-weight: 400; letter-spacing: normal; line-height: 1.65; }
 @media (prefers-reduced-motion: reduce) {
-  .experience .experience-shortcuts, .experience .travel-summary-chevron, .experience .travel-summary-chevron::after { transition: none; }
+  .experience .travel-summary-chevron, .experience .travel-summary-chevron::after { transition: none; }
 }

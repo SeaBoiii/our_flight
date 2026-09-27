@@ -1,6 +1,7 @@
 import { cleanup } from '@testing-library/react';
 import { webcrypto } from 'node:crypto';
 import { afterEach, vi } from 'vitest';
+import { clearSavedGuestData } from '../storage';
 
 Object.defineProperty(globalThis, 'crypto', {
   configurable: true,
@@ -23,8 +24,12 @@ Object.defineProperty(window, 'matchMedia', {
 
 afterEach(() => {
   cleanup();
+  clearSavedGuestData();
   window.localStorage.clear();
   window.sessionStorage.clear();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
+  // Begin the next simulated visit without tombstones retained by mocked
+  // blocked removals in the cleanup above.
+  clearSavedGuestData();
 });

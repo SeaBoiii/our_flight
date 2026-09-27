@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { describe, expect, it, vi } from 'vitest';
 import InvitationExperience from '../components/InvitationExperience';
 import { copy } from '../copy';
+import { saveRsvpReceipt } from '../storage';
+import { experienceCopy } from '../experienceCopy';
 import { invitationForClass } from '../invitations';
 import { mapUrl } from '../venue';
 import type { Invitation } from '../types';
@@ -46,18 +48,18 @@ describe('invitation details', () => {
     expect(within(itineraryCard as HTMLElement).getByText('Kompang procession')).toBeTruthy();
     expect(within(itineraryCard as HTMLElement).getByText('Cake cutting')).toBeTruthy();
     expect(within(itineraryCard as HTMLElement).getAllByLabelText('Time to be confirmed')).toHaveLength(3);
-    expect(container.querySelector('.venue-logo')?.getAttribute('src')).toMatch(/^data:image\/png;base64,/);
+    expect(container.querySelector('.travel-venue-logo')?.getAttribute('src')).toMatch(/^data:image\/png;base64,/);
   });
 
-  it('places Our Story before the itinerary with the supplied wording', () => {
+  it('restores the complete original story before the itinerary', () => {
     renderExperience();
     const storyHeading = screen.getByRole('heading', { name: 'Our Story' });
     const itineraryHeading = screen.getByRole('heading', { name: 'Your itinerary' });
     expect(screen.queryByRole('heading', { name: 'Flight Dashboard' })).toBeNull();
     expect(storyHeading.compareDocumentPosition(itineraryHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText('“Some meetings feel less like chance and more like a promise finally finding its way home.”')).toBeTruthy();
-    expect(screen.getByText('What began with an ordinary conversation grew into friendship, and then a quiet certainty.')).toBeTruthy();
-    expect(screen.getByText('Through shared days, long prayers, and all the ordinary moments between, we found a home in one another.')).toBeTruthy();
+    expect(screen.getByText(copy.en.storyBeginning)).toBeTruthy();
+    expect(screen.getByText(copy.en.storyJourney)).toBeTruthy();
     expect(screen.getByText('By the grace of Allah, we are ready for our next chapter.')).toBeTruthy();
   });
 
@@ -65,8 +67,8 @@ describe('invitation details', () => {
     const { container } = renderExperience(invitationForClass('economy', 'bride'));
     const rsvp = container.querySelector('.rsvp-section') as HTMLElement;
 
-    expect(screen.getAllByText("Bride's Reception").length).toBeGreaterThan(0);
-    expect(within(rsvp).getByText("Bride's Reception")).toBeTruthy();
+    expect(screen.getAllByText('Wedding Reception').length).toBeGreaterThan(0);
+    expect(within(rsvp).getByText('Wedding Reception')).toBeTruthy();
     expect(container.textContent).not.toMatch(/nikah/i);
   });
 
@@ -88,25 +90,12 @@ describe('invitation details', () => {
     expect(screen.getByText(/Alight at Changi Airport station/)).toBeTruthy();
   });
 
-  it('clears mobile shortcuts out of the way while editing a keyboard field', () => {
-    const { container } = renderExperience();
-    const experience = container.querySelector('main') as HTMLElement;
-    const name = screen.getByRole('textbox', { name: copy.en.name });
-    fireEvent.focusIn(name);
-    expect(experience.hasAttribute('data-editing')).toBe(true);
-    fireEvent.focusOut(name, { relatedTarget: screen.getByRole('radio', { name: copy.en.attending }) });
-    expect(experience.hasAttribute('data-editing')).toBe(false);
-    const message = screen.getByRole('textbox', { name: copy.en.message });
-    fireEvent.focusIn(message);
-    expect(experience.hasAttribute('data-editing')).toBe(true);
-    fireEvent.focusOut(message);
-    expect(experience.hasAttribute('data-editing')).toBe(false);
-  });
-
-  it('omits journey shortcuts while retaining the RSVP link after the itinerary', async () => {
+  it('keeps the small Back and language controls and inline RSVP without a dock or Simple view', async () => {
     const { container } = renderExperience();
     const navigation = screen.getByRole('navigation', { name: copy.en.controls });
+    expect(within(navigation).getByRole('button', { name: copy.en.back })).toBeTruthy();
     expect(within(navigation).queryByRole('link')).toBeNull();
+    expect(container.querySelector('.experience-shortcuts, .simple-view-toggle, .guest-overview')).toBeNull();
     const rsvp = container.querySelector('.itinerary-rsvp') as HTMLElement;
     expect(rsvp.getAttribute('href')).toBe('#rsvp');
     followFragment(rsvp);
@@ -160,23 +149,58 @@ describe('invitation details', () => {
       expect(card.textContent).toContain(event.time);
       expect(card.textContent).toContain(invitation.hotel);
       expect(card.textContent).toContain(invitation.ballroom);
-      expect(within(card).getByRole('link', { name: /Get directions/ }).getAttribute('href')).toBe(mapUrl);
+      expect(within(card).queryByRole('link')).toBeNull();
+      expect(within(card).queryByRole('button')).toBeNull();
     });
   });
 
-  it('fast-tracks into the itinerary with focus and no journey or cabin/video assets', async () => {
-    const scrollIntoView = vi.fn();
-    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: scrollIntoView });
+  it('opens the returning itinerary with focus and no journey or cabin/video assets', async () => {
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
     const { container } = render(
       <InvitationExperience invitation={invitationWith(2)} accessCredential={{ kind: 'class-code', value: 'ALPHA123' }} fingerprint="fast-track" locale="en" reducedMotion={false} entryMode="fast-track" onBack={() => undefined} onToggleLocale={() => undefined} />,
     );
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Your itinerary' })));
-    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'instant', block: 'start' });
+    await waitFor(() => expect(document.activeElement?.id).toBe('itinerary-title'));
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'instant' });
     expect(container.querySelector('.journey, .static-journey, video, img[src*="flight/cabin"], source[srcset*="flight/cabin"]')).toBeNull();
-    expect(container.querySelector('#invitation')).toBeTruthy();
+    expect(container.querySelector('#invitation')).toBeNull();
     expect(container.querySelector('#flight-dashboard')).toBeNull();
     expect(container.querySelectorAll('.itinerary-card')).toHaveLength(2);
     expect(screen.getByRole('link', { name: /Confirm your attendance/ }).getAttribute('href')).toBe('#rsvp');
+    expect(screen.getByText('Welcome back.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: experienceCopy.en.replay })).toBeTruthy();
     expect(container.querySelector('#rsvp')).toBeTruthy();
   });
+  it.each(['en', 'ms'] as const)('uses a verified full name in the %s welcome and replay, then clears it for another guest', async (locale) => {
+    saveRsvpReceipt('personal', {
+      version: 2, guestName: 'Nur Aisyah Binti Abdullah', responseId: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee',
+      confirmedAt: '2026-09-27T00:00:00.000Z',
+      responses: [{ eventId: 'day22', attendance: 'attending', partySize: '2' }],
+    });
+    const invitation = invitationWith(1, 'open');
+    const props = { invitation, accessCredential: { kind: 'class-code' as const, value: 'ALPHA123' }, fingerprint: 'personal', locale, reducedMotion: true, returning: true, onBack: vi.fn(), onReplay: vi.fn(), onToggleLocale: vi.fn() };
+    const view = render(<InvitationExperience {...props} entryMode="fast-track" />);
+    const words = experienceCopy[locale];
+    expect(screen.getByText(words.welcomeName('Nur Aisyah Binti Abdullah'))).toBeTruthy();
+    expect(screen.getByText(words.thankYou)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: words.replay }));
+    expect(props.onReplay).toHaveBeenCalledOnce();
+    view.rerender(<InvitationExperience {...props} entryMode="journey" />);
+    expect(screen.getByText(words.personalInvite('Nur Aisyah Binti Abdullah'))).toBeTruthy();
+    expect(screen.getByRole('button', { name: words.backToItinerary })).toBeTruthy();
+    view.rerender(<InvitationExperience {...props} entryMode="fast-track" />);
+    fireEvent.click(screen.getByRole('button', { name: locale === 'en' ? 'Another guest using this device' : 'Tetamu lain menggunakan peranti ini' }));
+    fireEvent.click(screen.getByRole('button', { name: locale === 'en' ? 'Start another guest’s RSVP' : 'Mulakan RSVP tetamu lain' }));
+    expect(screen.getByText(words.welcome)).toBeTruthy();
+    expect(screen.queryByText(words.welcomeName('Nur Aisyah Binti Abdullah'))).toBeNull();
+    view.rerender(<InvitationExperience {...props} entryMode="journey" />);
+    expect(screen.queryByText(words.personalInvite('Nur Aisyah Binti Abdullah'))).toBeNull();
+  });
+
+  it('keeps version-one receipts usable with a generic return welcome', () => {
+    saveRsvpReceipt('legacy-receipt', { version: 1, responseId: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee', confirmedAt: '2026-09-27T00:00:00.000Z', responses: [{ eventId: 'day22', attendance: 'attending', partySize: '1' }] });
+    render(<InvitationExperience invitation={invitationWith()} accessCredential={{ kind: 'class-code', value: 'ALPHA123' }} fingerprint="legacy-receipt" locale="en" reducedMotion entryMode="fast-track" returning onBack={vi.fn()} onToggleLocale={vi.fn()} />);
+    expect(screen.getByText('Welcome back.')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'RSVP received on this device' })).toBeTruthy();
+  });
+
 });

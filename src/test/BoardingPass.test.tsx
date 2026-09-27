@@ -81,6 +81,20 @@ describe('BoardingPass', () => {
     expect(screen.getAllByText('Wedding keepsake · Not valid for travel')).toHaveLength(2);
   });
 
+  it('uses the supplied guest name on every keepsake without replacing the couple names', () => {
+    const invitation = invitationWith(2);
+    render(<BoardingPass invitation={invitation} locale="en" guestName="  Aisyah & Family  " />);
+    expect(screen.getAllByText('Aisyah & Family')).toHaveLength(2);
+    expect(screen.queryByText(invitation.passengerLabel.en)).toBeNull();
+    expect(screen.getAllByText('Aleem & Nurulain')).toHaveLength(2);
+  });
+
+  it('keeps the translated passenger label when no guest name is supplied', () => {
+    const invitation = invitationWith();
+    render(<BoardingPass invitation={invitation} locale="ms" guestName="   " />);
+    expect(screen.getByText(invitation.passengerLabel.ms)).toBeTruthy();
+  });
+
   it('renders only the 22 August pass for a one-day invitation', () => {
     const { container } = render(<BoardingPass invitation={invitationWith()} locale="en" />);
     expect(container.querySelectorAll('.full-ticket')).toHaveLength(1);
@@ -93,7 +107,7 @@ describe('BoardingPass', () => {
   it('renders a bride reception-only pass without Nikah', () => {
     render(<BoardingPass invitation={invitationForClass('economy', 'bride')} locale="en" />);
 
-    expect(screen.getByText("Bride's Reception")).toBeTruthy();
+    expect(screen.getByText('Wedding Reception')).toBeTruthy();
     expect(screen.getAllByText('12:00–16:00').length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText('Nikah')).toBeNull();
     expect(screen.queryByText('10:00–16:00')).toBeNull();

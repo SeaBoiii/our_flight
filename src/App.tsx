@@ -5,6 +5,8 @@ import { ExperienceBoundary } from './components/ExperienceBoundary';
 import { ExperienceRecovery } from './components/ExperienceRecovery';
 import { copy } from './copy';
 import { createUuid } from './browser';
+import { experienceCopy } from './experienceCopy';
+import { useLowDataMode } from './useLowDataMode';
 import {
   accessForCredential,
   invitationConfigurationReady,
@@ -18,11 +20,13 @@ import {
 } from './invitations';
 import {
   clearRememberedInvitation,
+  clearSavedGuestData,
   fingerprintCredential,
   legacyTokenFromHash,
   readLocale,
   readReducedMotion,
   readRememberedInvitation,
+  readRsvpReceipt,
   saveLocale,
   saveRememberedInvitation,
 } from './storage';
@@ -51,6 +55,7 @@ function removeInvitationFragment(): void {
 export default function App() {
   const [locale, setLocale] = useState<Locale>(readLocale);
   const [reducedMotion, setReducedMotion] = useState(readReducedMotion);
+  const lowData = useLowDataMode();
   const [legacyToken, setLegacyToken] = useState(() => legacyInvitesEnabled() ? legacyTokenFromHash() : null);
   const [credential, setCredential] = useState<AccessCredential | null>(null);
   const [fingerprint, setFingerprint] = useState('');
@@ -68,11 +73,12 @@ export default function App() {
   if (historyVisitRef.current === null) historyVisitRef.current = createUuid();
   const historyPositionRef = useRef(0);
   const t = copy[locale];
+  const experienceText = experienceCopy[locale];
 
-  const rememberBoardingHistory = useCallback(() => {
+  const rememberEntryHistory = useCallback((view: EntryHistory['view']) => {
     historyPositionRef.current = 0;
     window.history.replaceState(
-      { ourFlightEntry: { visit: historyVisitRef.current, view: 'boarding', position: 0 } },
+      { ourFlightEntry: { visit: historyVisitRef.current, view, position: 0 } },
       '',
       `${window.location.pathname}${window.location.search}`,
     );
@@ -139,7 +145,8 @@ export default function App() {
         setFingerprint(nextFingerprint);
         setInvitation(invitationForAccess(invitationAccess));
         setRestoredInvitation(true);
-        rememberBoardingHistory();
+        setEntryMode('fast-track');
+        rememberEntryHistory('fast-track');
         if (saved.credential.kind === 'legacy-token') {
           setLegacyToken(null);
           removeInvitationFragment();
@@ -155,13 +162,13 @@ export default function App() {
     };
     void restore();
     return () => { cancelled = true; };
-  }, [rememberBoardingHistory]);
+  }, [rememberEntryHistory]);
 
   useEffect(() => {
     const onHashChange = () => {
       const nextToken = legacyTokenFromHash();
       // Native section links create their own history entries. Track those
-      // entries so the ticket control can return past them in one action.
+      // entries so Back can return past them to this visit's entry screen.
       if (!nextToken && invitation && entryMode && !entryHistory()) {
         historyPositionRef.current += 1;
         window.history.replaceState({
@@ -220,14 +227,13 @@ export default function App() {
       if (!invitation) return;
       const entry = entryHistory();
       if (entry?.visit !== historyVisitRef.current) return;
-      if (entry.view === 'fast-track' && !restoredInvitation) return;
       historyPositionRef.current = entry.position;
       setEntryMode(entry.view === 'boarding' ? null : entry.view);
       if (entry.view === 'boarding') window.scrollTo({ top: 0, behavior: 'auto' });
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, [invitation, restoredInvitation]);
+  }, [invitation]);
 
   useEffect(() => {
     if (!invitation || entryMode) return;
@@ -235,8 +241,7 @@ export default function App() {
     return () => window.cancelAnimationFrame(frame);
   }, [entryMode, invitation]);
 
-  const boardInvitation = (mode: EntryMode) => {
-    if (mode === 'fast-track' && !restoredInvitation) return;
+  const boardInvitation = (mode: EntryMode | 'boarding') => {
     historyPositionRef.current += 1;
     window.history.pushState(
       { ourFlightEntry: { visit: historyVisitRef.current, view: mode, position: historyPositionRef.current } },
@@ -244,16 +249,17 @@ export default function App() {
       `${window.location.pathname}${window.location.search}`,
     );
     window.scrollTo({ top: 0, behavior: 'auto' });
-    setEntryMode(mode);
+    setEntryMode(mode === 'boarding' ? null : mode);
   };
 
-  const returnToBoarding = () => {
+  const returnToEntry = () => {
     const entry = entryHistory();
-    setEntryMode(null);
+    const view = restoredInvitation ? 'fast-track' : 'boarding';
+    setEntryMode(view === 'boarding' ? null : view);
     if (entry?.visit === historyVisitRef.current && entry.position > 0) {
       window.history.go(-entry.position);
     } else {
-      rememberBoardingHistory();
+      rememberEntryHistory(view);
     }
     window.scrollTo({ top: 0, behavior: 'auto' });
   };
@@ -318,7 +324,7 @@ export default function App() {
         cabinClass: invitationAccess.cabinClass,
         credential: nextCredential,
       });
-      rememberBoardingHistory();
+      rememberEntryHistory('boarding');
       if (nextCredential.kind === 'legacy-token') {
         setLegacyToken(null);
         removeInvitationFragment();
@@ -341,17 +347,21 @@ export default function App() {
 
   if (invitation && credential && fingerprint && entryMode) {
     return (
-      <ExperienceBoundary fallback={<ExperienceRecovery invitation={invitation} locale={locale} failed onBack={returnToBoarding} />}>
-        <Suspense fallback={<ExperienceRecovery invitation={invitation} locale={locale} onBack={returnToBoarding} />}>
+      <ExperienceBoundary fallback={<ExperienceRecovery invitation={invitation} locale={locale} failed onBack={() => boardInvitation('boarding')} />}>
+        <Suspense fallback={<ExperienceRecovery invitation={invitation} locale={locale} onBack={() => boardInvitation('boarding')} />}>
           <InvitationExperience
+            key={fingerprint}
             invitation={invitation}
             accessCredential={credential}
             fingerprint={fingerprint}
             locale={locale}
             reducedMotion={reducedMotion}
+            returning={restoredInvitation}
             entryMode={entryMode}
-            onBack={returnToBoarding}
+            onBack={entryMode === 'journey' ? returnToEntry : () => boardInvitation('boarding')}
+            onReplay={() => boardInvitation('journey')}
             onForget={forgetInvitation}
+            onClearDevice={() => { clearSavedGuestData(); forgetInvitation(); }}
             onToggleLocale={toggleLocale}
           />
         </Suspense>
@@ -360,11 +370,11 @@ export default function App() {
   }
 
   const base = import.meta.env.BASE_URL;
-  const logo = `${base}monogram-a-and-n-display.png`;
+  const logo = `${base}monogram-a-and-n-display.webp`;
 
   return (
     <main className={invitation ? `boarding-page cabin-${invitation.cabinClass}` : 'gate-page'}>
-      {!invitation ? (
+      {!invitation && !restoring && !lowData ? (
         <picture className="gate-background" aria-hidden="true">
           <source media="(min-width: 800px)" srcSet={`${base}flight/airport-landscape-1440.avif`} type="image/avif" />
           <source media="(min-width: 800px)" srcSet={`${base}flight/airport-landscape-1440.webp`} type="image/webp" />
@@ -389,17 +399,15 @@ export default function App() {
             <h1 ref={boardingHeadingRef} id="boarding-title" className="boarding-title" tabIndex={-1}>{t.ticketReady}</h1>
             <p>Aleem &amp; Nurulain</p>
           </div>
-          {restoredInvitation ? (
-            <div className="boarding-returning">
-              <button className="button button-secondary boarding-fast-track" type="button" onClick={() => boardInvitation('fast-track')}>
-                {t.fastTrack}
-              </button>
-              <p>{t.fastTrackHint}</p>
-            </div>
-          ) : null}
+          {restoredInvitation ? <div className="boarding-returning">
+            <button className="button button-secondary boarding-fast-track" type="button" onClick={returnToEntry}>
+              {experienceText.backToItinerary}
+            </button>
+          </div> : null}
           <BoardingPass
             invitation={invitation}
             locale={locale}
+            guestName={readRsvpReceipt(fingerprint, invitation.events.map((event) => event.id))?.guestName}
             onBoard={() => boardInvitation('journey')}
           />
           <button className="invitation-forget" type="button" onClick={forgetInvitation}>{t.forgetInvitation}</button>

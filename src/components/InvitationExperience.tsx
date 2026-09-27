@@ -1,14 +1,18 @@
-import { useEffect, useRef, type MouseEvent } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type MouseEvent } from 'react';
 import { copy } from '../copy';
 import type { AccessCredential, Invitation, Locale } from '../types';
 import { localized } from '../types';
 import { crownePlazaLogo } from '../venueLogo';
 import { mapUrl } from '../venue';
-import { Journey } from './Journey';
+import { ExperienceBoundary } from './ExperienceBoundary';
+import { experienceCopy } from '../experienceCopy';
+import { readRsvpReceipt } from '../storage';
+import { useLowDataMode } from '../useLowDataMode';
 import { LanguageToggle } from './LanguageToggle';
 import { RsvpForm } from './RsvpForm';
-import { EventActions } from './EventActions';
 import '../experience.css';
+
+const Journey = lazy(() => import('./Journey').then((module) => ({ default: module.Journey })));
 
 type InvitationExperienceProps = {
   invitation: Invitation;
@@ -16,9 +20,12 @@ type InvitationExperienceProps = {
   fingerprint: string;
   locale: Locale;
   reducedMotion: boolean;
+  returning?: boolean;
   entryMode?: 'journey' | 'fast-track';
   onBack: () => void;
+  onReplay?: () => void;
   onForget?: () => void;
+  onClearDevice?: () => void;
   onToggleLocale: () => void;
 };
 
@@ -34,57 +41,39 @@ export default function InvitationExperience({
   fingerprint,
   locale,
   reducedMotion,
+  returning = false,
   entryMode = 'journey',
   onBack,
+  onReplay,
   onForget,
+  onClearDevice,
   onToggleLocale,
 }: InvitationExperienceProps) {
   const t = copy[locale];
+  const words = experienceCopy[locale];
+  const lowData = useLowDataMode();
+  const [receipt, setReceipt] = useState(() => readRsvpReceipt(fingerprint, invitation.events.map((event) => event.id)));
   const experienceRef = useRef<HTMLElement>(null);
-  const itineraryHeadingRef = useRef<HTMLHeadingElement>(null);
   const navigatedRef = useRef(false);
   const sectionFocusFrameRef = useRef(0);
 
   useEffect(() => () => window.cancelAnimationFrame(sectionFocusFrameRef.current), []);
 
   useEffect(() => {
-    const experience = experienceRef.current;
-    if (!experience) return;
-    let pointerDown = false;
-    let restoreTimer = 0;
-    const isEditing = (target: EventTarget | null) => target instanceof HTMLElement
-      && target.matches('input:not([type="radio"]):not([type="checkbox"]), textarea, select');
-    const updateKeyboardState = (event: FocusEvent) => {
-      const target = event.type === 'focusout' ? event.relatedTarget : event.target;
-      window.clearTimeout(restoreTimer);
-      // A tap can blur an input before its click fires. Keep the dock hidden
-      // until that tap finishes so it cannot intercept a footer/form button.
-      if (!isEditing(target) && pointerDown) return;
-      experience.toggleAttribute('data-editing', isEditing(target));
-    };
-    const startPointer = () => { pointerDown = true; };
-    const finishPointer = () => {
-      pointerDown = false;
-      restoreTimer = window.setTimeout(() => experience.toggleAttribute('data-editing', isEditing(document.activeElement)), 0);
-    };
-    experience.addEventListener('focusin', updateKeyboardState);
-    experience.addEventListener('focusout', updateKeyboardState);
-    document.addEventListener('pointerdown', startPointer, true);
-    document.addEventListener('pointerup', finishPointer, true);
-    document.addEventListener('pointercancel', finishPointer, true);
-    return () => {
-      window.clearTimeout(restoreTimer);
-      experience.removeEventListener('focusin', updateKeyboardState);
-      experience.removeEventListener('focusout', updateKeyboardState);
-      document.removeEventListener('pointerdown', startPointer, true);
-      document.removeEventListener('pointerup', finishPointer, true);
-      document.removeEventListener('pointercancel', finishPointer, true);
-    };
+    const root = experienceRef.current;
+    const navigation = root?.querySelector<HTMLElement>('.experience-nav');
+    if (!root || !navigation) return;
+    const measure = () => root.style.setProperty('--controls-clearance', `${Math.ceil(navigation.getBoundingClientRect().bottom + 20)}px`);
+    measure();
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null;
+    observer?.observe(navigation);
+    window.addEventListener('resize', measure);
+    return () => { observer?.disconnect(); window.removeEventListener('resize', measure); };
   }, []);
 
   useEffect(() => {
     // Content is visible by default; motion only embellishes its first arrival.
-    if (reducedMotion || typeof IntersectionObserver !== 'function' || typeof Element.prototype.animate !== 'function') return;
+    if (reducedMotion || lowData || typeof IntersectionObserver !== 'function' || typeof Element.prototype.animate !== 'function') return;
     const animations: Animation[] = [];
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
@@ -101,7 +90,7 @@ export default function InvitationExperience({
       observer.disconnect();
       animations.forEach((animation) => animation.cancel());
     };
-  }, [reducedMotion]);
+  }, [reducedMotion, lowData, entryMode]);
 
   const focusSection = (event: MouseEvent<HTMLAnchorElement>, id: string) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -119,8 +108,8 @@ export default function InvitationExperience({
     navigatedRef.current = false;
     if (entryMode === 'fast-track') {
       const frame = window.requestAnimationFrame(() => {
-        itineraryHeadingRef.current?.scrollIntoView({ behavior: 'instant', block: 'start' });
-        itineraryHeadingRef.current?.focus({ preventScroll: true });
+        window.scrollTo({ top: 0, behavior: 'instant' });
+        document.getElementById('itinerary-title')?.focus({ preventScroll: true });
       });
       return () => window.cancelAnimationFrame(frame);
     }
@@ -154,26 +143,40 @@ export default function InvitationExperience({
       window.cancelAnimationFrame(settleFrame);
       window.clearTimeout(settleTimer);
     };
-  }, [reducedMotion, entryMode]);
+  }, [entryMode]);
+
+  const journeyFallback = (failed = false) => (
+    <section className="journey-recovery" aria-labelledby="journey-recovery-title">
+      <h2 id="journey-recovery-title">{failed ? words.invitation : words.journeyLoading}</h2>
+      {failed ? <p role="status">{words.journeyUnavailable}</p> : null}
+      <a className="button button-secondary" href="#itinerary" onClick={(event) => focusSection(event, 'itinerary-title')}>{words.journeySkip}</a>
+    </section>
+  );
 
   return (
-    <main ref={experienceRef} className={`experience cabin-${invitation.cabinClass}`} tabIndex={-1} aria-label={t.journeyLabel}>
+    <main ref={experienceRef} className={`experience experience--${entryMode} cabin-${invitation.cabinClass}`} tabIndex={-1} aria-label={t.journeyLabel}>
       <nav className="experience-nav" aria-label={t.controls}>
-        <button className="experience-back" type="button" aria-label={t.back} onClick={onBack}>
+        <button className="experience-back" type="button" onClick={onBack} aria-label={returning && entryMode === 'journey' ? words.backToItinerary : t.back}>
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M19 12H6m5-5-5 5 5 5" /></svg>
-          <span>{t.back}</span>
+          <span>{returning && entryMode === 'journey' ? words.backToItinerary : t.back}</span>
         </button>
         <span className="experience-nav-monogram" aria-hidden="true">A<span>&amp;</span>N</span>
         <LanguageToggle locale={locale} label={t.language} onToggle={onToggleLocale} />
       </nav>
 
-      {entryMode === 'journey' ? <Journey invitation={invitation} locale={locale} reducedMotion={reducedMotion} /> : null}
+      {entryMode === 'journey' ? <>
+      <ExperienceBoundary fallback={journeyFallback(true)}>
+        <Suspense fallback={journeyFallback()}>
+          <Journey invitation={invitation} locale={locale} guestName={receipt?.guestName} reducedMotion={reducedMotion} />
+        </Suspense>
+      </ExperienceBoundary>
 
       <section id="invitation" className="invitation-reveal" tabIndex={-1}>
         <div className="invitation-card" data-reveal>
-          <img className="invitation-logo" src={`${import.meta.env.BASE_URL}monogram-a-and-n-display.png`} alt="Aleem and Nurulain" width="160" height="110" loading="lazy" decoding="async" />
+          <img className="invitation-logo" src={`${import.meta.env.BASE_URL}monogram-a-and-n-display.webp`} alt="Aleem and Nurulain" width="160" height="110" loading="lazy" decoding="async" />
           <p className="bismillah" lang="ar" dir="rtl">{t.bismillah}</p>
           <p className="salam">{t.salam}</p>
+          {receipt?.guestName ? <p className="personal-salutation">{words.personalInvite(receipt.guestName)}</p> : null}
           <p className="formal-copy">{t.formalInvite}</p>
           <p className="invitation-names-label">{locale === 'ms' ? 'Majlis perkahwinan' : 'The wedding of'}</p>
           <h1>Aleem <span>&amp;</span> Nurulain</h1>
@@ -201,11 +204,17 @@ export default function InvitationExperience({
           </div>
         </div>
       </section>
+      </> : null}
 
-      <section className="itinerary-section" aria-labelledby="itinerary-title">
-        <div className="section-heading" data-reveal>
+      <section id="itinerary" className="itinerary-section" aria-labelledby="itinerary-title">
+        {entryMode === 'fast-track' ? <div className="returning-welcome">
+          <p className="returning-greeting">{receipt?.guestName ? words.welcomeName(receipt.guestName) : words.welcome}</p>
+          <p>{words.thankYou}</p>
+          <button className="button button-text invitation-replay" type="button" onClick={onReplay ?? onBack}>{words.replay}</button>
+        </div> : null}
+        <div className="section-heading">
           <p className="eyebrow">{localized(invitation.cabinLabel, locale)}</p>
-          <h2 id="itinerary-title" ref={itineraryHeadingRef} tabIndex={-1}>{t.itinerary}</h2>
+          <h2 id="itinerary-title" tabIndex={-1}>{t.itinerary}</h2>
           <p>{t.singaporeTime}</p>
         </div>
 
@@ -214,7 +223,7 @@ export default function InvitationExperience({
             const displayDate = localized(event.dateLabel, locale);
             const date = dateParts(displayDate);
             return (
-              <article className="itinerary-card" key={event.id} data-reveal>
+              <article className="itinerary-card" key={event.id}>
                 <p className="itinerary-flight"><span>{event.flightCode}</span><span>{localized(invitation.cabinLabel, locale)}</span></p>
                 <h3 className="itinerary-date">
                   <time dateTime={event.dateIso}>
@@ -251,21 +260,11 @@ export default function InvitationExperience({
                     <dt>{t.hotel}</dt>
                     <dd>
                       <span>{invitation.hotel}</span>
-                      <img
-                        className="venue-logo"
-                        src={crownePlazaLogo}
-                        width="140"
-                        height="85"
-                        loading="lazy"
-                        decoding="async"
-                        alt=""
-                      />
                     </dd>
                   </div>
                   <div><dt>{t.ballroom}</dt><dd>{invitation.ballroom}</dd></div>
                   <div><dt>{t.terminal}</dt><dd>{invitation.terminal}</dd></div>
                 </dl>
-                <EventActions event={event} locale={locale} className="itinerary-actions" />
               </article>
             );
           })}
@@ -274,7 +273,7 @@ export default function InvitationExperience({
       </section>
 
       <section id="venue" className="travel-section" aria-labelledby="venue-title">
-        <div className="travel-arrival" data-reveal>
+        <div className="travel-arrival">
           <div className="travel-introduction">
             <p className="eyebrow">{t.venue}</p>
             <h2 id="venue-title">{t.gettingHere}</h2>
@@ -312,12 +311,18 @@ export default function InvitationExperience({
         accessCredential={accessCredential}
         fingerprint={fingerprint}
         locale={locale}
+        onReceiptChange={setReceipt}
       />
 
       <footer className="site-footer">
-        <img src={`${import.meta.env.BASE_URL}monogram-a-and-n-display.png`} alt="" width="120" height="83" loading="lazy" decoding="async" />
+        <img src={`${import.meta.env.BASE_URL}monogram-a-and-n-display.webp`} alt="" width="120" height="83" loading="lazy" decoding="async" />
         <p>{t.footer}</p>
         {onForget ? <button className="button button-text invitation-forget" type="button" onClick={onForget}>{t.forgetInvitation}</button> : null}
+        {onClearDevice ? <details className="device-settings">
+          <summary>{words.deviceSettings}</summary>
+          <p>{words.clearDeviceHint}</p>
+          <button className="button button-text" type="button" onClick={onClearDevice}>{words.clearDevice}</button>
+        </details> : null}
       </footer>
     </main>
   );

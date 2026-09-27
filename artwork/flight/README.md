@@ -20,3 +20,11 @@ All scenes requested premium photorealistic aviation/editorial imagery at the hi
 The additional **runway.png** prompt requests an exterior blue-hour-to-sunrise runway: low viewpoint, wet asphalt and warm runway lights, navy sky covering two-thirds, small distant control tower, no aircraft or glass framing, central perspective suited to a phone crop. This separates the terminal from the exterior take-off scene.
 
 Run `python scripts/prepare-flight-assets.py` with Pillow including AVIF support. This only resizes and encodes the masters; it performs no retouching. Run `node scripts/render-social.mjs` after installing Playwright Chromium to render the 1200 × 630 social card with exact live typography and the original monogram.
+
+The application display monogram is a lossless WebP derivative of `public/monogram-a-and-n-display.png`. It is separate from the scene encoder above. Rebuild it from the repository root with Pillow:
+
+```sh
+python scripts/prepare-display-monogram.py
+```
+
+Keep the display PNG and original `public/monogram-a-and-n.png` unchanged. The shorter optional flight reuses the existing scene artwork; Simple view and the guest overview do not require those scenes.

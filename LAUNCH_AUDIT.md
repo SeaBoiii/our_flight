@@ -1,6 +1,8 @@
-# Launch-readiness audit
+# Historical launch-readiness audit
 
 Audit date: 22 September 2026. Reviewed the local application, generated production assets, isolated browser fixtures, Apps Script source, and read-only public-site responses. The existing flight identity and English/Malay invitation scopes are preserved. No deployment or live RSVP submission was performed.
+
+**Historical snapshot:** the guest flow, media and storage have since changed. The latest local implementation restores the original ticket and full flight, opens returning visits directly at the itinerary and remembers confirmed RSVP names. See [README.md](README.md) for current behavior and checks. Results below describe the audited version only; they do not verify the later implementation or current deployment.
 
 ## Findings and changes
 

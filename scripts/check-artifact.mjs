@@ -204,7 +204,7 @@ for (const monogramPath of [
   }
 }
 
-for (const requiredAsset of ['favicon.png', 'monogram-a-and-n-display.png', 'og.jpg']) {
+for (const requiredAsset of ['favicon.png', 'monogram-a-and-n-display.png', 'monogram-a-and-n-display.webp', 'og.jpg']) {
   if (!(await exists(join(root, requiredAsset)))) failures.push(`Required brand asset missing: ${requiredAsset}.`);
 }
 

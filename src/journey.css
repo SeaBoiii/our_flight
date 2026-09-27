@@ -35,20 +35,21 @@
 }
 .journey--cinematic .journey-intro { position: relative; width: min(100%, 620px); margin: 0; padding: 0; opacity: var(--intro-opacity); color: #f7f2e8; text-align: center; text-shadow: 0 2px 28px rgba(0,0,0,.2); }
 .journey--cinematic .journey-intro .eyebrow { color: #e2c895; margin: 0 0 14px; }
-.journey--cinematic .journey-intro h1 { margin: 0; font-family: var(--font-display, Georgia, serif); font-size: clamp(3.3rem, 12.5vw, 6.8rem); font-weight: 400; letter-spacing: -.045em; line-height: .98; }
+.journey--cinematic .journey-intro h1 { margin: 0; font-family: var(--font-display, Georgia, serif); font-size: clamp(3.3rem, 12.5vw, 6.8rem); font-weight: 400; letter-spacing: -.045em; line-height: .98; overflow-wrap: anywhere; }
 .journey--cinematic .journey-welcome-body { max-width: 330px; margin: 16px auto 0; color: rgba(247,242,232,.84); font-family: inherit; font-size: 1rem; line-height: 1.55; }
 .journey--cinematic .journey-ticket-slot { position: relative; display: grid; place-items: center; width: min(100%, 550px); min-width: 0; min-height: 0; perspective: 1200px; }
 .journey--cinematic .journey-ticket { position: relative; top: auto; left: auto; width: 100%; opacity: var(--ticket-opacity); transform: translateY(var(--ticket-y)) rotateX(var(--ticket-rotate)) rotate(-5deg); transform-origin: 50% 25%; }
 .ceremonial-ticket { width: 100%; overflow: hidden; border: 1px solid rgba(255,255,255,.4); border-radius: 7px; background: #f7f2e8; color: #081b31; text-align: left; box-shadow: 0 28px 65px -12px rgba(0,0,0,.45), 0 2px 0 rgba(255,255,255,.7) inset; }
-.ceremonial-ticket-band { display: flex; justify-content: space-between; gap: 14px; padding: 15px 20px; background: #081b31; border-bottom: 2px solid #c4a367; color: #e9d2a3; font-size: .62rem; font-weight: 600; letter-spacing: .15em; text-transform: uppercase; }
+.ceremonial-ticket-band { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; padding: 15px 20px; background: #081b31; border-bottom: 2px solid #c4a367; color: #e9d2a3; font-size: .62rem; font-weight: 600; letter-spacing: .15em; text-transform: uppercase; }
 .ceremonial-ticket-content { padding: 22px 24px 16px; }
-.ceremonial-ticket-label { margin: 0; font-size: .57rem; letter-spacing: .2em; text-transform: uppercase; color: #526075; }
+.ceremonial-ticket-label { margin: 0; font-size: .57rem; letter-spacing: .2em; text-transform: uppercase; color: #526075; overflow-wrap: anywhere; }
 .ceremonial-ticket-names { margin: 8px 0 18px; font-family: var(--font-display, Georgia, serif); font-size: clamp(1.9rem, 6.8vw, 3.1rem); line-height: 1.05; overflow-wrap: anywhere; }
 .ceremonial-ticket-names em { font-weight: 400; color: #8f723f; }
 .ceremonial-ticket-route { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; font-size: clamp(.78rem, 3vw, 1.05rem); font-weight: 500; letter-spacing: .1em; }
 .ceremonial-ticket-route > span { max-width: 100%; overflow-wrap: anywhere; }
 .ceremonial-ticket-route svg { width: 58px; height: 22px; stroke: #ad8a4c; fill: none; stroke-width: 1; flex-shrink: 0; }
-.ceremonial-ticket-details { display: flex; justify-content: space-between; gap: 14px; margin-top: 18px; color: #57616f; font-size: .65rem; letter-spacing: .06em; }
+.ceremonial-ticket-details { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; margin-top: 18px; color: #57616f; font-size: .65rem; letter-spacing: .06em; }
+.ceremonial-ticket-details > span { min-width: 0; overflow-wrap: anywhere; }
 .ceremonial-ticket-stub { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 14px 24px; border-top: 1px dashed #c6bca7; font-size: .53rem; font-weight: 600; letter-spacing: .14em; }
 .ceremonial-ticket-barcode { width: 78px; height: 23px; opacity: .65; background: repeating-linear-gradient(90deg, #081b31 0 1px, transparent 1px 3px, #081b31 3px 5px, transparent 5px 6px, #081b31 6px 7px, transparent 7px 10px); }
 .ceremonial-ticket { position: relative; }
@@ -72,7 +73,7 @@
 .journey--cinematic .flight-progress span { display: block; height: 100%; background: #c4a367; transform: scaleX(var(--journey-progress)); transform-origin: left; }
 .static-journey.static-journey--daylight { display: flex; flex-direction: column; align-items: center; gap: 38px; padding: max(124px, calc(env(safe-area-inset-top) + 100px)) 28px 72px; min-height: 0; background: radial-gradient(ellipse at 50% 40%, #fffdf8, #f2e8d5 100%); color: #081b31; }
 .static-journey--daylight .static-journey-intro { max-width: 530px; text-align: center; }
-.static-journey--daylight h1 { margin: 16px 0; font-family: var(--font-display, Georgia, serif); font-size: clamp(3.3rem, 12vw, 6rem); line-height: 1; font-weight: 400; letter-spacing: -.04em; }
+.static-journey--daylight h1 { margin: 16px 0; font-family: var(--font-display, Georgia, serif); font-size: clamp(3.3rem, 12vw, 6rem); line-height: 1; font-weight: 400; letter-spacing: -.04em; overflow-wrap: anywhere; }
 .static-journey--daylight .journey-welcome-body { margin: 0; color: #536174; font-size: 1rem; line-height: 1.65; }
 .static-journey--daylight .static-ticket { width: min(100%, 500px); transform: rotate(-3deg); }
 .static-journey--daylight .ceremonial-ticket { box-shadow: 0 20px 50px -15px rgba(79,63,30,.25); }

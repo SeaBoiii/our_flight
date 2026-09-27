@@ -1,6 +1,6 @@
 # Aleem & Nurulain — Our Flight
 
-A mobile-first Vite/React wedding invitation published as one static GitHub Pages site. Every guest starts at the same URL:
+A mobile-first Vite/React wedding invitation for a static GitHub Pages site. The configured guest URL is:
 
 `https://rsvp.aleemxnurul.love/`
 
@@ -8,36 +8,42 @@ The A&N monogram, boarding-pass designs, ticket scan, Midnight to Daylight fligh
 
 | Invitation side | Cabin class | Invitation scope |
 | --- | --- | --- |
-| Groom | Economy | 22 August Groom's Reception |
-| Groom | Premium Economy | 22 August Groom's Reception |
+| Groom | Economy | 22 August Wedding Reception |
+| Groom | Premium Economy | 22 August Wedding Reception |
 | Groom | Business | Full 21 August programme and 22 August Groom's Reception |
 | Groom | First Class | Full 21 August programme and 22 August Groom's Reception |
-| Bride | Economy | 21 August Bride's Reception only |
-| Bride | Premium Economy | 21 August Bride's Reception only |
-| Bride | Business | 21 August Nikah and Bride's Reception |
+| Bride | Economy | 21 August Wedding Reception only |
+| Bride | Premium Economy | 21 August Wedding Reception only |
+| Bride | Business | 21 August Nikah & Wedding Reception |
 | Bride | First Class | Full 21 August programme and 22 August Groom's Reception |
 
 There is no side or class selector. Codes are normalized with Unicode NFKC, trimmed, uppercased, and stripped of spaces and hyphens before hashing. A version-4 record in `localStorage` remembers the invitation on that browser/device without an expiry. Every reload verifies its credential against the current configured hashes and checks the derived side, class and fingerprint before restoring access. Invalid records, changed access configuration, and disabled legacy credentials return to check-in. Browsers that block storage can still use the current visit.
 
-This release discards old `sessionStorage` access records; existing guests check in once to begin persistent access. RSVP drafts remain in their separate fingerprint-based local-storage keys and are preserved when access is upgraded or forgotten.
+Old `sessionStorage` access records are discarded; those guests check in once to begin persistent access. RSVP drafts and verified receipts use separate fingerprint-based local-storage keys. Switching invitations preserves them; the explicit **Forget this device** action removes them.
 
 ## Guest journey and remembered invitations
 
-The first manual check-in shows ivory boarding passes with navy class bands, gold accents and a scan interaction. The Midnight to Daylight design moves from a blue-hour airport into warm ivory wedding content. Scanning begins the cinematic journey, followed by the formal invitation, Our Story, departures-board-inspired itinerary, visible venue/address/directions, expandable transport guidance, RSVP and footer. The former Flight Dashboard has been retired from the guest experience; its implementation remains available in Git history.
+See [27 September implementation validation](UX_IMPLEMENTATION_VALIDATION.md) for the current changes, browser coverage and remaining device checks.
 
-A prominent tap instruction sits above the tickets. After scanning, a bilingual scroll prompt introduces five phases: the ceremonial ticket lifts away (0–18%), an aircraft takes off over the runway (18–40%), a premium cabin appears (40–56%), the camera advances through its photographed window (56–82%), and daylight clouds open around the A&N monogram (82–100%). Native scrolling controls the sequence in both directions, within a sticky stage spanning `600svh` on phones and `700svh` from tablet width upward. The welcome prompt disappears as the journey begins and returns when guests scroll back to the top.
+First check-in opens the original boarding-pass overview. Tapping a ticket scans it and opens the full invitation: ceremonial ticket, stamp/chop, airport, take-off, cabin window, daylight, formal Islamic invitation, complete story, itinerary, venue, RSVP and original closing. The restored cinematic sequence uses the `cda7f32` visual baseline and spans `600svh` on phones and `700svh` at larger widths.
 
-Only an invitation restored from device storage offers the **Fast Track to Your Itinerary** button above the tickets, so returning guests can reach details without scrolling through both passes. Fast Track never mounts Journey or requests its cinematic artwork and focuses the itinerary heading. The formal invitation and Our Story stay available above the itinerary. Browser Back returns to boarding; Forward preserves the chosen entry mode. Reload always restores the boarding pass, allowing the guest to choose again.
+Remembered visits skip check-in and open directly at the itinerary. A confirmed RSVP name produces **Welcome back, {name}.** followed by **Thank you for being part of our journey.** Older nameless receipts and guests who have not replied receive a generic welcome. The inline **Replay our full invitation** action starts the cinematic journey directly. Back returns to the itinerary after replay and to the boarding pass on a first visit. Native section links and browser Back/Forward retain navigation history. Only the small original Back/language controls and inline RSVP link remain; there is no guest overview, countdown, Simple view control or persistent navigation dock.
 
-The fixed **Your itinerary** and **RSVP** shortcuts are temporarily hidden so guests scroll through the journey before reaching the wedding details. The RSVP link after the itinerary still focuses the form heading and participates in browser history. **Back to boarding pass** and the language control remain at the top; boarding-page Fast Track remains exclusive to remembered invitations.
+The practical experience loads separately from check-in, and Journey plus its cloud renderer load only when the flight is opened. A journey failure leaves the wedding details and RSVP available. The broader loading/error fallback retains scoped dates, times, venue, directions and calendars. Older browsers retain secure UUID and media-query listener fallbacks.
 
-The invitation experience is loaded separately from check-in. While it loads, guests can read their event dates, times and venue, open directions or calendar links, and return to their tickets. An error boundary preserves the same practical information if the experience fails to load or render, with an explicit reload action. Browser storage failures leave the current visit usable. Older Web Crypto implementations use secure random bytes when `randomUUID` is unavailable, and reduced-motion subscriptions support the older media-query listener API.
+The itinerary derives one card per eligible event, preserving programme and venue. Cards have no calendar/directions buttons: directions remain in the venue section and calendars follow successful attending RSVPs. `presentInvitationEvent` clones presentation labels without changing the shared event catalogue. A one-day reception reads **Wedding Reception** / **Resepsi Perkahwinan**; a one-day invitation including Nikah reads **Nikah & Wedding Reception** / **Nikah & Resepsi Perkahwinan**. Both-day invitations retain their specific Bride/Groom headings. The same labels flow through tickets, programme reception entries, RSVP, confirmations and calendars. Programme arrival and Nikah times remain distinct.
 
-The itinerary derives one card per `invitation.events` entry, with the correct flight, date, time, class, programme and venue, plus calendar and Maps links. Its RSVP shortcut takes guests directly to the attendance form. RSVP success and confirmed duplicate receipts replace the form with a bilingual flight confirmation: attending, warmly declining, or mixed attendance. Confirmation calendar links are offered only for attending events. The receipt bridge and server validation remain unchanged.
+## RSVP continuity and device privacy
 
-Calendar links open regular same-origin `.ics` resources without forcing a download or popup. The shared Vite plugin generates and serves six files under `calendar/`: reception-only 21 August, full 21 August, and 22 August, each in English and Malay. The pure event catalogue in `src/invitationEvents.ts` supplies both invitation and calendar data. File URLs respect the deployment base path and return `text/calendar`. Verify the final native save flow on a physical iPhone in Safari and when arriving from a messaging app; Chromium emulation cannot confirm the Calendar handoff.
+A matching server receipt replaces the form with an attending, declining or mixed confirmation. Only attending events receive confirmation calendar links. The browser then removes the personal draft and saves a version-2 receipt: response ID, confirmation time, event attendance, party sizes and the trimmed name from the successfully confirmed response. The optional message and credential are excluded. Version-1 receipts remain readable without a name; an invalid optional name is discarded while retaining valid confirmation. Reopening displays **RSVP received on this device**, without moving focus away from the itinerary. The name is also used as the boarding-pass passenger and in a personal formal-invitation salutation on replay, in both languages. Shared invitation codes do not identify a household; a saved receipt may belong to another person who used the browser.
 
-Use **Use a different invitation** below the boarding pass or in the invitation footer to forget access and return to check-in. This preserves RSVP drafts and language preference. To reset only access during development, run the following in the browser console and reload:
+Unfinished drafts retain the answers needed to resume. An uncertain submission locks those answers and preserves its response ID and original language for an unchanged retry. A later failed retry does not erase that uncertainty. Conflicting answers never prompt a fresh resubmission: guests are directed to reply to the original invitation message for corrections. Closed, preview and unavailable responses have distinct guidance. Leaving the form aborts its transport and ignores late receipts. The Google bridge and backend validation protocol are unchanged.
+
+After confirmation, **Another guest using this device** requires an explicit second action before replacing the local receipt with a fresh form for a different guest, immediately clearing the earlier personal greeting. It does not amend or cancel the earlier server response. If browser storage fails, a bounded in-memory fallback preserves drafts, uncertain retry identity and verified receipts through keepsake navigation during the current visit. It is lost on document reload/close; the form and confirmation explain that future persistence is unavailable. **Forget this device** clears this fallback too.
+
+Calendar links open regular same-origin `.ics` resources without forcing a download or popup. The shared Vite plugin generates and serves twelve files under `calendar/`: the original reception-only 21 August, full 21 August, and 22 August files in English and Malay, plus six `-single-day-` variants with generic reception titles. All original URLs remain available. Variants preserve calendar UIDs, dates, times, time zone and separate Nikah events. The pure event catalogue in `src/invitationEvents.ts` supplies both invitation and calendar data. File URLs respect the deployment base path and return `text/calendar`. Verify the final native save flow on a physical iPhone in Safari and when arriving from a messaging app; Chromium emulation cannot confirm the Calendar handoff.
+
+Use **Use a different invitation** below the boarding pass or in the footer to forget access and return to check-in while preserving drafts and receipts. In the footer's device settings, **Forget this device** removes this application's access, drafts and receipts from local/session storage while preserving language and unrelated data. Neither action cancels a server response. To reset only access during development:
 
 ```js
 localStorage.removeItem('our-flight:access');
@@ -45,15 +51,13 @@ sessionStorage.removeItem('our-flight:access'); // pre-release access, if presen
 location.reload();
 ```
 
-Storage belongs to the exact browser origin. The custom domain, an old `github.io` URL, and localhost each remember invitations separately. Clearing browser site data also clears remembered access and drafts.
+Storage belongs to the exact browser origin. The custom domain, an old `github.io` URL, localhost and messaging-app browsers can retain separate state. Clearing browser site data also removes remembered access, drafts and receipts.
 
-Reduced motion, data saver (`navigator.connection.saveData`), `slow-2g`/`2g` connections and browsers without IntersectionObserver receive a compact static welcome and ceremonial ticket without requesting cinematic images. The reusable network hook subscribes to supported connection changes; browsers without the Network Information API use the normal scroll journey. Fast Track omits both journey variants.
+## Automatic media fallbacks
 
-The cinematic sequence combines responsive AVIF/WebP backgrounds, a transparent WebP aircraft and a procedural WebGL cloud volume. Airport, runway and aircraft artwork mount when the journey becomes visible; cabin/sky load progressively, and the 3D renderer initializes only as guests reach the cabin. The camera's perspective follows the viewport aspect ratio, with capped drawing resolution on phones and desktop. One animation-frame controller follows native scroll progress and suspends work offscreen or when the page is hidden. The clouds need no downloaded texture or 3D library. Unavailable or lost WebGL reveals the sky artwork; failed artwork leaves gradients while text and navigation remain usable. There is no cloud video or audio.
+Detected data saver (`navigator.connection.saveData`) and `slow-2g`/`2g` automatically use a static invitation without cinematic media. Reduced motion and missing IntersectionObserver also receive a static journey with the original ceremonial ticket. No manual display mode is required. Remembered itinerary visits never mount either journey variant or load its module/artwork.
 
-Tapping a boarding pass keeps the scan effect. The circular Singapore/A&N chop lands on the ceremonial ticket during the opening scroll, settles, then the ticket lifts away into the flight. This motion follows scroll progress in both directions; the compact reduced-motion composition omits the chop.
-
-RSVP drafts are validated before restoration. Storage errors are disclosed without blocking the current visit; requests are cancelled when the form is left, preserving retry identity. The original submission language is retained across retries because it forms part of the server's duplicate-detection digest.
+The optional cinema retains responsive AVIF/WebP scenes, a transparent aircraft and procedural WebGL clouds. Airport/runway/aircraft load when the journey becomes visible; cabin/sky and the renderer follow as needed. Rendering stops offscreen and while the page is hidden, with capped resolution and a static sky fallback for unavailable/lost WebGL. Failed artwork leaves readable text and working navigation. There is no video, music, cloud texture download or 3D library.
 
 ## Static-site security boundary
 
@@ -87,7 +91,7 @@ npm run hash:code -- "YOUR-CLASS-CODE"
 
 Hash old opaque tokens and the old shared passcode without class-code normalization.
 
-The original monogram master is `public/monogram-a-and-n.png`; do not optimise or overwrite it. Display, favicon and social-preview derivatives live beside it.
+The original monogram master is `public/monogram-a-and-n.png`; do not optimise or overwrite it. The application uses a lossless WebP display derivative; the display PNG, favicon and social-preview derivatives remain alongside the master. See the [artwork rebuild instructions](artwork/flight/README.md).
 
 Instrument Serif is self-hosted for display typography, system sans-serif remains the body font, and the existing self-hosted Amiri font handles Arabic. Generated scene masters, source prompts and instructions for rebuilding the responsive delivery assets and social preview are documented in [`artwork/flight/README.md`](artwork/flight/README.md). Delivery artwork lives in `public/flight/`; measured cabin-window geometry lives beside its source metadata in `src/sceneAssets.ts`.
 
@@ -99,7 +103,7 @@ Edit the three clearly labelled bilingual lists in [`src/programme.ts`](src/prog
 - `day21NikahAndReception` for full 21 August invitations.
 - `day22GroomReception` for 22 August invitations.
 
-Each list may have its activity names, timestamps and number of entries edited independently. Redeploy GitHub Pages after a programme edit. Boarding-pass and calendar start/end times stay protected in `src/invitationEvents.ts` and are intentionally not derived from these display lists.
+Each list may have its activity names, timestamps and number of entries edited independently. Keep guest arrival first, and Nikah second in the full 21 August list. Preserve `kind: 'reception'` on the reception entry so invitation-aware labels remain consistent. Redeploy GitHub Pages after a programme edit. Boarding-pass and calendar start/end times stay protected in `src/invitationEvents.ts` and are intentionally not derived from these display lists. Review both files when the event schedule changes.
 
 ## GitHub Pages configuration
 
@@ -185,7 +189,7 @@ npx playwright test --project=design-chromium --project=webkit-iphone
 
 On Linux CI, use `npx playwright install --with-deps chromium webkit` to install browser system dependencies too. Playwright starts its own isolated Vite server with test-only invitation hashes and mocked Google receipts; it does not require real codes or a live Apps Script deployment. Never replace these fixtures with production credentials.
 
-Chromium phone projects cover 375 × 667, 390 × 844, 412 × 915 and 430 × 932. They exercise check-in, first/reopened boarding passes, returning-only Fast Track, itinerary focus and event scope, full and reduced-motion journeys, compact low-data invitations, itinerary, RSVP and confirmation. Layout checks include document overflow, text clipping/collisions inside cards, touch targets, Malay copy and increased text size.
+Chromium phone projects cover 375 × 667, 390 × 844, 412 × 915 and 430 × 932. They exercise first boarding passes, remembered itinerary visits, direct replay, event scope, reduced motion, automatic low data, RSVP and restored named/legacy confirmation. Layout checks include document overflow, text clipping/collisions inside cards, touch targets, Malay copy and increased text size. Unit tests additionally cover receipt validation, safe retries, blocked storage, device clearing, name isolation and calendar identity across presentation variants.
 
 The `design-chromium` and `webkit-iphone` projects run the redesign suite in Chromium and WebKit. They cover check-in and wedding-content layouts at 360, 390, 412, 430, 768 and 1440px; capture each cinematic phase, reverse scrolling and landscape orientation; verify all invitation profiles and artwork-failure navigation; check keyboard-focused forms and RSVP receipts; and run automated accessibility checks. `npm run test:e2e` runs the phone and design projects together.
 
@@ -193,4 +197,4 @@ The checked-in screenshots were captured on Windows with the installed Playwrigh
 
 Run `npm run lint`, `npm test`, `npm run build` and `npm run check:artifact` as well. Unit tests use jsdom browser storage, including on Node 25+ where the native Node storage API otherwise shadows it.
 
-The [Midnight to Daylight validation report](REVAMP_VALIDATION.md) records current redesign verification and remaining checks. The earlier [launch-readiness audit](LAUNCH_AUDIT.md) documents prior fixes and release-environment, live RSVP and physical-phone checks. The launch browser tests additionally exercise blocked chunks, older APIs, direct section navigation and 360px Malay text at 200%.
+The [23 September validation report](REVAMP_VALIDATION.md) and [22 September launch audit](LAUNCH_AUDIT.md) are historical snapshots; their counts and measurements do not verify the current implementation. Run the commands above for current results. Physical iPhone/Android, messaging-app browsers, native calendar handoff, live Apps Script and deployed-network checks remain separate release checks.

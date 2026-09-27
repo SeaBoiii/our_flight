@@ -16,6 +16,8 @@ import {
   day21NikahAndReception,
   day22GroomReception,
 } from '../programme';
+import { invitationEvents } from '../invitationEvents';
+import type { CabinClass, InvitationSide } from '../types';
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -56,9 +58,11 @@ describe('static invitation configuration', () => {
     const [fullDay] = invitationForClass('business', 'bride').events;
     const [groomReception] = invitationForClass('economy', 'groom').events;
 
-    expect(reception.programme).toBe(day21BrideReception);
-    expect(fullDay.programme).toBe(day21NikahAndReception);
-    expect(groomReception.programme).toBe(day22GroomReception);
+    expect(reception.programme).not.toBe(day21BrideReception);
+    expect(fullDay.programme).not.toBe(day21NikahAndReception);
+    expect(groomReception.programme).toEqual(day22GroomReception);
+    expect(reception.programme.map((item) => item.time)).toEqual(day21BrideReception.map((item) => item.time));
+    expect(fullDay.programme.map((item) => item.time)).toEqual(day21NikahAndReception.map((item) => item.time));
     expect(new Set([reception.programme, fullDay.programme, groomReception.programme]).size).toBe(3);
     expect(reception.time).toBe('12:00–16:00');
     expect(reception.segments).toHaveLength(1);
@@ -69,9 +73,9 @@ describe('static invitation configuration', () => {
 
   it("localises the 22 August reception and accepts an edited display programme", () => {
     const [event] = invitationForClass('economy').events;
-    expect(event.title).toEqual({ en: "Groom's Reception", ms: 'Walimatul Urus' });
-    expect(event.segments[0].title).toEqual({ en: "Groom's Reception", ms: 'Walimatul Urus' });
-    expect(event.calendarSegments[0].title).toEqual({ en: "Groom's Reception", ms: 'Walimatul Urus' });
+    expect(event.title).toEqual({ en: 'Wedding Reception', ms: 'Resepsi Perkahwinan' });
+    expect(event.segments[0].title).toEqual({ en: 'Wedding Reception', ms: 'Resepsi Perkahwinan' });
+    expect(event.calendarSegments[0].title).toEqual({ en: 'Wedding Reception', ms: 'Resepsi Perkahwinan' });
     expect(event.programme).not.toBe(event.segments);
     expect(event.programme.length).toBeGreaterThan(0);
     for (const item of event.programme) {
@@ -79,6 +83,54 @@ describe('static invitation configuration', () => {
       expect(item.title.en.trim().length).toBeGreaterThan(0);
       expect(item.title.ms.trim().length).toBeGreaterThan(0);
     }
+  });
+
+  it.each([
+    ['bride', 'economy', true], ['bride', 'premium-economy', true],
+    ['bride', 'business', true], ['bride', 'first', false],
+    ['groom', 'economy', true], ['groom', 'premium-economy', true],
+    ['groom', 'business', false], ['groom', 'first', false],
+  ] as Array<[InvitationSide, CabinClass, boolean]>)('uses coherent bilingual labels for %s %s without changing event facts', (side, cabinClass, singleDay) => {
+    const invitation = invitationForClass(cabinClass, side);
+    for (const event of invitation.events) {
+      const source = invitationEvents.find((candidate) => candidate.calendarKey === event.calendarKey)!;
+      expect(event.calendarVariant).toBe(singleDay ? 'single-day' : undefined);
+      expect({ id: event.id, flightCode: event.flightCode, dateIso: event.dateIso, dateLabel: event.dateLabel, time: event.time })
+        .toEqual({ id: source.id, flightCode: source.flightCode, dateIso: source.dateIso, dateLabel: source.dateLabel, time: source.time });
+      for (const locale of ['en', 'ms'] as const) {
+        const reception = locale === 'en' ? 'Wedding Reception' : 'Resepsi Perkahwinan';
+        expect(event.title[locale]).toBe(singleDay
+          ? `${event.calendarKey === 'day21-full' ? 'Nikah & ' : ''}${reception}`
+          : source.title[locale]);
+        for (const key of ['segments', 'programme', 'calendarSegments'] as const) {
+          expect(event[key]).toHaveLength(source[key].length);
+          event[key].forEach((item, index) => {
+            expect(item.title[locale]).toBe(singleDay && item.kind === 'reception' ? reception : source[key][index].title[locale]);
+            expect({ ...item, title: null }).toEqual({ ...source[key][index], title: null });
+          });
+        }
+      }
+    }
+  });
+
+  it('keeps invitation labels isolated from other guests and the editable source data', () => {
+    const original = structuredClone(invitationEvents);
+    const singleDay = invitationForClass('business', 'bride').events[0];
+    const bothDays = invitationForClass('business', 'groom').events[0];
+    for (const event of [singleDay, bothDays]) {
+      event.title.en = 'Changed only for this guest';
+      event.dateLabel.en = 'Changed date label';
+      event.segments[0].title.ms = 'Changed ticket';
+      event.programme[0].title.en = 'Changed programme';
+      event.calendarSegments[0].title.en = 'Changed calendar';
+    }
+    expect(invitationEvents).toEqual(original);
+    expect(invitationForClass('business', 'bride').events[0].title.en).toBe('Nikah & Wedding Reception');
+    expect(invitationForClass('first', 'groom').events[0].title.en).toBe("Nikah & Bride's Reception");
+    expect(invitationForClass('business', 'bride').events[0].programme.slice(0, 2)).toEqual([
+      { time: '10:00', title: { en: 'Guest arrival', ms: 'Ketibaan tetamu' } },
+      { time: '10:45', title: { en: 'Nikah ceremony', ms: 'Majlis nikah' } },
+    ]);
   });
 
   it('normalises a readable code and derives its cabin class from the configured hash', async () => {

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { copy } from '../copy';
 import { rsvpConfirmationCopy } from '../rsvpConfirmationCopy';
+import { rsvpExperienceCopy } from '../rsvpExperienceCopy';
 import type { Invitation, Locale, RsvpDraft } from '../types';
 import { localized } from '../types';
 import { EventActions } from './EventActions';
@@ -9,24 +10,27 @@ import '../rsvp-confirmation.css';
 type RsvpConfirmationProps = {
   invitation: Invitation;
   locale: Locale;
-  response: RsvpDraft;
+  response: Pick<RsvpDraft, 'responses'> & { inviteeName?: string };
   duplicate: boolean;
+  restored?: boolean;
+  receiptSaved?: boolean;
 };
 
-export function RsvpConfirmation({ invitation, locale, response, duplicate }: RsvpConfirmationProps) {
+export function RsvpConfirmation({ invitation, locale, response, duplicate, restored = false, receiptSaved = true }: RsvpConfirmationProps) {
   const t = copy[locale];
   const confirmation = rsvpConfirmationCopy[locale];
+  const experience = rsvpExperienceCopy[locale];
   const headingRef = useRef<HTMLHeadingElement>(null);
   const answers = new Map(response.responses.map((answer) => [answer.eventId, answer]));
   const attendingCount = invitation.events.filter((event) => answers.get(event.id)?.attendance === 'attending').length;
   const tone = attendingCount === invitation.events.length ? 'attending' : attendingCount === 0 ? 'declining' : 'mixed';
 
   useEffect(() => {
-    headingRef.current?.focus();
-  }, []);
+    if (!restored) headingRef.current?.focus();
+  }, [restored]);
 
   return (
-    <div className={`rsvp-confirmation rsvp-confirmation--${tone}`}>
+    <div className={`rsvp-confirmation rsvp-confirmation--${tone}${restored ? ' rsvp-confirmation--restored' : ''}`}>
       <header className="rsvp-confirmation__header">
         <div className="rsvp-confirmation__stamp" aria-hidden="true">
           <svg viewBox="0 0 32 32" fill="none"><path d="m7 16 6 6L25 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -34,15 +38,15 @@ export function RsvpConfirmation({ invitation, locale, response, duplicate }: Rs
         </div>
         <div role="status" aria-live="polite" aria-atomic="true">
           <p className="eyebrow">{confirmation.received}</p>
-          <h2 id="rsvp-title" ref={headingRef} tabIndex={-1}>{confirmation[`${tone}Title`]}</h2>
-          <p className="rsvp-confirmation__message">{confirmation[`${tone}Body`]}</p>
+          <h2 id="rsvp-title" ref={headingRef} tabIndex={-1}>{restored ? experience.restoredTitle : confirmation[`${tone}Title`]}</h2>
+          <p className="rsvp-confirmation__message">{restored ? experience.restoredBody : confirmation[`${tone}Body`]}</p>
         </div>
       </header>
 
-      <dl className="rsvp-confirmation__passenger">
+      {response.inviteeName ? <dl className="rsvp-confirmation__passenger">
         <div><dt>{t.name}</dt><dd>{response.inviteeName.trim()}</dd></div>
         <div><dt>{confirmation.cabinClass}</dt><dd>{localized(invitation.cabinLabel, locale)}</dd></div>
-      </dl>
+      </dl> : null}
 
       <div className="rsvp-confirmation__events">
         {invitation.events.map((event) => {
@@ -76,7 +80,11 @@ export function RsvpConfirmation({ invitation, locale, response, duplicate }: Rs
         <p>{locale === 'ms' ? `${t.ballroom} ${invitation.ballroom}` : `${invitation.ballroom} ${t.ballroom}`} &middot; {t.terminal} {invitation.terminal}</p>
         <p>{t.singaporeTime}</p>
       </div>
-      <p className="rsvp-confirmation__receipt">{duplicate ? t.duplicate : t.success}</p>
+      {!restored ? <p className="rsvp-confirmation__receipt">{duplicate ? t.duplicate : t.success}</p> : null}
+      <p className="rsvp-confirmation__receipt">{receiptSaved
+        ? response.inviteeName ? experience.storedWithName : experience.stored
+        : experience.notStored}</p>
+      <p className="rsvp-confirmation__receipt">{experience.corrections}</p>
     </div>
   );
 }

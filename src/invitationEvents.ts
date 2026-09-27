@@ -1,4 +1,4 @@
-import type { InvitationEvent } from './types';
+import type { InvitationEvent, LocalizedText } from './types';
 import {
   day21BrideReception,
   day21NikahAndReception,
@@ -14,11 +14,11 @@ export const day21Reception: InvitationEvent = {
   title: { en: "Bride's Reception", ms: 'Resepsi Pengantin Perempuan' },
   time: '12:00–16:00',
   segments: [
-    { title: { en: "Bride's Reception", ms: 'Resepsi Pengantin Perempuan' }, time: '12:00–16:00' },
+    { kind: 'reception', title: { en: "Bride's Reception", ms: 'Resepsi Pengantin Perempuan' }, time: '12:00–16:00' },
   ],
   programme: day21BrideReception,
   calendarSegments: [
-    { title: { en: "Bride's Reception", ms: 'Resepsi Pengantin Perempuan' }, startLocal: '20270821T120000', endLocal: '20270821T160000' },
+    { kind: 'reception', title: { en: "Bride's Reception", ms: 'Resepsi Pengantin Perempuan' }, startLocal: '20270821T120000', endLocal: '20270821T160000' },
   ],
 };
 
@@ -32,12 +32,12 @@ export const day21Full: InvitationEvent = {
   time: '10:00–16:00',
   segments: [
     { title: { en: 'Nikah', ms: 'Nikah' }, time: '10:00–12:00' },
-    { title: { en: "Bride's Reception", ms: 'Resepsi Pengantin Perempuan' }, time: '12:00–16:00' },
+    { kind: 'reception', title: { en: "Bride's Reception", ms: 'Resepsi Pengantin Perempuan' }, time: '12:00–16:00' },
   ],
   programme: day21NikahAndReception,
   calendarSegments: [
     { title: { en: 'Nikah', ms: 'Nikah' }, startLocal: '20270821T100000', endLocal: '20270821T120000' },
-    { title: { en: "Bride's Reception", ms: 'Resepsi Pengantin Perempuan' }, startLocal: '20270821T120000', endLocal: '20270821T160000' },
+    { kind: 'reception', title: { en: "Bride's Reception", ms: 'Resepsi Pengantin Perempuan' }, startLocal: '20270821T120000', endLocal: '20270821T160000' },
   ],
 };
 
@@ -50,12 +50,40 @@ export const day22: InvitationEvent = {
   title: { en: "Groom's Reception", ms: 'Walimatul Urus' },
   time: '12:00–16:00',
   segments: [
-    { title: { en: "Groom's Reception", ms: 'Walimatul Urus' }, time: '12:00–16:00' },
+    { kind: 'reception', title: { en: "Groom's Reception", ms: 'Walimatul Urus' }, time: '12:00–16:00' },
   ],
   programme: day22GroomReception,
   calendarSegments: [
-    { title: { en: "Groom's Reception", ms: 'Walimatul Urus' }, startLocal: '20270822T120000', endLocal: '20270822T160000' },
+    { kind: 'reception', title: { en: "Groom's Reception", ms: 'Walimatul Urus' }, startLocal: '20270822T120000', endLocal: '20270822T160000' },
   ],
 };
 
 export const invitationEvents: InvitationEvent[] = [day21Reception, day21Full, day22];
+
+const weddingReception: LocalizedText = { en: 'Wedding Reception', ms: 'Resepsi Perkahwinan' };
+const nikahAndWeddingReception: LocalizedText = { en: 'Nikah & Wedding Reception', ms: 'Nikah & Resepsi Perkahwinan' };
+
+/** Change presentation only. Shared source events, eligibility and calendar identity stay intact. */
+export function presentInvitationEvent(event: InvitationEvent, singleDay: boolean): InvitationEvent {
+  const presentItem = <T extends { kind?: 'reception'; title: LocalizedText }>(item: T): T => ({
+    ...item,
+    title: { ...(singleDay && item.kind === 'reception' ? weddingReception : item.title) },
+  });
+  return {
+    ...event,
+    calendarVariant: singleDay ? 'single-day' : undefined,
+    dateLabel: { ...event.dateLabel },
+    title: { ...(singleDay
+      ? event.calendarKey === 'day21-full' ? nikahAndWeddingReception : weddingReception
+      : event.title) },
+    segments: event.segments.map(presentItem),
+    programme: event.programme.map(presentItem),
+    calendarSegments: event.calendarSegments.map(presentItem),
+  };
+}
+
+// Preserve every previously published URL alongside the neutral single-day variants.
+export const calendarEventVariants: InvitationEvent[] = [
+  ...invitationEvents,
+  ...invitationEvents.map((event) => presentInvitationEvent(event, true)),
+];

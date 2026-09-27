@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ApiFailure, submitRsvp } from '../api';
 import { createUuid } from '../browser';
 import { copy } from '../copy';
-import { clearDraft, readDraft, saveDraft, type SavedRsvpDraft } from '../storage';
+import { clearDraft, clearRsvpReceipt, readRsvpDraftState, readRsvpReceiptState, saveDraft, saveRsvpReceipt, type SavedRsvpDraft, type SavedRsvpReceipt } from '../storage';
+import { rsvpExperienceCopy } from '../rsvpExperienceCopy';
 import type { AccessCredential, Invitation, Locale, RsvpDraft } from '../types';
 import { localized } from '../types';
 import { RsvpConfirmation } from './RsvpConfirmation';
@@ -12,11 +13,20 @@ type RsvpFormProps = {
   accessCredential: AccessCredential;
   fingerprint: string;
   locale: Locale;
+  onReceiptChange?: (receipt: SavedRsvpReceipt | null) => void;
 };
 
 type ErrorMessage = 'nameError' | 'messageError' | 'attendanceError' | 'partyError';
 type Errors = Record<string, ErrorMessage>;
-type SubmitState = 'idle' | 'sending' | 'success' | 'duplicate' | 'failed' | 'unconfirmed' | 'conflict';
+type SubmitState = 'idle' | 'sending' | 'success' | 'duplicate' | 'failed' | 'unconfirmed' | 'conflict' | 'closed' | 'preview' | 'unavailable';
+
+type Confirmation = {
+  receipt: SavedRsvpReceipt;
+  response: Pick<RsvpDraft, 'responses'> & { inviteeName?: string };
+  duplicate: boolean;
+  restored: boolean;
+  saved: boolean;
+};
 
 function freshDraft(invitation: Invitation, saved: SavedRsvpDraft | null): SavedRsvpDraft {
   const savedAnswers = new Map(saved?.responses.map((answer) => [answer.eventId, answer]));
@@ -28,6 +38,9 @@ function freshDraft(invitation: Invitation, saved: SavedRsvpDraft | null): Saved
     inviteeName: saved?.inviteeName ?? '',
     message: saved?.message ?? '',
     ...(saved?.submissionLocale ? { submissionLocale: saved.submissionLocale } : {}),
+    // Older drafts stored the submission language but not its delivery state.
+    // Treat them as uncertain until the unchanged response is acknowledged.
+    ...(saved?.submissionState || saved?.submissionLocale ? { submissionState: saved.submissionState ?? 'unconfirmed' } : {}),
     responses: invitation.events.map((event) => {
       const answer = savedAnswers.get(event.id);
       return {
@@ -44,23 +57,41 @@ export function RsvpForm({
   accessCredential,
   fingerprint,
   locale,
+  onReceiptChange,
 }: RsvpFormProps) {
   const t = copy[locale];
+  const experience = rsvpExperienceCopy[locale];
   const [{ draft, draftSaved }, setDraftState] = useState<{ draft: SavedRsvpDraft; draftSaved: boolean | null }>(() => {
-    const saved = readDraft(fingerprint);
-    return { draft: freshDraft(invitation, saved), draftSaved: saved ? true : null };
+    const saved = readRsvpDraftState(fingerprint);
+    return { draft: freshDraft(invitation, saved?.draft ?? null), draftSaved: saved?.persisted ?? null };
   });
   const [errors, setErrors] = useState<Errors>({});
-  const [submitState, setSubmitState] = useState<SubmitState>('idle');
-  const [confirmedResponse, setConfirmedResponse] = useState<{ response: RsvpDraft; duplicate: boolean } | null>(null);
+  const [submitState, setSubmitState] = useState<SubmitState>(draft.submissionState ?? 'idle');
+  const [confirmedResponse, setConfirmedResponse] = useState<Confirmation | null>(() => {
+    const saved = readRsvpReceiptState(fingerprint, invitation.events.map((event) => event.id));
+    return saved ? {
+      receipt: saved.receipt,
+      response: { responses: saved.receipt.responses, inviteeName: saved.receipt.guestName },
+      duplicate: false,
+      restored: true,
+      saved: saved.persisted,
+    } : null;
+  });
+  const [startingAnotherGuest, setStartingAnotherGuest] = useState(false);
   const sendingRef = useRef(false);
   const submissionRef = useRef<AbortController | null>(null);
   const summaryRef = useRef<HTMLDivElement>(null);
-  const formDisabled = invitation.rsvpStatus !== 'open' || submitState === 'sending' || submitState === 'success' || submitState === 'duplicate';
+  const anotherGuestRef = useRef<HTMLButtonElement>(null);
+  const pendingResponse = draft.submissionState !== undefined;
+  const submitDisabled = invitation.rsvpStatus !== 'open'
+    || ['sending', 'success', 'duplicate', 'conflict', 'closed', 'preview'].includes(submitState);
+  const formDisabled = submitDisabled || pendingResponse;
 
   useEffect(() => () => submissionRef.current?.abort(), []);
+  useEffect(() => { onReceiptChange?.(confirmedResponse?.receipt ?? null); }, [confirmedResponse, onReceiptChange]);
 
   const updateDraft = (next: SavedRsvpDraft) => {
+    if (formDisabled) return;
     setDraftState({ draft: next, draftSaved: saveDraft(fingerprint, next) });
     setSubmitState('idle');
   };
@@ -106,7 +137,7 @@ export function RsvpForm({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (invitation.rsvpStatus !== 'open' || sendingRef.current || confirmedResponse) return;
+    if (submitDisabled || sendingRef.current || confirmedResponse) return;
     const nextErrors = validate();
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) {
@@ -121,6 +152,7 @@ export function RsvpForm({
       // Locale is part of the server's idempotency digest, even when answers
       // are unchanged. Preserve the first submission's locale across retries.
       submissionLocale,
+      submissionState: 'unconfirmed',
       responses: draft.responses.map((answer) => ({ ...answer })),
     };
     setDraftState({ draft: submittedResponse, draftSaved: saveDraft(fingerprint, submittedResponse) });
@@ -131,8 +163,16 @@ export function RsvpForm({
     try {
       const result = await submitRsvp(accessCredential, submissionLocale, submittedResponse, controller.signal);
       if (controller.signal.aborted) return;
+      const receipt: SavedRsvpReceipt = {
+        version: 2,
+        guestName: submittedResponse.inviteeName.trim(),
+        responseId: submittedResponse.responseId,
+        confirmedAt: new Date().toISOString(),
+        responses: submittedResponse.responses.map((answer) => ({ ...answer })),
+      };
+      const receiptSaved = saveRsvpReceipt(fingerprint, receipt);
       clearDraft(fingerprint);
-      setConfirmedResponse({ response: submittedResponse, duplicate: Boolean(result.duplicate) });
+      setConfirmedResponse({ receipt, response: submittedResponse, duplicate: Boolean(result.duplicate), restored: false, saved: receiptSaved });
       setSubmitState(result.duplicate ? 'duplicate' : 'success');
     } catch (error) {
       if (controller.signal.aborted) return;
@@ -148,16 +188,36 @@ export function RsvpForm({
             else serverErrors[`attendance-${index}`] = 'attendanceError';
           });
         }
-        if (Object.keys(serverErrors).length) {
+        if (Object.keys(serverErrors).length && !draft.submissionState) {
           handledValidation = true;
           setErrors(serverErrors);
           window.requestAnimationFrame(() => summaryRef.current?.focus());
         }
       }
-      if (error instanceof ApiFailure && error.code === 'unconfirmed') setSubmitState('unconfirmed');
-      else if (error instanceof ApiFailure && error.code === 'idempotency_conflict') setSubmitState('conflict');
-      else if (handledValidation) setSubmitState('idle');
-      else setSubmitState('failed');
+      let nextState: SubmitState;
+      if (error instanceof ApiFailure && error.code === 'idempotency_conflict') nextState = 'conflict';
+      else if (error instanceof ApiFailure && error.code === 'closed') nextState = 'closed';
+      else if (error instanceof ApiFailure && error.code === 'preview') nextState = 'preview';
+      else if (error instanceof ApiFailure && error.code === 'not_configured') nextState = 'unavailable';
+      else if (handledValidation) nextState = 'idle';
+      else if (error instanceof ApiFailure && error.code === 'submission_failed') nextState = 'failed';
+      else nextState = 'unconfirmed';
+      // A definite rejection of this retry cannot tell us whether an earlier
+      // uncertain attempt arrived. Keep that earlier response intact.
+      const nextSubmissionState = nextState === 'unconfirmed' || nextState === 'conflict'
+        ? nextState
+        : draft.submissionState;
+      const recoveredDraft: SavedRsvpDraft = {
+        responseId: submittedResponse.responseId,
+        inviteeName: submittedResponse.inviteeName,
+        message: submittedResponse.message,
+        responses: submittedResponse.responses,
+        ...(nextSubmissionState
+          ? { submissionLocale, submissionState: nextSubmissionState }
+          : {}),
+      };
+      setDraftState({ draft: recoveredDraft, draftSaved: saveDraft(fingerprint, recoveredDraft) });
+      setSubmitState(nextState);
     } finally {
       if (submissionRef.current === controller) submissionRef.current = null;
       sendingRef.current = false;
@@ -165,10 +225,22 @@ export function RsvpForm({
   };
 
   const handleClear = () => {
+    if (pendingResponse || submitState === 'sending') return;
     clearDraft(fingerprint);
     setDraftState({ draft: freshDraft(invitation, null), draftSaved: null });
     setErrors({});
+    setSubmitState((current) => current === 'closed' || current === 'preview' ? current : 'idle');
+  };
+
+  const handleAnotherGuest = () => {
+    clearRsvpReceipt(fingerprint);
+    clearDraft(fingerprint);
+    setConfirmedResponse(null);
+    setStartingAnotherGuest(false);
+    setDraftState({ draft: freshDraft(invitation, null), draftSaved: null });
+    setErrors({});
     setSubmitState('idle');
+    window.requestAnimationFrame(() => document.getElementById('invitee-name')?.focus());
   };
 
   const statusMessage = submitState === 'success'
@@ -178,10 +250,12 @@ export function RsvpForm({
       : submitState === 'failed'
         ? t.failed
         : submitState === 'unconfirmed'
-          ? t.unconfirmed
+          ? experience.unconfirmed
           : submitState === 'conflict'
-            ? t.conflict
-            : '';
+            ? experience.conflict
+            : submitState === 'closed' || submitState === 'preview' || submitState === 'unavailable'
+              ? experience[submitState]
+              : '';
 
   const errorTarget = (field: string): string => {
     if (field === 'inviteeName') return 'invitee-name';
@@ -199,7 +273,22 @@ export function RsvpForm({
           locale={locale}
           response={confirmedResponse.response}
           duplicate={confirmedResponse.duplicate}
+          restored={confirmedResponse.restored}
+          receiptSaved={confirmedResponse.saved}
         />
+        {invitation.rsvpStatus === 'open' ? (
+          <div className="rsvp-new-guest">
+            <button ref={anotherGuestRef} className="button button-text" type="button" onClick={() => setStartingAnotherGuest(!startingAnotherGuest)} aria-expanded={startingAnotherGuest} aria-controls="another-guest-details">{experience.anotherGuest}</button>
+              <div id="another-guest-details" role="group" aria-label={experience.anotherGuest} hidden={!startingAnotherGuest}>
+                <p>{experience.anotherGuestBody}</p>
+                <p>{experience.corrections}</p>
+                <div className="form-actions">
+                  <button className="button button-secondary" type="button" onClick={handleAnotherGuest}>{experience.startAnotherGuest}</button>
+                  <button className="button button-text" type="button" onClick={() => { setStartingAnotherGuest(false); anotherGuestRef.current?.focus(); }}>{experience.cancel}</button>
+                </div>
+              </div>
+          </div>
+        ) : null}
       </section>
     );
   }
@@ -343,14 +432,16 @@ export function RsvpForm({
         ) : null}
 
         <div className="form-actions">
-          <button className="button button-primary" type="submit" disabled={formDisabled}>
+          <button className="button button-primary" type="submit" disabled={submitDisabled}>
             {submitState === 'sending' ? t.sending : t.send}
           </button>
-          <button className="button button-text" type="button" onClick={handleClear} disabled={submitState === 'sending'}>
+          <button className="button button-text" type="button" onClick={handleClear} disabled={submitState === 'sending' || pendingResponse}>
             {t.clear}
           </button>
         </div>
-        {draftSaved !== null ? <p className="form-note" role={draftSaved ? undefined : 'status'}>{draftSaved ? t.saved : t.draftNotSaved}</p> : null}
+        {draftSaved !== null ? <p className="form-note" role={draftSaved ? undefined : 'status'}>{pendingResponse
+          ? draftSaved ? experience.pendingSaved : experience.pendingNotSaved
+          : draftSaved ? t.saved : t.draftNotSaved}</p> : null}
         <p className="form-note">{t.privacy}</p>
       </form>
     </section>

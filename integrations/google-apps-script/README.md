@@ -43,6 +43,10 @@ Apps Script responds through `window.top.postMessage` because HtmlService nests 
 
 The response version matches the accepted request version. The browser accepts a receipt only from an HTTPS Google script/content origin when type, version, nonce, and response ID all match. A timeout or iframe load is never treated as success; the saved draft and response ID remain available for retry.
 
+The guest-experience update does not change this protocol. After verified success, the browser removes the personal draft and saves a version-2 receipt containing confirmation time, response ID, event attendance, party sizes and the trimmed submitted guest name for a returning welcome. Optional messages and credentials are excluded. Version-1 receipts remain readable without a remembered name; an invalid optional name is omitted without discarding a valid confirmation. Receipts stay isolated by invitation fingerprint. Restored confirmation is explicitly device-specific, not a live lookup or household identity; another person may have used that browser. Starting another guest's RSVP or forgetting the device removes the remembered name together with the local receipt.
+
+Uncertain attempts retain the original response ID, answers and submission language for an unchanged retry. Editing/clearing that attempt is disabled; a subsequent rejected retry does not prove the earlier attempt failed. An `idempotency_conflict` directs the guest to reply to the original invitation message for help, without generating a new response ID. The separate **Another guest using this device** flow starts a new RSVP only after explicit confirmation; it cannot amend the earlier row. Clearing device data does not cancel an accepted RSVP.
+
 ## One-time workbook setup
 
 1. Create or open the private **Aleem & Nurulain — RSVP Responses** Google Sheet.

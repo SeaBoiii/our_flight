@@ -2,18 +2,34 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
 import { sha256Hex } from '../invitations';
-import { saveRememberedInvitation, type SavedInvitation } from '../storage';
+import { saveRememberedInvitation, saveRsvpReceipt, type SavedInvitation } from '../storage';
 import { copy } from '../copy';
+import { experienceCopy } from '../experienceCopy';
+import type { Invitation, Locale } from '../types';
 
-const experienceState = vi.hoisted(() => ({ failed: false }));
+const experienceState = vi.hoisted(() => ({ failed: false, lowData: false }));
+vi.mock('../useLowDataMode', () => ({ useLowDataMode: () => experienceState.lowData }));
 
 vi.mock('../components/InvitationExperience', () => ({
-  default: ({ entryMode, onBack, onForget }: { entryMode: string; onBack: () => void; onForget: () => void }) => {
+  default: ({ invitation, locale, entryMode, returning, onBack, onReplay, onForget, onClearDevice }: {
+    invitation: Invitation;
+    locale: Locale;
+    entryMode: string;
+    returning: boolean;
+    onBack: () => void;
+    onReplay: () => void;
+    onForget: () => void;
+    onClearDevice: () => void;
+  }) => {
     if (experienceState.failed) throw new Error('Could not load invitation chunk');
+    const t = experienceCopy[locale];
     return (
-    <main aria-label={`${entryMode} experience`}>
-      <button type="button" onClick={onBack}>Back to boarding pass</button>
-      <button type="button" onClick={onForget}>Use a different invitation</button>
+    <main aria-label={`${entryMode} experience`} data-returning={returning}>
+      <button type="button" onClick={onBack}>Back</button>
+      <button type="button" onClick={onReplay}>{t.replay}</button>
+      <button type="button" onClick={onForget}>{copy[locale].forgetInvitation}</button>
+      <button type="button" onClick={onClearDevice}>{t.clearDevice}</button>
+      {invitation.events.map((event) => <p key={event.id}>{event.title[locale]}</p>)}
       <a href="#rsvp">RSVP</a>
       <section id="rsvp">RSVP form</section>
     </main>
@@ -39,12 +55,13 @@ async function unlockInvitation(code = 'ALPHA123') {
   await waitFor(() => expect(input.disabled).toBe(false));
   fireEvent.change(input, { target: { value: code } });
   fireEvent.click(screen.getByRole('button', { name: 'View invitation' }));
-  await screen.findByText('Your boarding pass is ready.');
+  await screen.findByText(copy.en.ticketReady);
 }
 
 describe('invitation gate', () => {
   beforeEach(async () => {
     experienceState.failed = false;
+    experienceState.lowData = false;
     window.history.replaceState(null, '', window.location.pathname);
     vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
     vi.stubEnv('VITE_INVITE_CODE_HASH_ECONOMY', await sha256Hex('ALPHA123'));
@@ -58,8 +75,9 @@ describe('invitation gate', () => {
     vi.stubEnv('VITE_LEGACY_INVITES_ENABLED', 'false');
   });
 
-  it('uses responsive airport artwork as a decorative background without blocking check-in', () => {
+  it('uses responsive airport artwork as a decorative background without blocking check-in', async () => {
     const { container } = render(<App />);
+    await waitFor(() => expect((screen.getByLabelText('Invitation code') as HTMLInputElement).disabled).toBe(false));
     const picture = container.querySelector('.gate-background');
     const source = picture?.querySelector('source');
     const image = picture?.querySelector('img');
@@ -73,6 +91,23 @@ describe('invitation gate', () => {
     expect((screen.getByLabelText('Invitation code') as HTMLInputElement).type).toBe('text');
   });
 
+  it('has no manual Simple view control and ignores its retired saved preference', async () => {
+    window.localStorage.setItem('our-flight:view', 'simple');
+    const { container } = render(<App />);
+    await waitFor(() => expect((screen.getByLabelText('Invitation code') as HTMLInputElement).disabled).toBe(false));
+    expect(container.querySelector('.gate-background')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Simple view' })).toBeNull();
+  });
+
+  it('automatically avoids the airport picture for a data-saving visit', async () => {
+    experienceState.lowData = true;
+    const { container } = render(<App />);
+    await waitFor(() => expect((screen.getByLabelText('Invitation code') as HTMLInputElement).disabled).toBe(false));
+    expect(container.querySelector('.gate-background')).toBeNull();
+    await unlockInvitation();
+    expect(screen.getByText(copy.en.ticketReady)).toBeTruthy();
+  });
+
   it('unlocks from the canonical root with forgiving code formatting', async () => {
     render(<App />);
     const input = screen.getByLabelText('Invitation code') as HTMLInputElement;
@@ -81,7 +116,9 @@ describe('invitation gate', () => {
     fireEvent.change(input, { target: { value: ' alpha-123 ' } });
     fireEvent.click(screen.getByRole('button', { name: 'View invitation' }));
 
-    expect(await screen.findByText('Your boarding pass is ready.')).toBeTruthy();
+    expect(await screen.findByText(copy.en.ticketReady)).toBeTruthy();
+    expect(screen.queryByRole('main', { name: 'fast-track experience' })).toBeNull();
+    expect(window.history.state?.ourFlightEntry).toMatchObject({ view: 'boarding', position: 0 });
     const session = JSON.parse(window.localStorage.getItem('our-flight:access') ?? '{}');
     expect(session.version).toBe(4);
     expect(session.credential).toEqual({ kind: 'class-code', value: 'ALPHA123' });
@@ -101,8 +138,8 @@ describe('invitation gate', () => {
     fireEvent.change(input, { target: { value: 'echo-1234' } });
     fireEvent.click(screen.getByRole('button', { name: 'View invitation' }));
 
-    expect(await screen.findByText('Your boarding pass is ready.')).toBeTruthy();
-    expect(screen.getByText("Bride's Reception")).toBeTruthy();
+    expect(await screen.findByText(copy.en.ticketReady)).toBeTruthy();
+    expect(screen.getByText('Wedding Reception')).toBeTruthy();
     expect(screen.queryByText('Nikah')).toBeNull();
     const session = JSON.parse(window.localStorage.getItem('our-flight:access') ?? '{}');
     expect(session.side).toBe('bride');
@@ -120,22 +157,65 @@ describe('invitation gate', () => {
     }));
 
     render(<App />);
-    expect(await screen.findByText('Your boarding pass is ready.')).toBeTruthy();
+    const itinerary = await screen.findByRole('main', { name: 'fast-track experience' });
+    expect(itinerary.getAttribute('data-returning')).toBe('true');
     expect(screen.queryByLabelText('Invitation code')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Fast Track to Your Itinerary' })).toBeTruthy();
+    expect(screen.queryByText(copy.en.ticketReady)).toBeNull();
   });
 
-  it('puts returning-guest Fast Track before both tickets', async () => {
+  it('opens both invited days directly while keeping both tickets accessible', async () => {
     await rememberInvitation({
       fingerprint: await sha256Hex('CHARLIE7'),
       cabinClass: 'business',
       credential: { kind: 'class-code', value: 'CHARLIE7' },
     });
     const { container } = render(<App />);
-    const fastTrack = await screen.findByRole('button', { name: copy.en.fastTrack });
+    await screen.findByRole('main', { name: 'fast-track experience' });
+    expect(screen.getByText("Nikah & Bride's Reception")).toBeTruthy();
+    expect(screen.getByText("Groom's Reception")).toBeTruthy();
+    expect(container.querySelectorAll('.boarding-pass')).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await screen.findByText(copy.en.ticketReady);
     const tickets = container.querySelectorAll('.boarding-pass');
     expect(tickets).toHaveLength(2);
-    expect(fastTrack.compareDocumentPosition(tickets[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('button', { name: experienceCopy.en.backToItinerary })).toBeTruthy();
+  });
+
+  it('personalises the returning boarding pass only from a confirmed version 2 receipt', async () => {
+    const { fingerprint } = await rememberInvitation();
+    saveRsvpReceipt(fingerprint, {
+      version: 2,
+      guestName: 'Aisha & family',
+      responseId: '4f4dd805-4233-4138-8fe4-24d5a825d7cf',
+      confirmedAt: '2027-07-01T10:00:00.000Z',
+      responses: [{ eventId: 'day22', attendance: 'attending', partySize: '2' }],
+    });
+    window.localStorage.setItem(`our-flight:rsvp:${fingerprint}`, JSON.stringify({
+      responseId: '4f4dd805-4233-4138-8fe4-24d5a825d7cf',
+      inviteeName: 'Unconfirmed draft name', message: '', responses: [],
+    }));
+    render(<App />);
+    await screen.findByRole('main', { name: 'fast-track experience' });
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await screen.findByText(copy.en.ticketReady);
+    expect(screen.getByText('Aisha & family')).toBeTruthy();
+    expect(screen.queryByText('Honoured Guest')).toBeNull();
+    expect(screen.queryByText('Unconfirmed draft name')).toBeNull();
+  });
+
+  it('keeps the honoured-guest label when no registered name is saved', async () => {
+    const { fingerprint } = await rememberInvitation();
+    saveRsvpReceipt(fingerprint, {
+      version: 1,
+      responseId: '4f4dd805-4233-4138-8fe4-24d5a825d7cf',
+      confirmedAt: '2027-07-01T10:00:00.000Z',
+      responses: [{ eventId: 'day22', attendance: 'attending', partySize: '2' }],
+    });
+    render(<App />);
+    await screen.findByRole('main', { name: 'fast-track experience' });
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await screen.findByText(copy.en.ticketReady);
+    expect(screen.getByText('Honoured Guest')).toBeTruthy();
   });
 
   it('keeps event details and a way back when the invitation experience fails', async () => {
@@ -143,7 +223,6 @@ describe('invitation gate', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     experienceState.failed = true;
     render(<App />);
-    fireEvent.click(await screen.findByRole('button', { name: copy.en.fastTrack }));
     const heading = await screen.findByRole('heading', { name: copy.en.experienceUnavailable });
     expect(document.activeElement).toBe(heading);
     expect(screen.getByRole('alert').textContent).toBe(copy.en.experienceUnavailableBody);
@@ -211,102 +290,143 @@ describe('invitation gate', () => {
     vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 180 * 24 * 60 * 60_000);
 
     render(<App />);
-    expect(await screen.findByText('Your boarding pass is ready.')).toBeTruthy();
+    expect(await screen.findByRole('main', { name: 'fast-track experience' })).toBeTruthy();
     expect(window.localStorage.getItem('our-flight:access')).not.toBeNull();
     expect(window.localStorage.getItem(`our-flight:rsvp:${fingerprint}`)).toBe('{"saved":true}');
   });
 
-  it('offers Fast Track only after the manually unlocked invitation is reopened', async () => {
+  it('shows the ticket on a first visit and opens the itinerary when the invitation returns', async () => {
     const firstVisit = render(<App />);
     await unlockInvitation();
-    expect(screen.queryByRole('button', { name: 'Fast Track to Your Itinerary' })).toBeNull();
+    expect(screen.getByText(copy.en.ticketReady)).toBeTruthy();
+    expect(screen.queryByRole('main', { name: 'fast-track experience' })).toBeNull();
     firstVisit.unmount();
 
     render(<App />);
-    expect(await screen.findByRole('button', { name: 'Fast Track to Your Itinerary' })).toBeTruthy();
+    expect((await screen.findByRole('main', { name: 'fast-track experience' })).getAttribute('data-returning')).toBe('true');
     expect(screen.queryByLabelText('Invitation code')).toBeNull();
   });
 
-  it('keeps first-unlock Fast Track hidden after scanning and returning to the ticket', async () => {
+  it('scans the first-visit ticket and returns from the journey to that ticket', async () => {
     render(<App />);
     await unlockInvitation();
+    expect(await screen.findByText(copy.en.ticketReady)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Tap ticket to scan and board' }));
     expect(await screen.findByRole('main', { name: 'journey experience' }, { timeout: 2000 })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Back to boarding pass' }));
-    expect(await screen.findByText('Your boarding pass is ready.')).toBeTruthy();
-    await waitFor(() => expect(window.history.state?.ourFlightEntry?.view).toBe('boarding'));
-    expect(screen.queryByRole('button', { name: 'Fast Track to Your Itinerary' })).toBeNull();
-  });
-
-  it('preserves Fast Track mode through browser back and forward', async () => {
-    await rememberInvitation();
-    render(<App />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Fast Track to Your Itinerary' }));
-    expect(await screen.findByRole('main', { name: 'fast-track experience' })).toBeTruthy();
-    expect(screen.queryByRole('main', { name: 'journey experience' })).toBeNull();
-
-    window.history.back();
-    expect(await screen.findByText('Your boarding pass is ready.')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Fast Track to Your Itinerary' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByText(copy.en.ticketReady)).toBeTruthy();
+    await waitFor(() => expect(window.history.state?.ourFlightEntry).toMatchObject({ view: 'boarding', position: 0 }));
+    expect(screen.queryByRole('main', { name: 'fast-track experience' })).toBeNull();
     window.history.forward();
+    expect(await screen.findByRole('main', { name: 'journey experience' })).toBeTruthy();
+    window.history.back();
+    expect(await screen.findByText(copy.en.ticketReady)).toBeTruthy();
+  });
+
+  it('preserves the returning itinerary and keepsake through browser back and forward', async () => {
+    await rememberInvitation();
+    render(<App />);
     expect(await screen.findByRole('main', { name: 'fast-track experience' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByText(copy.en.ticketReady)).toBeTruthy();
+    window.history.back();
+    expect(await screen.findByRole('main', { name: 'fast-track experience' })).toBeTruthy();
+    window.history.forward();
+    expect(await screen.findByText(copy.en.ticketReady)).toBeTruthy();
     expect(screen.queryByRole('main', { name: 'journey experience' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: experienceCopy.en.backToItinerary }));
+    await waitFor(() => expect(window.history.state?.ourFlightEntry?.position).toBe(0));
+    expect(screen.getByRole('main', { name: 'fast-track experience' })).toBeTruthy();
   });
 
-  it('allows a returning guest to replay the full journey', async () => {
+  it('allows a returning guest to replay directly and return to the itinerary through Back and Forward', async () => {
     await rememberInvitation();
     render(<App />);
-    await screen.findByRole('button', { name: 'Fast Track to Your Itinerary' });
-    fireEvent.click(screen.getByRole('button', { name: 'Tap ticket to scan and board' }));
+    await screen.findByRole('main', { name: 'fast-track experience' });
+    fireEvent.click(screen.getByRole('button', { name: experienceCopy.en.replay }));
     expect(await screen.findByRole('main', { name: 'journey experience' }, { timeout: 2000 })).toBeTruthy();
+    window.history.back();
+    expect(await screen.findByRole('main', { name: 'fast-track experience' })).toBeTruthy();
+    window.history.forward();
+    expect(await screen.findByRole('main', { name: 'journey experience' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await waitFor(() => expect(window.history.state?.ourFlightEntry?.position).toBe(0));
+    expect(screen.getByRole('main', { name: 'fast-track experience' })).toBeTruthy();
   });
 
-  it('keeps section-link history in Fast Track and returns past anchors to the boarding pass', async () => {
+  it('keeps native section-link history and returns past anchors from the keepsake to the itinerary', async () => {
     await rememberInvitation();
     render(<App />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Fast Track to Your Itinerary' }));
     await screen.findByRole('main', { name: 'fast-track experience' });
     fireEvent.click(screen.getByRole('link', { name: 'RSVP' }));
-    await waitFor(() => expect(window.history.state?.ourFlightEntry?.position).toBe(2));
+    await waitFor(() => expect(window.history.state?.ourFlightEntry?.position).toBe(1));
     expect(window.location.hash).toBe('#rsvp');
     expect(screen.getByRole('main', { name: 'fast-track experience' })).toBeTruthy();
     window.history.back();
-    await waitFor(() => expect(window.history.state?.ourFlightEntry?.position).toBe(1));
+    await waitFor(() => expect(window.history.state?.ourFlightEntry?.position).toBe(0));
     expect(screen.getByRole('main', { name: 'fast-track experience' })).toBeTruthy();
     window.history.forward();
-    await waitFor(() => expect(window.history.state?.ourFlightEntry?.position).toBe(2));
-    fireEvent.click(screen.getByRole('button', { name: 'Back to boarding pass' }));
+    await waitFor(() => expect(window.history.state?.ourFlightEntry?.position).toBe(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     await waitFor(() => expect(window.history.state?.ourFlightEntry?.view).toBe('boarding'));
-    expect(screen.getByRole('button', { name: 'Fast Track to Your Itinerary' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: experienceCopy.en.backToItinerary }));
+    await waitFor(() => expect(window.history.state?.ourFlightEntry?.position).toBe(0));
     expect(window.location.hash).toBe('');
     window.history.forward();
     expect(await screen.findByRole('main', { name: 'fast-track experience' })).toBeTruthy();
     expect(screen.queryByRole('main', { name: 'journey experience' })).toBeNull();
   });
 
-  it.each(['boarding', 'experience'])('forgets from %s, preserves drafts, and resets first-unlock behaviour', async (view) => {
+  it.each(['boarding', 'experience'])('switches invitations from %s while preserving drafts', async (view) => {
     const { fingerprint } = await rememberInvitation();
     window.localStorage.setItem(`our-flight:rsvp:${fingerprint}`, '{"saved":true}');
     render(<App />);
-    const fastTrack = await screen.findByRole('button', { name: 'Fast Track to Your Itinerary' });
-    if (view === 'experience') {
-      fireEvent.click(fastTrack);
-      await screen.findByRole('main', { name: 'fast-track experience' });
+    await screen.findByRole('main', { name: 'fast-track experience' });
+    if (view === 'boarding') {
+      fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+      await screen.findByText(copy.en.ticketReady);
     }
     fireEvent.click(screen.getByRole('button', { name: 'Use a different invitation' }));
     expect(screen.getByLabelText('Invitation code')).toBeTruthy();
     expect(window.localStorage.getItem('our-flight:access')).toBeNull();
     expect(window.localStorage.getItem(`our-flight:rsvp:${fingerprint}`)).toBe('{"saved":true}');
     await unlockInvitation('ECHO1234');
-    expect(screen.getByText("Bride's Reception")).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Fast Track to Your Itinerary' })).toBeNull();
+    expect(screen.getByText('Wedding Reception')).toBeTruthy();
+    expect(screen.getByText(copy.en.ticketReady)).toBeTruthy();
+    expect(screen.queryByRole('main', { name: 'fast-track experience' })).toBeNull();
+  });
+
+  it('can clear saved access, drafts and receipts on the device without clearing unrelated preferences', async () => {
+    const { fingerprint } = await rememberInvitation();
+    for (const target of [window.localStorage, window.sessionStorage]) {
+      target.setItem(`our-flight:rsvp:${fingerprint}`, '{"saved":true}');
+      target.setItem(`our-flight:receipt:${fingerprint}`, '{"received":true}');
+      target.setItem('our-flight:rsvp:another-invitation', '{"saved":true}');
+      target.setItem('unrelated-app-data', 'keep');
+    }
+    window.localStorage.setItem('our-flight:view', 'simple');
+    render(<App />);
+    await screen.findByRole('main', { name: 'fast-track experience' });
+    fireEvent.click(screen.getByRole('button', { name: experienceCopy.en.clearDevice }));
+    expect(screen.getByLabelText('Invitation code')).toBeTruthy();
+    for (const target of [window.localStorage, window.sessionStorage]) {
+      expect(target.getItem('our-flight:access')).toBeNull();
+      expect(target.getItem(`our-flight:rsvp:${fingerprint}`)).toBeNull();
+      expect(target.getItem(`our-flight:receipt:${fingerprint}`)).toBeNull();
+      expect(target.getItem('our-flight:rsvp:another-invitation')).toBeNull();
+      expect(target.getItem('unrelated-app-data')).toBe('keep');
+    }
+    expect(window.localStorage.getItem('our-flight:view')).toBe('simple');
+    await unlockInvitation();
+    expect(screen.getByText(copy.en.ticketReady)).toBeTruthy();
   });
 
   it('does not reopen a forgotten invitation through browser history after switching', async () => {
     await rememberInvitation();
     render(<App />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Fast Track to Your Itinerary' }));
     await screen.findByRole('main', { name: 'fast-track experience' });
+    fireEvent.click(screen.getByRole('button', { name: experienceCopy.en.replay }));
+    await screen.findByRole('main', { name: 'journey experience' });
     fireEvent.click(screen.getByRole('link', { name: 'RSVP' }));
     await waitFor(() => expect(window.history.state?.ourFlightEntry?.position).toBe(2));
     const previousVisit = window.history.state.ourFlightEntry.visit;
@@ -318,20 +438,21 @@ describe('invitation gate', () => {
     await unlockInvitation('ECHO1234');
     window.history.back();
     await waitFor(() => expect(window.history.state?.ourFlightEntry?.visit).toBe(previousVisit));
-    expect(screen.getByText("Bride's Reception")).toBeTruthy();
-    expect(screen.queryByText("Groom's Reception")).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Fast Track to Your Itinerary' })).toBeNull();
+    expect(screen.getByText('Wedding Reception')).toBeTruthy();
+    expect(screen.getAllByText('AN2108').length).toBeGreaterThan(0);
+    expect(screen.queryByText('AN2208')).toBeNull();
+    expect(screen.getByText(copy.en.ticketReady)).toBeTruthy();
     window.history.forward();
     await waitFor(() => expect(window.history.state?.ourFlightEntry?.visit).not.toBe(previousVisit));
-    expect(screen.getByText("Bride's Reception")).toBeTruthy();
-    expect(screen.queryByRole('main', { name: 'fast-track experience' })).toBeNull();
+    expect(screen.getByText('Wedding Reception')).toBeTruthy();
+    expect(screen.getByText(copy.en.ticketReady)).toBeTruthy();
   });
 
   it('localises returning-guest actions in Malay', async () => {
     await rememberInvitation();
     window.localStorage.setItem('our-flight:language', 'ms');
     render(<App />);
-    expect(await screen.findByRole('button', { name: 'Laluan Pantas ke Jadual Majlis Anda' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: experienceCopy.ms.replay })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Gunakan jemputan lain' })).toBeTruthy();
   });
 
@@ -350,7 +471,7 @@ describe('invitation gate', () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new DOMException('Blocked', 'SecurityError'); });
     render(<App />);
     await unlockInvitation();
-    expect(screen.queryByRole('button', { name: 'Fast Track to Your Itinerary' })).toBeNull();
+    expect(screen.getByText(copy.en.ticketReady)).toBeTruthy();
     expect(window.localStorage.getItem('our-flight:access')).toBeNull();
   });
 
@@ -361,10 +482,11 @@ describe('invitation gate', () => {
     try {
       render(<App />);
       await unlockInvitation();
-      fireEvent.click(screen.getByRole('button', { name: 'Tap ticket to scan and board' }));
+      fireEvent.click(screen.getByRole('button', { name: copy.en.scanTicket }));
       expect(await screen.findByRole('main', { name: 'journey experience' }, { timeout: 2000 })).toBeTruthy();
-      fireEvent.click(screen.getByRole('button', { name: copy.en.back }));
+      fireEvent.click(screen.getByRole('button', { name: 'Back' }));
       expect(await screen.findByText(copy.en.ticketReady)).toBeTruthy();
+      await waitFor(() => expect(window.history.state?.ourFlightEntry?.position).toBe(0));
     } finally {
       localStorage.mockRestore();
       sessionStorage.mockRestore();
@@ -403,6 +525,7 @@ describe('invitation gate', () => {
 
     await waitFor(() => expect(completedDigests).toBe(2));
     expect(screen.queryByText('Your boarding pass is ready.')).toBeNull();
+    expect(screen.queryByRole('main', { name: 'fast-track experience' })).toBeNull();
     expect(window.localStorage.getItem('our-flight:access')).toBeNull();
     expect(window.location.hash).toBe('');
   });
@@ -433,7 +556,7 @@ describe('invitation gate', () => {
     await rememberInvitation();
     window.location.hash = `#/i/${'z'.repeat(24)}`;
     render(<App />);
-    expect(await screen.findByRole('button', { name: 'Fast Track to Your Itinerary' })).toBeTruthy();
+    expect(await screen.findByRole('main', { name: 'fast-track experience' })).toBeTruthy();
     expect(window.location.hash).toBe('');
     expect(window.localStorage.getItem('our-flight:access')).not.toBeNull();
   });
@@ -451,8 +574,8 @@ describe('invitation gate', () => {
       credential: { kind: 'legacy-token', value: token },
     });
     render(<App />);
-    expect(await screen.findByRole('button', { name: 'Fast Track to Your Itinerary' })).toBeTruthy();
-    expect(screen.getByText("Groom's Reception")).toBeTruthy();
+    expect(await screen.findByRole('main', { name: 'fast-track experience' })).toBeTruthy();
+    expect(screen.getByText('Wedding Reception')).toBeTruthy();
   });
 
   it('accepts an old shared passcode during transition and then removes the fragment', async () => {
@@ -472,7 +595,7 @@ describe('invitation gate', () => {
     fireEvent.change(input, { target: { value: passcode } });
     fireEvent.click(screen.getByRole('button', { name: 'View invitation' }));
 
-    expect(await screen.findByText('Your boarding pass is ready.')).toBeTruthy();
+    expect(await screen.findByText(copy.en.ticketReady)).toBeTruthy();
     expect(window.location.hash).toBe('');
     const session = JSON.parse(window.localStorage.getItem('our-flight:access') ?? '{}');
     expect(session.side).toBe('groom');
@@ -504,7 +627,7 @@ describe('invitation gate', () => {
     fireEvent.change(input, { target: { value: passcode } });
     fireEvent.click(screen.getByRole('button', { name: 'View invitation' }));
 
-    expect(await screen.findByText('Your boarding pass is ready.')).toBeTruthy();
+    expect(await screen.findByText(copy.en.ticketReady)).toBeTruthy();
     const session = JSON.parse(window.localStorage.getItem('our-flight:access') ?? '{}');
     expect(session.cabinClass).toBe('premium-economy');
     expect(session.credential.value).toBe(incomingToken);

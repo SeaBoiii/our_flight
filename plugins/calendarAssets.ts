@@ -1,6 +1,6 @@
 import type { Plugin } from 'vite';
 import { calendarContents, calendarFileName, calendarUrl } from '../src/calendar';
-import { invitationEvents } from '../src/invitationEvents';
+import { calendarEventVariants } from '../src/invitationEvents';
 import type { Locale } from '../src/types';
 
 const locales: Locale[] = ['en', 'ms'];
@@ -16,7 +16,7 @@ export function calendarAssets(): Plugin {
       base = config.base;
     },
     configureServer(server) {
-      const calendars = new Map(invitationEvents.flatMap((event) => locales.map((locale) => [
+      const calendars = new Map(calendarEventVariants.flatMap((event) => locales.map((locale) => [
         calendarUrl(event, locale, base), calendarContents(event, locale),
       ])));
 
@@ -33,7 +33,7 @@ export function calendarAssets(): Plugin {
       });
     },
     generateBundle() {
-      for (const event of invitationEvents) {
+      for (const event of calendarEventVariants) {
         for (const locale of locales) {
           this.emitFile({
             type: 'asset',

@@ -8,7 +8,7 @@ import type {
   LocalizedText,
   RsvpStatus,
 } from './types';
-import { day21Reception, day21Full, day22 } from './invitationEvents';
+import { day21Reception, day21Full, day22, presentInvitationEvent } from './invitationEvents';
 
 const labels: Record<CabinClass, LocalizedText> = {
   economy: { en: 'Economy', ms: 'Kelas Ekonomi' },
@@ -194,7 +194,7 @@ export function invitationForClass(cabinClass: CabinClass, side: InvitationSide 
     cabinLabel: labels[cabinClass],
     scope,
     flightCode: events.map((event) => event.flightCode).join(' / '),
-    events,
+    events: events.map((event) => presentInvitationEvent(event, scope !== 'both-days')),
     passengerLabel: { en: 'Honoured Guest', ms: 'Tetamu Yang Dihormati' },
     hotel: 'Crowne Plaza at Changi Airport',
     ballroom: 'Chengal',

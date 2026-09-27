@@ -46,6 +46,13 @@ function setupScrollScene() {
 }
 
 describe('compact static journey', () => {
+  it('retains a personalised ceremonial ticket in the automatic reduced-motion composition', () => {
+    const { container } = render(<Journey invitation={invitationWith()} locale="en" reducedMotion guestName="  Aisyah & Family  " />);
+    expect(container.querySelector('.ceremonial-ticket-label')?.textContent).toBe('Aisyah & Family');
+    expect(container.querySelector('.ceremonial-ticket-names')?.textContent).toBe('Aleem & Nurulain');
+    expect(container.querySelector('img, picture, video, canvas')).toBeNull();
+  });
+
   it('keeps welcome and wedding identity readable without loading cinematic images', () => {
     const { container } = render(<Journey invitation={invitationWith()} locale="en" reducedMotion />);
     expect(screen.getByRole('heading', { name: 'Welcome aboard' })).toBeTruthy();

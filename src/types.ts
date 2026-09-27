@@ -20,12 +20,14 @@ export type LocalizedText = {
 };
 
 export type CalendarSegment = {
+  kind?: 'reception';
   title: LocalizedText;
   startLocal: string;
   endLocal: string;
 };
 
 export type ProgrammeItem = {
+  kind?: 'reception';
   time: string;
   title: LocalizedText;
 };
@@ -33,12 +35,13 @@ export type ProgrammeItem = {
 export type InvitationEvent = {
   id: 'day21' | 'day22';
   calendarKey: 'day21-reception' | 'day21-full' | 'day22';
+  calendarVariant?: 'single-day';
   flightCode: 'AN2108' | 'AN2208';
   dateIso: '2027-08-21' | '2027-08-22';
   dateLabel: LocalizedText;
   title: LocalizedText;
   time: string;
-  segments: Array<{ title: LocalizedText; time: string }>;
+  segments: Array<{ kind?: 'reception'; title: LocalizedText; time: string }>;
   programme: ProgrammeItem[];
   calendarSegments: CalendarSegment[];
 };

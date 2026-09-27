@@ -1,10 +1,12 @@
-# Midnight to Daylight — local validation
+# Midnight to Daylight — historical local validation
 
 Reviewed on 23 September 2026. Implementation is ready for local design review. Nothing has been published or pushed.
 
+**Historical snapshot:** the 27 September guest-experience implementation supersedes this report's entry flow, cinema duration, navigation and storage descriptions. Its measurements and passing counts apply only to the 23 September version. See [README.md](README.md) for current behavior and validation commands; this report is not evidence that the later implementation or a deployment passed those checks.
+
 ## Preview
 
-Run `npm run dev:demo`, then open **http://127.0.0.1:4175/** with demo code **E2EGROOM03** for both events, or **E2EBRIDE01** for the bride's reception only. This isolated server ignores local environment credentials and disables RSVP sending. Reload after check-in to try returning-guest Fast Track.
+Run `npm run dev:demo`, then open **http://127.0.0.1:4175/** with demo code **E2EGROOM03** for both events, or **E2EBRIDE01** for the bride's reception only. This isolated server ignores local environment credentials and disables RSVP sending. In the current implementation, check-in opens the original boarding pass and scanning starts the full flight. Reload opens the itinerary, with an inline replay action and a personal greeting when a confirmed name is available.
 
 The production build can be reviewed separately with `npm run preview -- --host 127.0.0.1 --port 4180`. It uses the existing local environment configuration. Publishing remains separate: pushing the production branch triggers GitHub Pages deployment.
 

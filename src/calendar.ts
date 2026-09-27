@@ -64,10 +64,11 @@ export function calendarContents(event: InvitationEvent, locale: Locale): string
   return `${lines.flatMap(foldLine).join('\r\n')}\r\n`;
 }
 
-export function calendarFileName(event: Pick<InvitationEvent, 'calendarKey'>, locale: Locale): string {
-  return `aleem-nurulain-${event.calendarKey}-${locale}.ics`;
+export function calendarFileName(event: Pick<InvitationEvent, 'calendarKey' | 'calendarVariant'>, locale: Locale): string {
+  const variant = event.calendarVariant === 'single-day' ? '-single-day' : '';
+  return `aleem-nurulain-${event.calendarKey}${variant}-${locale}.ics`;
 }
 
-export function calendarUrl(event: Pick<InvitationEvent, 'calendarKey'>, locale: Locale, base = '/'): string {
+export function calendarUrl(event: Pick<InvitationEvent, 'calendarKey' | 'calendarVariant'>, locale: Locale, base = '/'): string {
   return `${base.replace(/\/?$/, '/')}calendar/${calendarFileName(event, locale)}`;
 }

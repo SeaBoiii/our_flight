@@ -5,17 +5,19 @@ import type { ProgrammeItem } from './types';
  *
  * - Replace `--:--` with a display time such as `12:30` when confirmed.
  * - Edit both the English (`en`) and Malay (`ms`) descriptions.
+ * - Keep `kind: 'reception'` on reception entries so single-day invitations
+ *   use the neutral Wedding Reception label in either language.
  * - These entries appear only in the itinerary. Ticket and calendar times are
- *   kept separately in `invitations.ts`, so programme edits cannot change them.
+ *   kept separately in `invitationEvents.ts`, so programme edits cannot change them.
  */
 export const day21BrideReception = [
-  { time: '12:00', title: { en: "Bride's reception", ms: 'Resepsi pengantin perempuan' } },
+  { kind: 'reception', time: '12:00', title: { en: "Bride's reception", ms: 'Resepsi pengantin perempuan' } },
 ] satisfies ProgrammeItem[];
 
 export const day21NikahAndReception = [
   { time: '10:00', title: { en: 'Guest arrival', ms: 'Ketibaan tetamu' } },
   { time: '10:45', title: { en: 'Nikah ceremony', ms: 'Majlis nikah' } },
-  { time: '12:00', title: { en: "Bride's reception", ms: 'Resepsi pengantin perempuan' } },
+  { kind: 'reception', time: '12:00', title: { en: "Bride's reception", ms: 'Resepsi pengantin perempuan' } },
 ] satisfies ProgrammeItem[];
 
 export const day22GroomReception = [
