@@ -2,10 +2,12 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ApiFailure, submitRsvp } from '../api';
 import { createUuid } from '../browser';
 import { copy } from '../copy';
+import { designCopy } from '../designCopy';
 import { clearDraft, clearRsvpReceipt, readRsvpDraftState, readRsvpReceiptState, saveDraft, saveRsvpReceipt, type SavedRsvpDraft, type SavedRsvpReceipt } from '../storage';
 import { rsvpExperienceCopy } from '../rsvpExperienceCopy';
 import type { AccessCredential, Invitation, Locale, RsvpDraft } from '../types';
 import { localized } from '../types';
+import { MinusIcon, PlusIcon } from './Icons';
 import { RsvpConfirmation } from './RsvpConfirmation';
 
 type RsvpFormProps = {
@@ -61,6 +63,7 @@ export function RsvpForm({
 }: RsvpFormProps) {
   const t = copy[locale];
   const experience = rsvpExperienceCopy[locale];
+  const design = designCopy[locale];
   const [{ draft, draftSaved }, setDraftState] = useState<{ draft: SavedRsvpDraft; draftSaved: boolean | null }>(() => {
     const saved = readRsvpDraftState(fingerprint);
     return { draft: freshDraft(invitation, saved?.draft ?? null), draftSaved: saved?.persisted ?? null };
@@ -296,7 +299,6 @@ export function RsvpForm({
   return (
     <section id="rsvp" className="rsvp-section" aria-labelledby="rsvp-title">
       <div className="section-heading">
-        <p className="eyebrow">RSVP</p>
         <h2 id="rsvp-title" tabIndex={-1}>{t.rsvpTitle}</h2>
         <p>{localized(invitation.rsvpDeadline, locale)}</p>
       </div>
@@ -357,6 +359,7 @@ export function RsvpForm({
                   {t.attendanceQuestion}
                 </legend>
                 {inviteEvent.segments.length > 1 ? <p className="field-help">{t.oneAnswer}</p> : null}
+                <div className="attendance-choices">
                 <label className="radio-option">
                   <input
                     id={`attendance-${index}-yes`}
@@ -383,21 +386,35 @@ export function RsvpForm({
                   />
                   <span>{t.declining}</span>
                 </label>
+                </div>
                 {attendanceError ? <span id={`attendance-error-${index}`} className="field-error">{t[attendanceError]}</span> : null}
                 {answer?.attendance === 'attending' ? (
                   <div className="form-field form-field--party">
                     <label htmlFor={`party-size-${index}`}>{t.partySize}</label>
-                    <input
-                      id={`party-size-${index}`}
-                      type="number"
-                      inputMode="numeric"
-                      min="1"
-                      step="1"
-                      value={answer.partySize}
-                      aria-invalid={Boolean(partyError)}
-                      aria-describedby={partyError ? `party-error-${index}` : undefined}
-                      onChange={(event) => updateAnswer(inviteEvent.id, 'partySize', event.target.value)}
-                    />
+                    <div className="party-stepper">
+                      <button
+                        type="button"
+                        aria-label={design.decreaseParty}
+                        disabled={!/^\d+$/.test(answer.partySize) || Number(answer.partySize) <= 1}
+                        onClick={() => updateAnswer(inviteEvent.id, 'partySize', String(Math.max(1, Number(answer.partySize) - 1)))}
+                      ><MinusIcon /></button>
+                      <input
+                        id={`party-size-${index}`}
+                        type="number"
+                        inputMode="numeric"
+                        min="1"
+                        step="1"
+                        value={answer.partySize}
+                        aria-invalid={Boolean(partyError)}
+                        aria-describedby={partyError ? `party-error-${index}` : undefined}
+                        onChange={(event) => updateAnswer(inviteEvent.id, 'partySize', event.target.value)}
+                      />
+                      <button
+                        type="button"
+                        aria-label={design.increaseParty}
+                        onClick={() => updateAnswer(inviteEvent.id, 'partySize', String(/^\d+$/.test(answer.partySize) ? Number(answer.partySize) + 1 : 1))}
+                      ><PlusIcon /></button>
+                    </div>
                     {partyError ? <span id={`party-error-${index}`} className="field-error">{t[partyError]}</span> : null}
                   </div>
                 ) : null}

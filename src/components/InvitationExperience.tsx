@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState, type MouseEvent } from 'react';
 import { copy } from '../copy';
+import { designCopy } from '../designCopy';
 import type { AccessCredential, Invitation, Locale } from '../types';
 import { localized } from '../types';
 import { crownePlazaLogo } from '../venueLogo';
@@ -8,8 +9,18 @@ import { ExperienceBoundary } from './ExperienceBoundary';
 import { experienceCopy } from '../experienceCopy';
 import { readRsvpReceipt } from '../storage';
 import { useLowDataMode } from '../useLowDataMode';
+import { gsap, ScrollTrigger, SplitText } from '../motion/gsap';
+import { useGsapScene } from '../motion/useGsapScene';
+import { pauseMusic } from '../music';
+import { preloadForReplay } from '../preload';
+import { sceneAssets } from '../sceneAssets';
+import { Envelope } from './Envelope';
+import { ArrowDownIcon, ArrowUpRightIcon } from './Icons';
 import { LanguageToggle } from './LanguageToggle';
+import { MusicToggle } from './MusicToggle';
+import { OurStory } from './OurStory';
 import { RsvpForm } from './RsvpForm';
+import { VenueMap } from './VenueMap';
 import '../experience.css';
 
 const Journey = lazy(() => import('./Journey').then((module) => ({ default: module.Journey })));
@@ -51,13 +62,21 @@ export default function InvitationExperience({
 }: InvitationExperienceProps) {
   const t = copy[locale];
   const words = experienceCopy[locale];
+  const design = designCopy[locale];
   const lowData = useLowDataMode();
+  const motion = !reducedMotion && !lowData && typeof IntersectionObserver === 'function';
   const [receipt, setReceipt] = useState(() => readRsvpReceipt(fingerprint, invitation.events.map((event) => event.id)));
+  const [addressCopied, setAddressCopied] = useState(false);
   const experienceRef = useRef<HTMLElement>(null);
   const navigatedRef = useRef(false);
   const sectionFocusFrameRef = useRef(0);
+  const copiedTimerRef = useRef(0);
+  const base = import.meta.env.BASE_URL;
 
-  useEffect(() => () => window.cancelAnimationFrame(sectionFocusFrameRef.current), []);
+  useEffect(() => () => {
+    window.cancelAnimationFrame(sectionFocusFrameRef.current);
+    window.clearTimeout(copiedTimerRef.current);
+  }, []);
 
   useEffect(() => {
     const root = experienceRef.current;
@@ -71,26 +90,72 @@ export default function InvitationExperience({
     return () => { observer?.disconnect(); window.removeEventListener('resize', measure); };
   }, []);
 
+  // Music steps aside when the guest reaches the RSVP form.
   useEffect(() => {
-    // Content is visible by default; motion only embellishes its first arrival.
-    if (reducedMotion || lowData || typeof IntersectionObserver !== 'function' || typeof Element.prototype.animate !== 'function') return;
-    const animations: Animation[] = [];
-    const observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue;
-        observer.unobserve(entry.target);
-        if (!document.hidden) animations.push(entry.target.animate(
-          [{ opacity: 0.65, transform: 'translateY(22px)' }, { opacity: 1, transform: 'translateY(0)' }],
-          { duration: 750, easing: 'cubic-bezier(.2,.7,.2,1)' },
-        ));
+    const rsvp = experienceRef.current?.querySelector('#rsvp');
+    if (!rsvp) return undefined;
+    const trigger = ScrollTrigger.create({ trigger: rsvp, start: 'top 70%', onEnter: () => pauseMusic(900) });
+    return () => trigger.kill();
+  }, []);
+
+  // Section reveals: one GSAP context for the whole page, reverted on unmount.
+  useGsapScene(experienceRef, () => {
+    const root = experienceRef.current!;
+    // The navigation bar condenses once the guest starts scrolling.
+    ScrollTrigger.create({
+      start: 120,
+      end: 'max',
+      toggleClass: { targets: root.querySelector('.experience-nav')!, className: 'experience-nav--condensed' },
+    });
+
+    // Formal invitation: each line rises through a mask.
+    gsap.utils.toArray<HTMLElement>('[data-reveal-lines]', root).forEach((element) => {
+      const split = SplitText.create(element, { type: 'lines', mask: 'lines', linesClass: 'reveal-line' });
+      gsap.from(split.lines, {
+        yPercent: 105, duration: 1, stagger: 0.08,
+        scrollTrigger: { trigger: element, start: 'top 88%', once: true },
+      });
+    });
+    const names = root.querySelector<HTMLElement>('.invitation-card h1');
+    if (names) {
+      const split = SplitText.create(names, { type: 'chars', charsClass: 'name-char' });
+      gsap.from(split.chars, {
+        yPercent: 60, rotationX: -90, opacity: 0, transformOrigin: '50% 100%', duration: 1.1, stagger: 0.035,
+        scrollTrigger: { trigger: names, start: 'top 85%', once: true },
+      });
+    }
+    gsap.utils.toArray<HTMLElement>('[data-reveal]', root).forEach((element) => {
+      gsap.from(element, { y: 40, opacity: 0, duration: 1, scrollTrigger: { trigger: element, start: 'top 90%', once: true } });
+    });
+
+    // Departures board: heading letters flip in like split-flap cards.
+    const heading = root.querySelector<HTMLElement>('#itinerary-title');
+    if (heading) {
+      const split = SplitText.create(heading, { type: 'chars', charsClass: 'flap-char' });
+      gsap.from(split.chars, {
+        rotationX: -100, opacity: 0, transformOrigin: '50% 50% -12px', duration: 0.8, stagger: 0.035, ease: 'expo.out',
+        scrollTrigger: { trigger: heading, start: 'top 88%', once: true },
+      });
+    }
+    gsap.utils.toArray<HTMLElement>('.itinerary-card', root).forEach((card) => {
+      gsap.from(card, { y: 60, opacity: 0, scale: 0.97, transformOrigin: '50% 0%', duration: 1, scrollTrigger: { trigger: card, start: 'top 90%', once: true } });
+      const line = card.querySelector('.event-programme-line');
+      if (line) {
+        gsap.fromTo(line, { scaleY: 0 }, { scaleY: 1, ease: 'none', transformOrigin: '50% 0%',
+          scrollTrigger: { trigger: card.querySelector('.event-programme'), start: 'top 75%', end: 'bottom 55%', scrub: true } });
       }
-    }, { threshold: 0.12 });
-    experienceRef.current?.querySelectorAll('[data-reveal]').forEach((element) => observer.observe(element));
-    return () => {
-      observer.disconnect();
-      animations.forEach((animation) => animation.cancel());
-    };
-  }, [reducedMotion, lowData, entryMode]);
+      card.querySelectorAll('.event-programme li').forEach((item) => {
+        ScrollTrigger.create({ trigger: item, start: 'top 70%', toggleClass: { targets: item, className: 'is-lit' }, once: true });
+      });
+    });
+
+    // Arrival footer: the golden sky drifts as the page settles.
+    const footerSky = root.querySelector('.arrival-sky');
+    if (footerSky) {
+      gsap.fromTo(footerSky, { yPercent: -12, scale: 1.12 }, { yPercent: 0, scale: 1, ease: 'none',
+        scrollTrigger: { trigger: '.site-footer', start: 'top bottom', end: 'bottom bottom', scrub: true } });
+    }
+  }, motion, [entryMode, locale]);
 
   const focusSection = (event: MouseEvent<HTMLAnchorElement>, id: string) => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -145,6 +210,25 @@ export default function InvitationExperience({
     };
   }, [entryMode]);
 
+  const copyAddress = async () => {
+    try {
+      await navigator.clipboard.writeText(`${invitation.hotel}, ${t.address}`);
+    } catch {
+      // Older in-app browsers: select the address so it can be copied manually.
+      const address = experienceRef.current?.querySelector('.travel-section address');
+      const selection = window.getSelection();
+      if (!address || !selection) return;
+      const range = document.createRange();
+      range.selectNodeContents(address);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return;
+    }
+    setAddressCopied(true);
+    window.clearTimeout(copiedTimerRef.current);
+    copiedTimerRef.current = window.setTimeout(() => setAddressCopied(false), 2400);
+  };
+
   const journeyFallback = (failed = false) => (
     <section className="journey-recovery" aria-labelledby="journey-recovery-title">
       <h2 id="journey-recovery-title">{failed ? words.invitation : words.journeyLoading}</h2>
@@ -161,7 +245,10 @@ export default function InvitationExperience({
           <span>{returning && entryMode === 'journey' ? words.backToItinerary : t.back}</span>
         </button>
         <span className="experience-nav-monogram" aria-hidden="true">A<span>&amp;</span>N</span>
-        <LanguageToggle locale={locale} label={t.language} onToggle={onToggleLocale} />
+        <span className="experience-nav-actions">
+          {!lowData ? <MusicToggle locale={locale} /> : null}
+          <LanguageToggle locale={locale} label={t.language} onToggle={onToggleLocale} />
+        </span>
       </nav>
 
       {entryMode === 'journey' ? <>
@@ -171,50 +258,40 @@ export default function InvitationExperience({
         </Suspense>
       </ExperienceBoundary>
 
+      {motion ? <Envelope locale={locale} guestName={receipt?.guestName} /> : null}
+
       <section id="invitation" className="invitation-reveal" tabIndex={-1}>
-        <div className="invitation-card" data-reveal>
-          <img className="invitation-logo" src={`${import.meta.env.BASE_URL}monogram-a-and-n-display.webp`} alt="Aleem and Nurulain" width="160" height="110" loading="lazy" decoding="async" />
+        <div className="invitation-card" key={`invitation-${locale}`}>
+          <span className="invitation-border" aria-hidden="true" />
+          <img className="invitation-logo" src={`${base}monogram-a-and-n-display.webp`} alt="Aleem and Nurulain" width="160" height="110" loading="lazy" decoding="async" />
           <p className="bismillah" lang="ar" dir="rtl">{t.bismillah}</p>
-          <p className="salam">{t.salam}</p>
+          <p className="salam" data-reveal-lines>{t.salam}</p>
           {receipt?.guestName ? <p className="personal-salutation">{words.personalInvite(receipt.guestName)}</p> : null}
-          <p className="formal-copy">{t.formalInvite}</p>
+          <p className="formal-copy" data-reveal-lines>{t.formalInvite}</p>
           <p className="invitation-names-label">{locale === 'ms' ? 'Majlis perkahwinan' : 'The wedding of'}</p>
           <h1>Aleem <span>&amp;</span> Nurulain</h1>
-          <p className="blessing">{t.blessing}</p>
+          <p className="blessing" data-reveal-lines>{t.blessing}</p>
         </div>
       </section>
 
-      <section className="our-story-section" aria-labelledby="our-story-title">
-        <div className="our-story-inner" data-reveal>
-          <p className="eyebrow">Aleem &amp; Nurulain</p>
-          <h2 id="our-story-title">{t.ourStory}</h2>
-          <svg className="story-flight-line" viewBox="0 0 560 96" fill="none" aria-hidden="true">
-            <path d="M8 70C94 70 109 19 181 19C280 19 282 81 376 81C455 81 480 28 552 28" stroke="currentColor" strokeDasharray="3 7" />
-            <circle cx="8" cy="70" r="4" fill="currentColor" />
-            <circle cx="552" cy="28" r="4" fill="currentColor" />
-            <path d="m271 41 3 10 14 8-1 3-16-4-6 5-3-1 3-8-4-8 2-2 5 5 1-9Z" fill="currentColor" />
-          </svg>
-          <blockquote>
-            <p>{t.storyQuote}</p>
-          </blockquote>
-          <div className="our-story-copy">
-            <p>{t.storyBeginning}</p>
-            <p>{t.storyJourney}</p>
-            <p className="our-story-closing"><em>{t.storyClosing}</em></p>
-          </div>
-        </div>
-      </section>
+      <OurStory locale={locale} motion={motion} />
       </> : null}
 
       <section id="itinerary" className="itinerary-section" aria-labelledby="itinerary-title">
         {entryMode === 'fast-track' ? <div className="returning-welcome">
           <p className="returning-greeting">{receipt?.guestName ? words.welcomeName(receipt.guestName) : words.welcome}</p>
           <p>{words.thankYou}</p>
-          <button className="button button-text invitation-replay" type="button" onClick={onReplay ?? onBack}>{words.replay}</button>
+          <button
+            className="button button-text invitation-replay"
+            type="button"
+            onPointerDown={preloadForReplay}
+            onFocus={preloadForReplay}
+            onClick={onReplay ?? onBack}
+          >{words.replay}</button>
         </div> : null}
         <div className="section-heading">
           <p className="eyebrow">{localized(invitation.cabinLabel, locale)}</p>
-          <h2 id="itinerary-title" tabIndex={-1}>{t.itinerary}</h2>
+          <h2 id="itinerary-title" tabIndex={-1} key={`itinerary-${locale}`}>{t.itinerary}</h2>
           <p>{t.singaporeTime}</p>
         </div>
 
@@ -239,22 +316,25 @@ export default function InvitationExperience({
                   <h4>{localized(event.title, locale)}</h4>
                   <p>{event.time}</p>
                 </div>
-                <ol className="event-programme">
-                  {event.programme.map((item, index) => {
-                    const placeholder = item.time === '--:--';
-                    return (
-                      <li key={`${event.id}-programme-${index}`}>
-                        <span
-                          className={`programme-time${placeholder ? ' programme-time--placeholder' : ''}`}
-                          aria-label={placeholder ? t.programmeTimePlaceholder : undefined}
-                        >
-                          {item.time}
-                        </span>
-                        <span>{localized(item.title, locale)}</span>
-                      </li>
-                    );
-                  })}
-                </ol>
+                <div className="event-programme-track">
+                  <span className="event-programme-line" aria-hidden="true" />
+                  <ol className="event-programme">
+                    {event.programme.map((item, index) => {
+                      const placeholder = item.time === '--:--';
+                      return (
+                        <li key={`${event.id}-programme-${index}`}>
+                          <span
+                            className={`programme-time${placeholder ? ' programme-time--placeholder' : ''}`}
+                            aria-label={placeholder ? t.programmeTimePlaceholder : undefined}
+                          >
+                            {item.time}
+                          </span>
+                          <span>{localized(item.title, locale)}</span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
                 <dl className="venue-fields">
                   <div className="venue-hotel">
                     <dt>{t.hotel}</dt>
@@ -269,24 +349,30 @@ export default function InvitationExperience({
             );
           })}
         </div>
-        <a className="itinerary-rsvp button button-text" href="#rsvp" onClick={(event) => focusSection(event, 'rsvp-title')}>{t.rsvpTitle}<span aria-hidden="true"> ↓</span></a>
+        <a className="itinerary-rsvp button button-text" href="#rsvp" onClick={(event) => focusSection(event, 'rsvp-title')}>{t.rsvpTitle}<ArrowDownIcon /></a>
       </section>
 
       <section id="venue" className="travel-section" aria-labelledby="venue-title">
         <div className="travel-arrival">
-          <div className="travel-introduction">
-            <p className="eyebrow">{t.venue}</p>
+          <div className="travel-introduction" data-reveal>
             <h2 id="venue-title">{t.gettingHere}</h2>
             <div className="travel-destination" aria-hidden="true"><span>SIN</span><span>Singapore<br />Changi Airport</span></div>
+            <VenueMap motion={motion} />
           </div>
-          <div className="travel-venue">
+          <div className="travel-venue" data-reveal>
             <img className="travel-venue-logo" src={crownePlazaLogo} width="140" height="85" loading="lazy" decoding="async" alt="" />
             <h3>{invitation.hotel}</h3>
             <p className="travel-ballroom">{locale === 'ms' ? `${t.ballroom} ${invitation.ballroom}` : `${invitation.ballroom} ${t.ballroom}`} &middot; {t.terminal} {invitation.terminal}</p>
             <address>{t.address}</address>
-            <a className="button button-primary travel-directions" href={mapUrl} target="_blank" rel="noreferrer" aria-label={`${t.directions} (${t.newTab})`}>
-              {t.directions}<span aria-hidden="true">↗</span>
-            </a>
+            <div className="travel-actions">
+              <a className="button button-primary travel-directions" href={mapUrl} target="_blank" rel="noreferrer" aria-label={`${t.directions} (${t.newTab})`}>
+                {t.directions}<span className="button-icon"><ArrowUpRightIcon /></span>
+              </a>
+              <button className="button button-secondary travel-copy" type="button" onClick={() => { void copyAddress(); }}>
+                {addressCopied ? design.addressCopied : design.copyAddress}
+              </button>
+            </div>
+            <p className="visually-hidden" role="status">{addressCopied ? design.addressCopied : ''}</p>
           </div>
         </div>
         <details className="travel-guidance">
@@ -315,14 +401,27 @@ export default function InvitationExperience({
       />
 
       <footer className="site-footer">
-        <img src={`${import.meta.env.BASE_URL}monogram-a-and-n-display.webp`} alt="" width="120" height="83" loading="lazy" decoding="async" />
-        <p>{t.footer}</p>
-        {onForget ? <button className="button button-text invitation-forget" type="button" onClick={onForget}>{t.forgetInvitation}</button> : null}
-        {onClearDevice ? <details className="device-settings">
-          <summary>{words.deviceSettings}</summary>
-          <p>{words.clearDeviceHint}</p>
-          <button className="button button-text" type="button" onClick={onClearDevice}>{words.clearDevice}</button>
-        </details> : null}
+        {!lowData ? (
+          <picture className="arrival-sky" aria-hidden="true">
+            <source media="(min-width: 768px)" type="image/avif" srcSet={`${base}${sceneAssets.golden.landscape.avif}`} />
+            <source media="(min-width: 768px)" type="image/webp" srcSet={`${base}${sceneAssets.golden.landscape.webp}`} />
+            <source type="image/avif" srcSet={`${base}${sceneAssets.golden.portrait.avif}`} />
+            <img src={`${base}${sceneAssets.golden.portrait.webp}`} alt="" width="848" height="1264" loading="lazy" decoding="async" />
+          </picture>
+        ) : null}
+        <div className="site-footer-content">
+          <img src={`${base}monogram-a-and-n-display.webp`} alt="" width="120" height="83" loading="lazy" decoding="async" />
+          <p className="arrival-title">{design.arrivalTitle}</p>
+          <p className="arrival-body">{design.arrivalBody}</p>
+          <p className="site-footer-mark">{t.footer}</p>
+          {onForget ? <button className="button button-text invitation-forget" type="button" onClick={onForget}>{t.forgetInvitation}</button> : null}
+          {onClearDevice ? <details className="device-settings">
+            <summary>{words.deviceSettings}</summary>
+            <p>{words.clearDeviceHint}</p>
+            <button className="button button-text" type="button" onClick={onClearDevice}>{words.clearDevice}</button>
+          </details> : null}
+          <p className="music-credit">{design.musicCredit}</p>
+        </div>
       </footer>
     </main>
   );

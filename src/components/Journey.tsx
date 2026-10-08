@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { copy } from '../copy';
+import { designCopy } from '../designCopy';
 import { getJourneyFrame, getWindowAperture, getWindowGeometry } from '../journeyMotion';
-import { sceneAssets, type SceneAsset } from '../sceneAssets';
+import { gsap, ScrollTrigger, SplitText } from '../motion/gsap';
+import { aircraftAsset, sceneAssets, type SceneAsset } from '../sceneAssets';
 import type { Invitation, Locale } from '../types';
 import { useLowDataMode } from '../useLowDataMode';
 import { createCloudRenderer, type CloudRenderer } from '../cloudRenderer';
@@ -25,6 +27,9 @@ const journeyCopy = {
     scroll: 'Tatal untuk memulakan perjalanan', accepted: 'MENUJU SELAMANYA',
   },
 } satisfies Record<Locale, Record<string, string>>;
+
+// The route the little aircraft follows in the flight HUD (a 150 × 30 track).
+const ROUTE_PATH = 'M6 24 C 40 24, 48 6, 75 6 S 118 21, 144 13';
 
 function ScenePicture({ asset }: { asset: SceneAsset }) {
   const base = import.meta.env.BASE_URL;
@@ -90,27 +95,24 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
   const [assetTier, setAssetTier] = useState(0);
   const t = copy[locale];
   const words = journeyCopy[locale];
+  const design = designCopy[locale];
   const base = import.meta.env.BASE_URL;
 
+  // One ScrollTrigger drives every journey layer from a single progress value.
   useEffect(() => {
     if (staticMode) return undefined;
     const section = sectionRef.current;
     const stage = stageRef.current;
     if (!section || !stage) return undefined;
-    let raf = 0;
-    let visible = false;
-    let listening = false;
     let cloudRenderer: CloudRenderer | null = null;
     let cloudAttempted = false;
+    let driver: ScrollTrigger | null = null;
     const canvas = cloudCanvasRef.current;
 
-    const update = () => {
-      raf = 0;
-      if (!visible || document.hidden) return;
-      const rect = section.getBoundingClientRect();
+    const apply = (progress: number) => {
       const width = Math.max(1, stage.clientWidth);
       const height = Math.max(1, stage.clientHeight);
-      const frame = getJourneyFrame(-rect.top / Math.max(1, rect.height - height), width, height);
+      const frame = getJourneyFrame(progress, width, height);
       const px = (name: string, value: number) => section.style.setProperty(name, `${value}px`);
       const number = (name: string, value: number) => section.style.setProperty(name, `${value}`);
       number('--ticket-opacity', frame.ticketOpacity);
@@ -132,6 +134,8 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
       number('--cabin-opacity', frame.cabinOpacity);
       number('--cabin-scale', frame.cameraScale);
       number('--sky-opacity', frame.skyOpacity);
+      number('--golden-opacity', frame.goldenOpacity);
+      number('--golden-scale', frame.goldenScale);
       number('--reveal-opacity', frame.revealOpacity);
       px('--reveal-y', frame.revealY);
       number('--daylight-opacity', frame.daylightOpacity);
@@ -153,56 +157,63 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
         cloudRenderer = createCloudRenderer(canvas);
         canvas.dataset.renderer = cloudRenderer ? 'webgl' : 'fallback';
       }
-      if (cloudRenderer && frame.skyOpacity > 0) {
+      if (cloudRenderer && frame.skyOpacity > 0 && frame.goldenOpacity < 1 && !document.hidden) {
         cloudRenderer.draw(frame.progress, width, height);
       }
     };
 
-    const requestUpdate = () => {
-      if (!raf && visible && !document.hidden) raf = window.requestAnimationFrame(update);
-    };
-    const stop = () => {
-      if (raf) window.cancelAnimationFrame(raf);
-      raf = 0;
-      if (!listening) return;
-      listening = false;
-      window.removeEventListener('scroll', requestUpdate);
-      window.removeEventListener('resize', requestUpdate);
-    };
-    const resume = () => {
-      if (!visible || document.hidden) return;
-      if (!listening) {
-        listening = true;
-        window.addEventListener('scroll', requestUpdate, { passive: true });
-        window.addEventListener('resize', requestUpdate, { passive: true });
-      }
-      requestUpdate();
-    };
-    const onVisibility = () => document.hidden ? stop() : resume();
     const onContextLost = (event: Event) => {
       event.preventDefault();
       cloudRenderer?.dispose();
       cloudRenderer = null;
       if (canvas) canvas.dataset.renderer = 'fallback';
     };
-    const onContextRestored = () => { cloudAttempted = false; requestUpdate(); };
-    const observer = new IntersectionObserver(([entry]) => {
-      visible = entry.isIntersecting;
-      if (visible) resume(); else stop();
-    });
-    observer.observe(section);
-    document.addEventListener('visibilitychange', onVisibility);
+    const onContextRestored = () => {
+      cloudAttempted = false;
+      if (driver) apply(driver.progress);
+    };
+
+    const context = gsap.context(() => {
+      // Scene layers follow scroll exactly (no smoothing), so the camera and
+      // the WebGL clouds stay locked to the guest's finger.
+      driver = ScrollTrigger.create({
+        trigger: section,
+        start: 'top top',
+        end: 'bottom bottom',
+        onUpdate: (self) => apply(self.progress),
+        onRefresh: (self) => apply(self.progress),
+      });
+
+      // Kinetic captions: lines rise through a mask, with gentle smoothing.
+      const captions = gsap.timeline({
+        defaults: { ease: 'power3.out', duration: 0.035 },
+        scrollTrigger: { trigger: section, start: 'top top', end: 'bottom bottom', scrub: 0.5 },
+      });
+      const lines = (selector: string) => {
+        const element = section.querySelector<HTMLElement>(selector);
+        return element ? SplitText.create(element, { type: 'lines', mask: 'lines', linesClass: 'kinetic-line' }).lines : [];
+      };
+      const takeoff = lines('.flight-caption--takeoff .flight-caption-text');
+      const cabin = lines('.flight-caption--cabin .flight-caption-text');
+      const arrival = lines('.journey-reveal p');
+      captions
+        .fromTo(takeoff, { yPercent: 110 }, { yPercent: 0, stagger: 0.012 }, 0.19)
+        .to(takeoff, { yPercent: -110, ease: 'power2.in', stagger: 0.01 }, 0.335)
+        .fromTo(cabin, { yPercent: 110 }, { yPercent: 0, stagger: 0.012 }, 0.44)
+        .to(cabin, { yPercent: -110, ease: 'power2.in', stagger: 0.01 }, 0.548)
+        .fromTo(arrival, { yPercent: 110 }, { yPercent: 0, stagger: 0.015, duration: 0.05 }, 0.88)
+        .set({}, {}, 1);
+    }, section);
+
     canvas?.addEventListener('webglcontextlost', onContextLost);
     canvas?.addEventListener('webglcontextrestored', onContextRestored);
     return () => {
-      observer.disconnect();
-      document.removeEventListener('visibilitychange', onVisibility);
-      stop();
+      context.revert();
       canvas?.removeEventListener('webglcontextlost', onContextLost);
       canvas?.removeEventListener('webglcontextrestored', onContextRestored);
       cloudRenderer?.dispose();
     };
-  }, [staticMode]);
+  }, [staticMode, locale]);
 
   if (staticMode) return <StaticJourney invitation={invitation} locale={locale} guestName={guestName} />;
 
@@ -211,13 +222,14 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
       <div ref={stageRef} className="journey-stage">
         <div className="flight-airport" aria-hidden="true">{assetTier >= 1 && <ScenePicture asset={sceneAssets.airport} />}</div>
         <div className="flight-departure" aria-hidden="true">{assetTier >= 1 && <ScenePicture asset={sceneAssets.runway} />}</div>
-        <div className="flight-runway-glow" aria-hidden="true" />
-        <div className="flight-aircraft" aria-hidden="true">{assetTier >= 1 && <img src={`${base}flight/aircraft-960.webp`} width="960" height="640" alt="" decoding="async" onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }} />}</div>
+        <div className="flight-runway-glow" aria-hidden="true"><span /><span /><span /></div>
+        <div className="flight-aircraft" aria-hidden="true">{assetTier >= 1 && <img src={`${base}${aircraftAsset}`} width="960" height="640" alt="" decoding="async" onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }} />}</div>
         <div className="journey-cabin" aria-hidden="true">{assetTier >= 2 && <ScenePicture asset={sceneAssets.cabin} />}</div>
         <div className="journey-clouds" aria-hidden="true">
           {assetTier >= 2 && <ScenePicture asset={sceneAssets.sky} />}
           <canvas ref={cloudCanvasRef} className="flight-cloud-volume" />
         </div>
+        <div className="flight-golden" aria-hidden="true">{assetTier >= 2 && <ScenePicture asset={sceneAssets.golden} />}</div>
         <div className="flight-daylight" aria-hidden="true" />
         <div className="journey-opening">
           <div className="journey-intro">
@@ -228,10 +240,22 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
           <div className="journey-ticket-slot"><div className="journey-ticket"><DecorativeTicket invitation={invitation} locale={locale} guestName={guestName} showChop /></div></div>
           <p className="journey-scroll-cue"><span>{words.scroll}</span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v17m-5-5 5 5 5-5" /></svg></p>
         </div>
-        <div className="flight-caption flight-caption--takeoff" aria-hidden="true"><p className="eyebrow">{words.takeoffLabel}</p><p>{words.takeoff}</p></div>
-        <div className="flight-caption flight-caption--cabin" aria-hidden="true"><p className="eyebrow">{words.cabinLabel}</p><p>{words.cabin}</p></div>
-        <div className="journey-reveal" aria-hidden="true"><img src={`${base}monogram-a-and-n-display.webp`} width="640" height="640" alt="" decoding="async" /><p>{words.arrival}</p></div>
-        <div className="flight-progress" aria-hidden="true"><span /></div>
+        <div className="flight-caption flight-caption--takeoff" aria-hidden="true"><p className="eyebrow">{words.takeoffLabel}</p><p className="flight-caption-text" key={`takeoff-${locale}`}>{words.takeoff}</p></div>
+        <div className="flight-caption flight-caption--cabin" aria-hidden="true"><p className="eyebrow">{words.cabinLabel}</p><p className="flight-caption-text" key={`cabin-${locale}`}>{words.cabin}</p></div>
+        <div className="journey-reveal" aria-hidden="true"><img src={`${base}monogram-a-and-n-display.webp`} width="640" height="640" alt="" decoding="async" /><p key={`arrival-${locale}`}>{words.arrival}</p></div>
+        <div className="flight-hud" aria-hidden="true">
+          <span className="flight-hud-code">{design.routeFrom}</span>
+          <span className="flight-hud-track">
+            <svg viewBox="0 0 150 30">
+              <path className="flight-hud-route" d={ROUTE_PATH} />
+              <path className="flight-hud-trail" d={ROUTE_PATH} pathLength={1} />
+            </svg>
+            <span className="flight-hud-plane" style={{ offsetPath: `path('${ROUTE_PATH}')` } as CSSProperties}>
+              <svg viewBox="0 0 32 32"><path d="m27 15-9-5V4c0-3-4-3-4 0v6l-9 5v3l9-3v8l-4 3v2l6-2 6 2v-2l-4-3v-8l9 3Z" /></svg>
+            </span>
+          </span>
+          <span className="flight-hud-code">{design.routeTo}</span>
+        </div>
       </div>
     </section>
   );

@@ -1,25 +1,8 @@
 import { useSyncExternalStore } from 'react';
-
-type NetworkInformation = {
-  saveData?: boolean;
-  effectiveType?: string;
-  addEventListener?: (type: 'change', listener: () => void) => void;
-  removeEventListener?: (type: 'change', listener: () => void) => void;
-};
-
-function connection(): NetworkInformation | undefined {
-  return typeof navigator === 'undefined'
-    ? undefined
-    : (navigator as Navigator & { connection?: NetworkInformation }).connection;
-}
-
-function snapshot(): boolean {
-  const network = connection();
-  return network?.saveData === true || network?.effectiveType === 'slow-2g' || network?.effectiveType === '2g';
-}
+import { isLowDataConnection, networkConnection } from './network';
 
 function subscribe(onChange: () => void): () => void {
-  const network = connection();
+  const network = networkConnection();
   network?.addEventListener?.('change', onChange);
   return () => network?.removeEventListener?.('change', onChange);
 }
@@ -27,5 +10,5 @@ function subscribe(onChange: () => void): () => void {
 // Read synchronously on the first render so a data-saving visit never mounts
 // cinematic artwork, even briefly. Reduced motion remains an independent fallback.
 export function useLowDataMode(): boolean {
-  return useSyncExternalStore(subscribe, snapshot, () => false);
+  return useSyncExternalStore(subscribe, isLowDataConnection, () => false);
 }

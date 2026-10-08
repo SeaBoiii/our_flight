@@ -21,11 +21,27 @@ There is no side or class selector. Codes are normalized with Unicode NFKC, trim
 
 Old `sessionStorage` access records are discarded; those guests check in once to begin persistent access. RSVP drafts and verified receipts use separate fingerprint-based local-storage keys. Switching invitations preserves them; the explicit **Forget this device** action removes them.
 
+## Design language
+
+The frontend follows **Golden Hour Departure**: an editorial travel story from midnight Changi to golden hour. It uses cotton-paper stationery, champagne-gold foil and a songket *pucuk rebung* edge, and is designed for phones first. [DESIGN_LANGUAGE.md](DESIGN_LANGUAGE.md) records the reasoning, tokens, chapters, motion rules and performance strategy. GSAP (ScrollTrigger and SplitText) is the only animation engine, and check-in never loads it. Design tokens live in `src/design/tokens.css`.
+
 ## Guest journey and remembered invitations
 
 See [27 September implementation validation](UX_IMPLEMENTATION_VALIDATION.md) for the current changes, browser coverage and remaining device checks.
 
-First check-in opens the original boarding-pass overview. Tapping a ticket scans it and opens the full invitation: ceremonial ticket, stamp/chop, airport, take-off, cabin window, daylight, formal Islamic invitation, complete story, itinerary, venue, RSVP and original closing. The restored cinematic sequence uses the `cda7f32` visual baseline and spans `600svh` on phones and `700svh` at larger widths.
+First check-in shows a split-flap departures board above the code form. Its flight code loops between AN2108 and AN2208, one for each wedding day. Opening the invitation shows the boarding pass with an optional **Board with music** switch. Tapping the pass sweeps a scanner beam, tears off the stub and opens the full invitation:
+
+1. Ceremonial ticket and stamp/chop.
+2. The flight from the airport through take-off and the cabin window to the clouds, a golden-hour sky and the monogram.
+3. A wax-sealed envelope.
+4. The formal Islamic invitation.
+5. The story, with postcards.
+6. The departures-board itinerary.
+7. The venue, with its route map.
+8. RSVP.
+9. The arrival footer.
+
+ScrollTrigger drives the cinematic sequence, which spans `600svh` on phones and `700svh` at larger widths. While a first-time guest enters their code, `src/preload.ts` hard-loads the journey's code and screen-sized artwork, decodes it on the boarding screen and pre-compiles the cloud shader.
 
 Remembered visits skip check-in and open directly at the itinerary. A confirmed RSVP name produces **Welcome back, {name}.** followed by **Thank you for being part of our journey.** Older nameless receipts and guests who have not replied receive a generic welcome. The inline **Replay our full invitation** action starts the cinematic journey directly. Back returns to the itinerary after replay and to the boarding pass on a first visit. Native section links and browser Back/Forward retain navigation history. Only the small original Back/language controls and inline RSVP link remain; there is no guest overview, countdown, Simple view control or persistent navigation dock.
 
@@ -57,7 +73,11 @@ Storage belongs to the exact browser origin. The custom domain, an old `github.i
 
 Detected data saver (`navigator.connection.saveData`) and `slow-2g`/`2g` automatically use a static invitation without cinematic media. Reduced motion and missing IntersectionObserver also receive a static journey with the original ceremonial ticket. No manual display mode is required. Remembered itinerary visits never mount either journey variant or load its module/artwork.
 
-The optional cinema retains responsive AVIF/WebP scenes, a transparent aircraft and procedural WebGL clouds. Airport/runway/aircraft load when the journey becomes visible; cabin/sky and the renderer follow as needed. Rendering stops offscreen and while the page is hidden, with capped resolution and a static sky fallback for unavailable/lost WebGL. Failed artwork leaves readable text and working navigation. There is no video, music, cloud texture download or 3D library.
+The optional cinema retains responsive AVIF/WebP scenes, a transparent aircraft and procedural WebGL clouds. Airport/runway/aircraft load when the journey becomes visible; cabin/sky and the renderer follow as needed. Rendering stops offscreen and while the page is hidden, with capped resolution and a static sky fallback for unavailable/lost WebGL. Failed artwork leaves readable text and working navigation. The journey uses no video, cloud texture download or 3D library.
+
+Check-in on phones can add a 267 KB looping cinemagraph of the airport photograph, with twinkling lights and shimmering reflections. The still photo remains the poster and the LCP image. The video is requested only after the page has loaded, and only in portrait on a 4G-class connection without data saver or reduced motion. If autoplay is refused, it removes itself.
+
+Music is opt-in: "Untamable Love" by Kurtz Martin (Uppbeat) streams only after the guest switches it on, and it is credited in the footer. See [public/audio/README.md](public/audio/README.md).
 
 ## Static-site security boundary
 
@@ -93,7 +113,7 @@ Hash old opaque tokens and the old shared passcode without class-code normalizat
 
 The original monogram master is `public/monogram-a-and-n.png`; do not optimise or overwrite it. The application uses a lossless WebP display derivative; the display PNG, favicon and social-preview derivatives remain alongside the master. See the [artwork rebuild instructions](artwork/flight/README.md).
 
-Instrument Serif is self-hosted for display typography, system sans-serif remains the body font, and the existing self-hosted Amiri font handles Arabic. Generated scene masters, source prompts and instructions for rebuilding the responsive delivery assets and social preview are documented in [`artwork/flight/README.md`](artwork/flight/README.md). Delivery artwork lives in `public/flight/`; measured cabin-window geometry lives beside its source metadata in `src/sceneAssets.ts`.
+Instrument Serif is self-hosted for display typography, IBM Plex Mono 500 for flight data and labels, system sans-serif remains the body font, and the existing self-hosted Amiri font handles Arabic. Generated scene masters, source prompts and instructions for rebuilding the responsive delivery assets and social preview are documented in [`artwork/flight/README.md`](artwork/flight/README.md). Delivery artwork lives in `public/flight/`; measured cabin-window geometry lives beside its source metadata in `src/sceneAssets.ts`.
 
 ## Editing the displayed programme
 

@@ -87,6 +87,9 @@ export function getJourneyFrame(rawProgress: number, viewportWidth: number, view
     cabinCopyOpacity: phase(progress, 0.44, 0.48) * (1 - phase(progress, 0.55, 0.59)),
     cameraScale: 1 + (getWindowExitScale(viewportWidth, viewportHeight) - 1) * camera,
     skyOpacity: phase(progress, 0.55, 0.61),
+    // Golden hour: the clouds give way to warm light behind the monogram.
+    goldenOpacity: phase(progress, 0.74, 0.86),
+    goldenScale: 1.12 - smooth(phase(progress, 0.74, 1)) * 0.12,
     revealOpacity: phase(progress, 0.85, 0.95),
     revealY: (1 - arrival) * 36,
     daylightOpacity: phase(progress, 0.91, 1),

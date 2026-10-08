@@ -39,7 +39,7 @@ test('first bride unlock preserves boarding scan and cinematic content order', a
     (elements) => elements.map((element) => element.id || element.classList[0]),
   );
   expect(order).toEqual([
-    'journey', 'invitation', 'our-story-section',
+    'journey', 'envelope-scene', 'invitation', 'our-story-section',
     'itinerary', 'venue', 'rsvp', 'site-footer',
   ]);
   await page.locator('#invitation').scrollIntoViewIfNeeded();
@@ -55,11 +55,16 @@ test('first bride unlock preserves boarding scan and cinematic content order', a
 });
 
 test('reopened groom invitation opens the itinerary directly and preserves replay and browser history', async ({ page, context }) => {
+  // First check-in deliberately hard-loads the journey; count only what the
+  // remembered (reopened) visit requests.
+  await unlock(page, testCodes.BUSINESS);
   const journeyRequests: string[] = [];
   page.on('request', (request) => {
     if (/\/flight\/(?:runway|cabin|sky|aircraft|clouds)|\/components\/Journey\.tsx|\/cloudRenderer\.ts/.test(request.url())) journeyRequests.push(request.url());
   });
-  await returnToInvitation(page, testCodes.BUSINESS);
+  await page.reload();
+  await expect(page.locator('#itinerary-title')).toBeFocused();
+  await expect(page.locator('.returning-welcome')).toContainText('Welcome back');
   await expect(page.getByLabel('Invitation code', { exact: true })).toHaveCount(0);
   await expect(page.locator('.boarding-pass')).toHaveCount(0);
   await expect(page.locator('.returning-welcome')).toContainText('Welcome back.');

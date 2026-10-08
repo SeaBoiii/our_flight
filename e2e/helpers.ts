@@ -207,11 +207,14 @@ export async function fillRsvp(page: Page, answers: ('attending' | 'not-attendin
 
 export async function snapshot(locator: Locator, name: string) {
   await locator.page().evaluate(() => document.fonts.ready);
+  // The RSVP celebration is a short, randomised burst; capture after it ends.
+  await expect(locator.page().locator('.celebration-canvas:not([data-done])')).toHaveCount(0, { timeout: 5_000 });
   // Component captures can be taller than the viewport. Exclude the separately
   // tested fixed navigation so its current scroll position cannot hide content
   // or create unstable baselines when Playwright resizes the screenshot clip.
   const component = await locator.evaluate(element => element.matches('.itinerary-section, .rsvp-section, .static-journey'));
-  const style = await locator.page().addStyleTag({ content: `html { scroll-behavior: auto !important; } ${component ? '.experience .experience-nav, .experience .experience-nav * { visibility: hidden !important; }' : ''}` });
-  try { await expect(locator).toHaveScreenshot(name); }
+  const style = await locator.page().addStyleTag({ content: `html { scroll-behavior: auto !important; } .gate-cinemagraph { display: none !important; } ${component ? '.experience .experience-nav, .experience .experience-nav * { visibility: hidden !important; }' : ''}` });
+  // The check-in flight code loops AN2108 ↔ AN2208; mask it so baselines are stable.
+  try { await expect(locator).toHaveScreenshot(name, { mask: [locator.page().locator('.split-flap--cycling')] }); }
   finally { await style.evaluate(element => element.parentNode?.removeChild(element)); }
 }

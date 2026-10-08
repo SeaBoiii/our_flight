@@ -15,6 +15,7 @@ for name, width in [
     ('runway-portrait', 640), ('runway-landscape', 1440),
     ('cabin-portrait', 768), ('cabin-landscape', 1440),
     ('sky-portrait', 768), ('sky-landscape', 1440),
+    ('golden-portrait', 768), ('golden-landscape', 1440),
     ('aircraft', 960),
 ]:
     source_name = 'runway' if name.startswith('runway-') else name
@@ -25,6 +26,14 @@ for name, width in [
             resized.save(TARGET / f'{name}-{width}.avif', quality=62, speed=4)
         elif resized.mode != 'RGBA' or resized.getextrema()[3][0] != 0:
             raise ValueError(f'{name} must retain transparent alpha')
+
+# The blank wax seal keeps its alpha; the monogram is composited in CSS so the
+# original lettering is never redrawn by the image model.
+with Image.open(ROOT / 'artwork' / 'stationery' / 'wax-seal.png') as seal:
+    resized = seal.resize((360, 360), Image.Resampling.LANCZOS)
+    if resized.mode != 'RGBA' or resized.getextrema()[3][0] != 0:
+        raise ValueError('wax-seal must retain transparent alpha')
+    resized.save(TARGET / 'wax-seal-360.webp', quality=84, method=6)
 
 for asset in sorted(TARGET.iterdir()):
     print(f'{asset.name}: {asset.stat().st_size:,} bytes')

@@ -50,16 +50,25 @@ try {
   }
 } finally { await browser.close(); }
 const median = values => [...values].sort((a, b) => a - b)[1];
+// Check-in deliberately hard-loads the journey after the gate has rendered
+// (src/preload.ts). Budget that preload separately from the critical gate.
+const PRELOAD = /\/assets\/(?:InvitationExperience|Journey|cloudRenderer|gsap)-|\/flight\/(?!airport-)/;
+const preloaded = run => run.resources.filter(resource => PRELOAD.test(resource.name));
+const critical = run => run.resources.filter(resource => !PRELOAD.test(resource.name));
+const bytes = list => list.reduce((sum, resource) => sum + resource.bytes, 0);
 const result = {
   profile: 'Chromium 390x844, cold cache, 1.6Mbps down / 750Kbps up, 150ms latency, 4x CPU slowdown',
   measuredAt: new Date().toISOString(),
   medianLcpMs: median(runs.map(run => run.lcp)),
   medianGateReadyMs: median(runs.map(run => run.gateReadyMs)),
   maximumCls: Math.max(...runs.map(run => run.cls)),
-  maximumTransferBytes: Math.max(...runs.map(run => run.transferBytes)),
-  targets: { lcpMs: 2500, cls: .1, transferBytes: 500 * 1024 },
+  maximumTransferBytes: Math.max(...runs.map(run => bytes(critical(run)))),
+  maximumPreloadBytes: Math.max(...runs.map(run => bytes(preloaded(run)))),
+  medianJourneyReadyMs: median(runs.map(run => Math.max(0, ...preloaded(run).map(resource => resource.endMs)))),
+  targets: { lcpMs: 2500, cls: .1, transferBytes: 500 * 1024, preloadBytes: 600 * 1024, journeyReadyMs: 10_000 },
   runs,
 };
 await writeFile(new URL('metrics.json', output), JSON.stringify(result, null, 2));
 console.log(JSON.stringify({ ...result, runs: undefined }, null, 2));
-if (result.maximumTransferBytes > result.targets.transferBytes || result.maximumCls >= result.targets.cls || result.medianLcpMs >= result.targets.lcpMs) process.exitCode = 1;
+if (result.maximumTransferBytes > result.targets.transferBytes || result.maximumPreloadBytes > result.targets.preloadBytes
+  || result.medianJourneyReadyMs > result.targets.journeyReadyMs || result.maximumCls >= result.targets.cls || result.medianLcpMs >= result.targets.lcpMs) process.exitCode = 1;

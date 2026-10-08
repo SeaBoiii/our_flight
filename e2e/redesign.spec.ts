@@ -39,7 +39,8 @@ test('cinematic phases load progressively, reverse and resize without losing nav
       await expect(page.locator('.journey-cabin img')).not.toHaveJSProperty('naturalWidth', 0);
       const canvas = journey.locator('canvas');
       await expect(canvas).toHaveAttribute('data-renderer', /webgl|fallback/);
-      if (progress >= .56 && await canvas.getAttribute('data-renderer') === 'webgl') {
+      // From .86 the golden-hour sky fully covers the clouds, which pause there.
+      if (progress >= .56 && progress < .86 && await canvas.getAttribute('data-renderer') === 'webgl') {
         await expect.poll(async () => Number(await canvas.getAttribute('data-progress'))).toBeCloseTo(progress, 2);
       }
     }
@@ -61,7 +62,17 @@ test('cinematic phases load progressively, reverse and resize without losing nav
   await journey.locator('img').evaluateAll(images => Promise.all(images.map(image => (image as HTMLImageElement).decode())));
   await page.screenshot({ path: testInfo.outputPath('flight-landscape-window.png') });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.locator('#itinerary-title').scrollIntoViewIfNeeded();
+  // ScrollTrigger records the reader's place when a resize starts and restores
+  // it after its debounced refresh (200 ms, plus the 100 ms re-measure), so a
+  // rotated phone keeps its position. Let that settle before navigating.
+  await page.waitForTimeout(500);
+  await expect.poll(async () => {
+    await page.locator('#itinerary-title').scrollIntoViewIfNeeded();
+    return page.locator('#itinerary-title').evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      return box.bottom > 0 && box.top < window.innerHeight;
+    });
+  }).toBe(true);
   await expect(page.locator('#itinerary-title')).toBeInViewport();
   await page.locator('.itinerary-rsvp').click();
   await expect(page.locator('#rsvp-title')).toBeFocused();

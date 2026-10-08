@@ -209,10 +209,11 @@ for (const requiredAsset of ['favicon.png', 'monogram-a-and-n-display.png', 'mon
 }
 
 // The journey uses stills and a procedural cloud volume, never an eager video.
-// Budget selected stills, including the sky fallback and transparent aircraft.
-const flightLayers = ['aircraft-960.webp'];
-const portraitScenes = ['airport-portrait-640', 'runway-portrait-640', 'cabin-portrait-768', 'sky-portrait-768'];
-const landscapeScenes = ['airport-landscape-1440', 'runway-landscape-1440', 'cabin-landscape-1440', 'sky-landscape-1440'];
+// Budget selected stills, including the sky fallback, golden-hour arrival,
+// transparent aircraft and the wax seal used by the envelope.
+const flightLayers = ['aircraft-960.webp', 'wax-seal-360.webp'];
+const portraitScenes = ['airport-portrait-640', 'runway-portrait-640', 'cabin-portrait-768', 'sky-portrait-768', 'golden-portrait-768'];
+const landscapeScenes = ['airport-landscape-1440', 'runway-landscape-1440', 'cabin-landscape-1440', 'sky-landscape-1440', 'golden-landscape-1440'];
 const flightAssets = [
   ...flightLayers,
   ...[...portraitScenes, ...landscapeScenes].flatMap((name) => [`${name}.avif`, `${name}.webp`]),
@@ -229,7 +230,13 @@ for (const format of ['avif', 'webp']) {
   if (sceneBytes > 2 * 1024 * 1024) failures.push(`Mobile ${format} scene artwork exceeds the 2 MiB budget.`);
   mobileSceneBudgets[format] = sceneBytes;
 }
-if (files.some(file => /\.(?:mp4|webm)$/i.test(file))) failures.push('Retired cinematic video is still present in the artifact.');
+// The only permitted video is the small, optional check-in cinemagraph, which
+// loads after the page and never on low data or with reduced motion.
+const CINEMAGRAPH = join('flight', 'gate-cinemagraph-portrait.mp4');
+for (const file of files.filter(file => /\.(?:mp4|webm)$/i.test(file))) {
+  if (relative(root, file) !== CINEMAGRAPH && file !== CINEMAGRAPH) failures.push(`Unexpected video in the artifact: ${file}. The journey must stay video-free.`);
+}
+if (await exists(join(root, CINEMAGRAPH)) && (await stat(join(root, CINEMAGRAPH))).size > 400 * 1024) failures.push('The check-in cinemagraph exceeds its 400 KiB budget.');
 if (await exists(join(root, 'flight', 'clouds-960.webp'))) failures.push('Retired foreground cloud cutout is still present in the artifact.');
 
 const indexHtml = await readFile(join(root, 'index.html'), 'utf8');

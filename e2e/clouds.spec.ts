@@ -2,11 +2,13 @@ import { expect, test, type Locator } from '@playwright/test';
 import { unlock, noHorizontalOverflow } from './helpers';
 
 async function scrollCloudProgress(journey: Locator, progress: number) {
-  await journey.evaluate((element, value) => {
+  // After a viewport resize ScrollTrigger restores the reader's position once
+  // its debounced refresh runs, so re-apply the target scroll while polling.
+  await expect.poll(() => journey.evaluate((element, value) => {
     const stage = element.querySelector('.journey-stage') as HTMLElement;
     window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY + (element.clientHeight - stage.clientHeight) * value, behavior: 'instant' });
-  }, progress);
-  await expect.poll(() => journey.evaluate(el => Number(el.style.getPropertyValue('--journey-progress')))).toBeCloseTo(progress, 2);
+    return Number(element.style.getPropertyValue('--journey-progress'));
+  }, progress)).toBeCloseTo(progress, 2);
 }
 
 async function expectPaintedCloudFramebuffer(canvas: Locator) {
@@ -57,7 +59,8 @@ test('three-dimensional clouds fit every aspect ratio and reverse with scrolling
       const renderer = await canvas.getAttribute('data-renderer');
       if (renderer === 'webgl') {
         await expect(canvas).toHaveAttribute('data-rendered', 'true');
-        await expect.poll(async () => Number(await canvas.getAttribute('data-progress'))).toBeCloseTo(progress, 2);
+        // Behind the opaque golden-hour sky (from .86) the clouds pause on their last frame.
+        if (progress < .86) await expect.poll(async () => Number(await canvas.getAttribute('data-progress'))).toBeCloseTo(progress, 2);
         await expectPaintedCloudFramebuffer(canvas);
       } else if (testInfo.project.name === 'design-chromium') throw new Error('Chromium must exercise the real volume renderer');
       await noHorizontalOverflow(page);

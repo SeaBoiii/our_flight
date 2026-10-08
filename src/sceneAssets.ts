@@ -11,7 +11,7 @@ export type SceneAsset = { portrait: SceneVariant; landscape: SceneVariant };
 
 // Geometry is normalized against the original artwork. Keeping it beside the
 // asset dimensions ensures the CSS cover crop and camera use the same source.
-export const sceneAssets: Record<'airport' | 'runway' | 'cabin' | 'sky', SceneAsset> = {
+export const sceneAssets: Record<'airport' | 'runway' | 'cabin' | 'sky' | 'golden', SceneAsset> = {
   airport: {
     portrait: { width: 1024, height: 1536, focalPoint: { x: 0.5, y: 0.5 }, webp: 'flight/airport-portrait-640.webp', avif: 'flight/airport-portrait-640.avif' },
     landscape: { width: 1536, height: 1024, focalPoint: { x: 0.5, y: 0.5 }, webp: 'flight/airport-landscape-1440.webp', avif: 'flight/airport-landscape-1440.avif' },
@@ -36,7 +36,15 @@ export const sceneAssets: Record<'airport' | 'runway' | 'cabin' | 'sky', SceneAs
     portrait: { width: 1024, height: 1536, focalPoint: { x: 0.5, y: 0.5 }, webp: 'flight/sky-portrait-768.webp', avif: 'flight/sky-portrait-768.avif' },
     landscape: { width: 1536, height: 1024, focalPoint: { x: 0.5, y: 0.5 }, webp: 'flight/sky-landscape-1440.webp', avif: 'flight/sky-landscape-1440.avif' },
   },
+  // Golden hour above the clouds: the arrival light behind the monogram.
+  golden: {
+    portrait: { width: 848, height: 1264, focalPoint: { x: 0.5, y: 0.45 }, webp: 'flight/golden-portrait-768.webp', avif: 'flight/golden-portrait-768.avif' },
+    landscape: { width: 1264, height: 848, focalPoint: { x: 0.5, y: 0.5 }, webp: 'flight/golden-landscape-1440.webp', avif: 'flight/golden-landscape-1440.avif' },
+  },
 };
+
+export const waxSealAsset = 'flight/wax-seal-360.webp';
+export const aircraftAsset = 'flight/aircraft-960.webp';
 
 export function sceneVariant(asset: SceneAsset, viewportWidth: number): SceneVariant {
   return viewportWidth >= 768 ? asset.landscape : asset.portrait;

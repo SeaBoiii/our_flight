@@ -1,9 +1,15 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { BoardingPass } from './components/BoardingPass';
 import { LanguageToggle } from './components/LanguageToggle';
 import { ExperienceBoundary } from './components/ExperienceBoundary';
 import { ExperienceRecovery } from './components/ExperienceRecovery';
+import { GateCinemagraph } from './components/GateCinemagraph';
+import { ArrowUpRightIcon } from './components/Icons';
+import { SplitFlap } from './components/SplitFlap';
 import { copy } from './copy';
+import { designCopy } from './designCopy';
+import { clearMusicPreference, playMusic, setMusicPreference, useMusic } from './music';
+import { prepareForBoarding, preloadForCheckIn } from './preload';
 import { createUuid } from './browser';
 import { experienceCopy } from './experienceCopy';
 import { useLowDataMode } from './useLowDataMode';
@@ -35,6 +41,7 @@ import type { AccessCredential, Invitation, Locale } from './types';
 const InvitationExperience = lazy(() => import('./components/InvitationExperience'));
 
 type GateError = 'empty' | 'invalid' | 'configuration' | null;
+const GATE_FLIGHTS = ['AN2108', 'AN2208'] as const;
 type EntryMode = 'journey' | 'fast-track';
 type EntryHistory = { visit: string; view: EntryMode | 'boarding'; position: number };
 
@@ -74,6 +81,8 @@ export default function App() {
   const historyPositionRef = useRef(0);
   const t = copy[locale];
   const experienceText = experienceCopy[locale];
+  const design = designCopy[locale];
+  const music = useMusic();
 
   const rememberEntryHistory = useCallback((view: EntryHistory['view']) => {
     historyPositionRef.current = 0;
@@ -241,6 +250,29 @@ export default function App() {
     return () => window.cancelAnimationFrame(frame);
   }, [entryMode, invitation]);
 
+  // First-time guests: hard-load the journey while they enter their code.
+  const showingGate = !invitation && !restoring;
+  useEffect(() => {
+    if (showingGate && !lowData) preloadForCheckIn();
+  }, [showingGate, lowData]);
+
+  // The departures board alternates between both wedding-day flights, the way
+  // a real split-flap board cycles. Paused in hidden tabs and for reduced motion.
+  const [flightIndex, setFlightIndex] = useState(0);
+  useEffect(() => {
+    if (!showingGate || reducedMotion) return undefined;
+    const timer = window.setInterval(() => {
+      if (!document.hidden) setFlightIndex((index) => (index + 1) % GATE_FLIGHTS.length);
+    }, 3200);
+    return () => window.clearInterval(timer);
+  }, [showingGate, reducedMotion]);
+
+  // Boarding pass: decode the cached scenes and warm the cloud shader.
+  const showingBoarding = Boolean(invitation && !entryMode && !restoredInvitation);
+  useEffect(() => {
+    if (showingBoarding && !lowData) prepareForBoarding();
+  }, [showingBoarding, lowData]);
+
   const boardInvitation = (mode: EntryMode | 'boarding') => {
     historyPositionRef.current += 1;
     window.history.pushState(
@@ -361,7 +393,7 @@ export default function App() {
             onBack={entryMode === 'journey' ? returnToEntry : () => boardInvitation('boarding')}
             onReplay={() => boardInvitation('journey')}
             onForget={forgetInvitation}
-            onClearDevice={() => { clearSavedGuestData(); forgetInvitation(); }}
+            onClearDevice={() => { clearSavedGuestData(); clearMusicPreference(); forgetInvitation(); }}
             onToggleLocale={toggleLocale}
           />
         </Suspense>
@@ -371,6 +403,9 @@ export default function App() {
 
   const base = import.meta.env.BASE_URL;
   const logo = `${base}monogram-a-and-n-display.webp`;
+  const nameLetters = (name: string, offset: number) => name.split('').map((letter, index) => (
+    <span key={`${name}-${index}`} style={{ '--i': offset + index } as CSSProperties}>{letter}</span>
+  ));
 
   return (
     <main className={invitation ? `boarding-page cabin-${invitation.cabinClass}` : 'gate-page'}>
@@ -382,6 +417,7 @@ export default function App() {
           <img src={`${base}flight/airport-portrait-640.webp`} width="640" height="960" alt="" decoding="async" fetchPriority="high" />
         </picture>
       ) : null}
+      {!invitation && !restoring ? <GateCinemagraph reducedMotion={reducedMotion} lowData={lowData} /> : null}
       <header className="site-header">
         <div className="site-brand">
           <span className="site-brand-monogram"><img src={logo} width="84" height="56" alt="Aleem and Nurulain" /></span>
@@ -397,17 +433,34 @@ export default function App() {
           <div className="boarding-copy">
             <p className="eyebrow">{t.flightTheme}</p>
             <h1 ref={boardingHeadingRef} id="boarding-title" className="boarding-title" tabIndex={-1}>{t.ticketReady}</h1>
-            <p>Aleem &amp; Nurulain</p>
+            <p>Aleem <span>&amp;</span> Nurulain</p>
           </div>
           {restoredInvitation ? <div className="boarding-returning">
             <button className="button button-secondary boarding-fast-track" type="button" onClick={returnToEntry}>
               {experienceText.backToItinerary}
             </button>
           </div> : null}
+          {!lowData && music.status !== 'unavailable' ? (
+            <div className="boarding-music">
+              <button
+                className="music-switch"
+                type="button"
+                role="switch"
+                aria-checked={music.preferred}
+                aria-describedby="boarding-music-hint"
+                onClick={() => setMusicPreference(!music.preferred)}
+              >
+                <span className="music-switch-track" aria-hidden="true"><span /></span>
+                <span>{design.boardWithMusic}</span>
+              </button>
+              <p id="boarding-music-hint">{design.boardWithMusicHint}</p>
+            </div>
+          ) : null}
           <BoardingPass
             invitation={invitation}
             locale={locale}
             guestName={readRsvpReceipt(fingerprint, invitation.events.map((event) => event.id))?.guestName}
+            onScan={() => { if (music.preferred && !lowData) playMusic(); }}
             onBoard={() => boardInvitation('journey')}
           />
           <button className="invitation-forget" type="button" onClick={forgetInvitation}>{t.forgetInvitation}</button>
@@ -415,8 +468,17 @@ export default function App() {
       ) : (
         <section className="gate-stage" aria-labelledby="check-in-title">
           <div className="gate-introduction">
+            <div className="gate-board" role="img" aria-label={design.boardSummary}>
+              <div><small aria-hidden="true">{design.boardFlight}</small><SplitFlap text={GATE_FLIGHTS[flightIndex]} delay={250} className="split-flap--cycling" /></div>
+              <div><small aria-hidden="true">{design.boardDestination}</small><SplitFlap text={design.boardForever} delay={520} /></div>
+              <div><small aria-hidden="true">{design.boardStatus}</small><SplitFlap text={design.boardOnTime} delay={900} className="split-flap--status" /></div>
+            </div>
             <p className="gate-departure"><span /> {locale === 'en' ? 'A new chapter is departing' : 'Bab baharu bakal bermula'}</p>
-            <p className="gate-names">Aleem <span>&amp;</span><br />Nurulain</p>
+            <p className="gate-names">
+              <span className="visually-hidden">Aleem &amp; Nurulain</span>
+              <span className="gate-names-line" aria-hidden="true">{nameLetters('Aleem', 0)} <em style={{ '--i': 5 } as CSSProperties}>&amp;</em></span>
+              <span className="gate-names-line" aria-hidden="true">{nameLetters('Nurulain', 6)}</span>
+            </p>
             <p className="gate-dedication">{locale === 'en' ? 'Two hearts. One destination.' : 'Dua hati. Satu destinasi.'}</p>
             <div className="gate-pass" aria-hidden="true">
               <div><small>{locale === 'en' ? 'DEPARTING' : 'BERLEPAS'}</small><strong>SIN</strong><span>Singapore</span></div>
@@ -425,7 +487,7 @@ export default function App() {
             </div>
           </div>
           <div className="gate-copy">
-            <p className="eyebrow"><span>01 /</span> {locale === 'en' ? 'YOUR JOURNEY BEGINS' : 'PERJALANAN ANDA BERMULA'}</p>
+            <p className="eyebrow">{locale === 'en' ? 'Your journey begins' : 'Perjalanan anda bermula'}</p>
             <h1 ref={checkInHeadingRef} id="check-in-title" tabIndex={-1}>{t.checkIn}</h1>
             <p>{t.gateBody}</p>
             <form onSubmit={handleUnlock} noValidate>
@@ -452,7 +514,7 @@ export default function App() {
               {gateErrorMessage ? <p id="gate-error" className="gate-error" role="alert">{gateErrorMessage}</p> : null}
               <button className="button button-primary" type="submit" disabled={unlocking || restoring}>
                 {unlocking || restoring ? t.checking : t.viewInvitation}
-                <span aria-hidden="true">↗</span>
+                <span className="button-icon"><ArrowUpRightIcon /></span>
               </button>
             </form>
             <small>{t.gateDate}</small>

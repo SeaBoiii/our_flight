@@ -20,6 +20,7 @@
     "check:artifact": "node scripts/check-artifact.mjs"
   },
   "dependencies": {
+    "gsap": "3.15.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

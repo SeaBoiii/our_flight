@@ -1,5 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { copy } from '../copy';
+import { designCopy } from '../designCopy';
+import { hapticTap } from '../haptics';
+import { Celebration } from './Celebration';
 import { rsvpConfirmationCopy } from '../rsvpConfirmationCopy';
 import { rsvpExperienceCopy } from '../rsvpExperienceCopy';
 import type { Invitation, Locale, RsvpDraft } from '../types';
@@ -26,15 +29,19 @@ export function RsvpConfirmation({ invitation, locale, response, duplicate, rest
   const tone = attendingCount === invitation.events.length ? 'attending' : attendingCount === 0 ? 'declining' : 'mixed';
 
   useEffect(() => {
-    if (!restored) headingRef.current?.focus();
+    if (restored) return;
+    headingRef.current?.focus();
+    hapticTap(14);
   }, [restored]);
+  const celebrate = !restored && tone !== 'declining';
 
   return (
     <div className={`rsvp-confirmation rsvp-confirmation--${tone}${restored ? ' rsvp-confirmation--restored' : ''}`}>
+      {celebrate ? <Celebration /> : null}
       <header className="rsvp-confirmation__header">
         <div className="rsvp-confirmation__stamp" aria-hidden="true">
           <svg viewBox="0 0 32 32" fill="none"><path d="m7 16 6 6L25 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          <span>A&amp;N</span>
+          <span>{designCopy[locale].confirmedStamp}</span>
         </div>
         <div role="status" aria-live="polite" aria-atomic="true">
           <p className="eyebrow">{confirmation.received}</p>
