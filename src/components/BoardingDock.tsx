@@ -18,6 +18,7 @@ const ItineraryIcon = () => <DockIcon><path d="M5 4h14v16H5zM8.5 8.5h7M8.5 12h7M
 const PinIcon = () => <DockIcon><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z" /><circle cx="12" cy="10" r="2.3" /></DockIcon>;
 const CalendarIcon = () => <DockIcon><path d="M4.5 6.5h15v13h-15zM4.5 10.5h15M8.5 4v4M15.5 4v4" /></DockIcon>;
 const PlaneIcon = () => <DockIcon><path d="M3 13.5 21 6l-4.2 13-4.6-5.2L3 13.5Zm9.2.3L21 6" /></DockIcon>;
+const CameraIcon = () => <DockIcon><path d="M4 8h3.5L9 5.5h6L16.5 8H20v11H4z" /><circle cx="12" cy="13" r="3.2" /></DockIcon>;
 
 /** Shown once the guest reaches the itinerary; hidden while the RSVP form or footer is on screen. */
 function useDockVisible(): boolean {
@@ -53,19 +54,25 @@ function goTo(id: string, focusId: string) {
   window.setTimeout(() => document.getElementById(focusId)?.focus({ preventScroll: true }), 450);
 }
 
+/** invite: before the wedding · day: an event day (SGT) · after: every event has landed. */
+export type DockStage = 'invite' | 'day' | 'after';
+
 type BoardingDockProps = {
   locale: Locale;
   checkedIn: boolean;
+  stage?: DockStage;
+  /** Photo gallery link; Photos appears on the day and afterwards only when this is set. */
+  gallery?: string;
   /** Days the guest has confirmed attending. Calendars follow an attending RSVP, as elsewhere on the site. */
   calendarEvents: readonly InvitationEvent[];
 };
 
 /**
- * A ticket-stub dock in the thumb zone: itinerary, directions, check-in and,
- * once the guest has confirmed attending, calendar. Directions and a
- * two-day calendar open a sheet.
+ * A ticket-stub dock in the thumb zone, with the gold primary action last:
+ * before the wedding Check in (plus Calendar after an attending RSVP); on the
+ * day Directions; afterwards Photos. Directions and a two-day calendar open a sheet.
  */
-export function BoardingDock({ locale, checkedIn, calendarEvents }: BoardingDockProps) {
+export function BoardingDock({ locale, checkedIn, calendarEvents, stage = 'invite', gallery = '' }: BoardingDockProps) {
   const d = dockCopy[locale];
   const t = copy[locale];
   const visible = useDockVisible();
@@ -105,10 +112,22 @@ export function BoardingDock({ locale, checkedIn, calendarEvents }: BoardingDock
         <button type="button" className="dock-item" onClick={() => goTo('itinerary', 'itinerary-title')}>
           <ItineraryIcon /><span>{d.dockItinerary}</span>
         </button>
-        <button type="button" className="dock-item" onClick={() => setSheet('directions')} aria-haspopup="dialog">
-          <PinIcon /><span>{d.dockDirections}</span>
-        </button>
-        {singleEvent ? (
+        {stage === 'invite' ? (
+          <button type="button" className="dock-item" onClick={() => setSheet('directions')} aria-haspopup="dialog">
+            <PinIcon /><span>{d.dockDirections}</span>
+          </button>
+        ) : null}
+        {stage !== 'invite' && gallery ? (
+          <a className={`dock-item${stage === 'after' ? ' dock-item--primary' : ''}`} href={gallery} target="_blank" rel="noreferrer" aria-label={`${d.dockPhotos} (${copy[locale].newTab})`}>
+            <CameraIcon /><span>{d.dockPhotos}</span>
+          </a>
+        ) : null}
+        {stage === 'day' ? (
+          <button type="button" className="dock-item dock-item--primary" onClick={() => setSheet('directions')} aria-haspopup="dialog">
+            <PinIcon /><span>{d.dockDirections}</span>
+          </button>
+        ) : null}
+        {stage !== 'invite' ? null : singleEvent ? (
           <a className="dock-item" href={calendarUrl(singleEvent, locale, import.meta.env.BASE_URL)}>
             <CalendarIcon /><span>{d.dockCalendar}</span>
           </a>
@@ -117,9 +136,16 @@ export function BoardingDock({ locale, checkedIn, calendarEvents }: BoardingDock
             <CalendarIcon /><span>{d.dockCalendar}</span>
           </button>
         ) : null}
-        <button type="button" className="dock-item dock-item--primary" onClick={() => goTo('rsvp', 'rsvp-title')}>
-          <PlaneIcon /><span>{checkedIn ? d.dockCheckedIn : d.dockCheckIn}</span>
-        </button>
+        {stage === 'invite' ? (
+          <button type="button" className="dock-item dock-item--primary" onClick={() => goTo('rsvp', 'rsvp-title')}>
+            <PlaneIcon /><span>{checkedIn ? d.dockCheckedIn : d.dockCheckIn}</span>
+          </button>
+        ) : null}
+        {stage === 'after' && !gallery ? (
+          <button type="button" className="dock-item" onClick={() => setSheet('directions')} aria-haspopup="dialog">
+            <PinIcon /><span>{d.dockDirections}</span>
+          </button>
+        ) : null}
       </nav>
 
       <dialog

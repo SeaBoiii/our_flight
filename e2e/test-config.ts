@@ -22,6 +22,7 @@ export const testEnvironment = {
   ])),
   VITE_APPS_SCRIPT_URL: testEndpoint,
   VITE_RSVP_STATUS: 'open',
+  VITE_GALLERY_URL: 'https://gallery.example.test/',
   VITE_LEGACY_INVITES_ENABLED: 'false',
   VITE_PASSCODE_HASH: '',
   VITE_INVITE_HASH_ECONOMY: '',

@@ -6,7 +6,9 @@ import { localized } from '../types';
 import { crownePlazaLogo } from '../venueLogo';
 import { mapUrl } from '../venue';
 import { wazeUrl } from '../directions';
-import { seatForEvent } from '../departure';
+import { departureStatus, eventWindow, seatForEvent } from '../departure';
+import { galleryUrl, weddingDay } from '../weddingDay';
+import { useMinuteClock } from '../useMinuteClock';
 import { dockCopy } from '../dockCopy';
 import { ExperienceBoundary } from './ExperienceBoundary';
 import { experienceCopy } from '../experienceCopy';
@@ -21,6 +23,7 @@ import { Envelope } from './Envelope';
 import { ArrowDownIcon, ArrowUpRightIcon } from './Icons';
 import { BoardingDock } from './BoardingDock';
 import { DepartureBoard } from './DepartureBoard';
+import { TodayPanel } from './TodayPanel';
 import { LanguageToggle } from './LanguageToggle';
 import { MusicToggle } from './MusicToggle';
 import { OurStory } from './OurStory';
@@ -72,6 +75,11 @@ export default function InvitationExperience({
   const lowData = useLowDataMode();
   const motion = !reducedMotion && !lowData && typeof IntersectionObserver === 'function';
   const [receipt, setReceipt] = useState(() => readRsvpReceipt(fingerprint, invitation.events.map((event) => event.id)));
+  const now = useMinuteClock();
+  const today = weddingDay(invitation.events, now);
+  const landed = departureStatus(invitation.events, now).phase === 'landed';
+  const dockStage = today ? 'day' : landed ? 'after' : 'invite';
+  const gallery = galleryUrl();
   const attendingEvents = invitation.events.filter((event) => receipt?.responses.some((answer) => answer.eventId === event.id && answer.attendance === 'attending'));
   const [addressCopied, setAddressCopied] = useState(false);
   const experienceRef = useRef<HTMLElement>(null);
@@ -303,13 +311,18 @@ export default function InvitationExperience({
         </div>
 
         <DepartureBoard events={invitation.events} locale={locale} />
+        <TodayPanel day={today} landed={landed} gallery={gallery} now={now} locale={locale} />
 
         <div className="itinerary-list">
-          {invitation.events.map((event) => {
+          {/* Days that have landed move below the ones still to come. */}
+          {[...invitation.events].sort((left, right) => Number(now >= eventWindow(left).end) - Number(now >= eventWindow(right).end)).map((event) => {
             const displayDate = localized(event.dateLabel, locale);
             const date = dateParts(displayDate);
+            const eventLanded = now >= eventWindow(event).end;
+            const eventToday = !eventLanded && today?.event.id === event.id;
             return (
-              <article className="itinerary-card" key={event.id}>
+              <article className={`itinerary-card${eventToday ? ' itinerary-card--today' : ''}${eventLanded ? ' itinerary-card--landed' : ''}`} key={event.id}>
+                {eventToday || eventLanded ? <span className="itinerary-status">{eventToday ? dock.todayBadge : dock.landedBadge}</span> : null}
                 <p className="itinerary-flight"><span>{event.flightCode}</span><span>{dock.seat} {seatForEvent(event)}</span><span>{localized(invitation.cabinLabel, locale)}</span></p>
                 <h3 className="itinerary-date">
                   <time dateTime={event.dateIso}>
@@ -412,7 +425,7 @@ export default function InvitationExperience({
         onReceiptChange={setReceipt}
       />
 
-      <BoardingDock locale={locale} checkedIn={!!receipt} calendarEvents={attendingEvents} />
+      <BoardingDock locale={locale} checkedIn={!!receipt} calendarEvents={attendingEvents} stage={dockStage} gallery={gallery} />
 
       <footer className="site-footer">
         {!lowData ? (

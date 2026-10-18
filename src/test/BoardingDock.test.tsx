@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { calendarUrl } from '../calendar';
-import { BoardingDock } from '../components/BoardingDock';
+import { BoardingDock, type DockStage } from '../components/BoardingDock';
 import { googleMapsUrl, venueAddress, wazeUrl } from '../directions';
 import { dockCopy } from '../dockCopy';
 import { invitationForClass } from '../invitations';
@@ -21,19 +21,19 @@ function rect({ top, bottom }: Bounds): DOMRect {
   };
 }
 
-function dockPage(calendarEvents: readonly InvitationEvent[], locale: Locale, checkedIn: boolean) {
+function dockPage(calendarEvents: readonly InvitationEvent[], locale: Locale, checkedIn: boolean, stage: DockStage = 'invite', gallery = '') {
   return (
     <>
       <section id="itinerary" />
       <section id="rsvp" />
       <footer className="site-footer" />
-      <BoardingDock calendarEvents={calendarEvents} locale={locale} checkedIn={checkedIn} />
+      <BoardingDock calendarEvents={calendarEvents} locale={locale} checkedIn={checkedIn} stage={stage} gallery={gallery} />
     </>
   );
 }
 
-function renderDock(calendarEvents: readonly InvitationEvent[] = [], locale: Locale = 'en', checkedIn = false) {
-  return render(dockPage(calendarEvents, locale, checkedIn));
+function renderDock(calendarEvents: readonly InvitationEvent[] = [], locale: Locale = 'en', checkedIn = false, stage: DockStage = 'invite', gallery = '') {
+  return render(dockPage(calendarEvents, locale, checkedIn, stage, gallery));
 }
 
 function measureAfter(event: 'scroll' | 'resize' = 'scroll') {
@@ -208,5 +208,60 @@ describe('BoardingDock', () => {
     rerender(dockPage([], locale, true));
     expect(screen.queryByRole('button', { name: before })).toBeNull();
     expect(screen.getByRole('button', { name: after }).classList.contains('dock-item--primary')).toBe(true);
+  });
+
+  it.each([
+    ['with photos', 'https://gallery.example.test/', ['Itinerary', 'Photos', 'Directions']],
+    ['without photos', '', ['Itinerary', 'Directions']],
+  ] as const)('prioritizes Directions on the event day %s', (_description, gallery, expectedItems) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2027-08-22T13:00:00+08:00'));
+    renderDock(invitationForClass('business').events, 'en', true, 'day', gallery);
+    const dock = screen.getByRole('navigation', { name: 'Quick actions' });
+    const items = [...dock.querySelectorAll('.dock-item')];
+    expect(items.map((item) => item.textContent)).toEqual(expectedItems);
+    const directions = within(dock).getByRole('button', { name: 'Directions' });
+    expect(items.at(-1)).toBe(directions);
+    expect(directions.classList.contains('dock-item--primary')).toBe(true);
+    expect(dock.querySelectorAll('.dock-item--primary')).toHaveLength(1);
+    expect(within(dock).queryByRole('button', { name: /Check(?:ed)? in/ })).toBeNull();
+    expect(within(dock).queryByRole('button', { name: 'Calendar' })).toBeNull();
+    expect(within(dock).queryByRole('link', { name: 'Calendar' })).toBeNull();
+    if (gallery) {
+      const photos = within(dock).getByRole('link', { name: /^Photos/ });
+      expect(photos.getAttribute('href')).toBe(gallery);
+      expect(photos.getAttribute('target')).toBe('_blank');
+      expect(photos.getAttribute('rel')).toBe('noreferrer');
+      expect(photos.classList.contains('dock-item--primary')).toBe(false);
+    } else {
+      expect(within(dock).queryByRole('link', { name: /^Photos/ })).toBeNull();
+    }
+  });
+
+  it('prioritizes Photos after the wedding when a gallery is configured', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2027-08-23T13:00:00+08:00'));
+    const gallery = 'https://gallery.example.test/';
+    renderDock(invitationForClass('business').events, 'en', true, 'after', gallery);
+    const dock = screen.getByRole('navigation', { name: 'Quick actions' });
+    const items = [...dock.querySelectorAll('.dock-item')];
+    expect(items.map((item) => item.textContent)).toEqual(['Itinerary', 'Photos']);
+    const photos = within(dock).getByRole('link', { name: /^Photos/ });
+    expect(items.at(-1)).toBe(photos);
+    expect(photos.classList.contains('dock-item--primary')).toBe(true);
+    expect(dock.querySelectorAll('.dock-item--primary')).toHaveLength(1);
+    expect(photos.getAttribute('href')).toBe(gallery);
+    expect(photos.getAttribute('target')).toBe('_blank');
+    expect(photos.getAttribute('rel')).toBe('noreferrer');
+  });
+
+  it('keeps Itinerary and Directions after the wedding when no gallery is configured', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2027-08-23T13:00:00+08:00'));
+    renderDock(invitationForClass('business').events, 'en', true, 'after', '');
+    const dock = screen.getByRole('navigation', { name: 'Quick actions' });
+    expect([...dock.querySelectorAll('.dock-item')].map((item) => item.textContent)).toEqual(['Itinerary', 'Directions']);
+    expect(within(dock).getByRole('button', { name: 'Directions' })).toBeTruthy();
+    expect(within(dock).queryByRole('link', { name: /^Photos/ })).toBeNull();
   });
 });

@@ -37,6 +37,8 @@ import {
   saveRememberedInvitation,
 } from './storage';
 import type { AccessCredential, Invitation, Locale } from './types';
+import { dockCopy } from './dockCopy';
+import { clockNow, weddingDay } from './weddingDay';
 
 const InvitationExperience = lazy(() => import('./components/InvitationExperience'));
 
@@ -463,6 +465,12 @@ export default function App() {
             onScan={() => { if (music.preferred && !lowData) playMusic(); }}
             onBoard={() => boardInvitation('journey')}
           />
+          {weddingDay(invitation.events, clockNow()) ? (
+            // On the wedding day itself, guests may just need directions and the programme.
+            <button className="button button-secondary boarding-skip-today" type="button" onClick={() => boardInvitation('fast-track')}>
+              {dockCopy[locale].skipToToday}
+            </button>
+          ) : null}
           <button className="invitation-forget" type="button" onClick={forgetInvitation}>{t.forgetInvitation}</button>
         </section>
       ) : (

@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
 import { sha256Hex } from '../invitations';
 import { saveRememberedInvitation, saveRsvpReceipt, type SavedInvitation } from '../storage';
@@ -305,6 +305,42 @@ describe('invitation gate', () => {
     render(<App />);
     expect((await screen.findByRole('main', { name: 'fast-track experience' })).getAttribute('data-returning')).toBe('true');
     expect(screen.queryByLabelText('Invitation code')).toBeNull();
+  });
+
+  describe('wedding-day boarding shortcut', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('opens the itinerary directly from a first-visit boarding pass on the event day', async () => {
+      vi.setSystemTime(new Date('2027-08-22T13:00:00+08:00'));
+      const { container } = render(<App />);
+      await unlockInvitation();
+
+      const shortcut = screen.getByRole('button', { name: 'Skip to today’s details' });
+      expect(shortcut.classList.contains('boarding-skip-today')).toBe(true);
+      expect(screen.queryByRole('main', { name: 'fast-track experience' })).toBeNull();
+      fireEvent.click(shortcut);
+
+      expect(await screen.findByRole('main', { name: 'fast-track experience' })).toBeTruthy();
+      expect(window.history.state?.ourFlightEntry).toMatchObject({ view: 'fast-track', position: 1 });
+      expect(container.querySelector('.boarding-page')).toBeNull();
+      expect(screen.queryByRole('main', { name: 'journey experience' })).toBeNull();
+    });
+
+    it('does not offer the shortcut before the wedding', async () => {
+      vi.setSystemTime(new Date('2027-08-20T13:00:00+08:00'));
+      const { container } = render(<App />);
+      await unlockInvitation();
+
+      expect(screen.queryByRole('button', { name: 'Skip to today’s details' })).toBeNull();
+      expect(container.querySelector('.boarding-skip-today')).toBeNull();
+      expect(screen.getByText(copy.en.ticketReady)).toBeTruthy();
+    });
   });
 
   it('scans the first-visit ticket and returns from the journey to that ticket', async () => {

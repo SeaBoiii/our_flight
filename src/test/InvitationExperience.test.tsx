@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import InvitationExperience from '../components/InvitationExperience';
 import { copy } from '../copy';
 import { saveRsvpReceipt } from '../storage';
@@ -34,6 +34,52 @@ function followFragment(link: HTMLElement) {
 }
 
 describe('invitation details', () => {
+  describe('wedding-day itinerary', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('puts today ahead of a landed event and shows both itinerary statuses', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2027-08-22T13:00:00+08:00'));
+      vi.stubEnv('VITE_GALLERY_URL', 'https://gallery.example.test/');
+
+      const { container } = renderExperience(invitationForClass('business', 'groom'));
+
+      const todayPanel = screen.getByRole('region', { name: 'We are celebrating now' });
+      expect(todayPanel.classList.contains('today-panel--during')).toBe(true);
+      const cards = container.querySelectorAll<HTMLElement>('.itinerary-card');
+      expect(cards).toHaveLength(2);
+      expect(cards[0].querySelector('time')?.getAttribute('datetime')).toBe('2027-08-22');
+      expect(cards[0].classList.contains('itinerary-card--today')).toBe(true);
+      expect(cards[0].classList.contains('itinerary-card--landed')).toBe(false);
+      expect(within(cards[0]).getByText('Today').classList.contains('itinerary-status')).toBe(true);
+      expect(cards[1].querySelector('time')?.getAttribute('datetime')).toBe('2027-08-21');
+      expect(cards[1].classList.contains('itinerary-card--landed')).toBe(true);
+      expect(cards[1].classList.contains('itinerary-card--today')).toBe(false);
+      expect(within(cards[1]).getByText('Landed').classList.contains('itinerary-status')).toBe(true);
+    });
+
+    it('shows no today panel or itinerary status badges before the wedding', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2027-08-20T13:00:00+08:00'));
+      vi.stubEnv('VITE_GALLERY_URL', 'https://gallery.example.test/');
+
+      const { container } = renderExperience(invitationForClass('business', 'groom'));
+
+      expect(container.querySelector('.today-panel')).toBeNull();
+      expect(container.querySelector('.itinerary-status')).toBeNull();
+      const cards = container.querySelectorAll<HTMLElement>('.itinerary-card');
+      expect(cards).toHaveLength(2);
+      expect(cards[0].querySelector('time')?.getAttribute('datetime')).toBe('2027-08-21');
+      expect(cards[1].querySelector('time')?.getAttribute('datetime')).toBe('2027-08-22');
+      cards.forEach((card) => {
+        expect(card.classList.contains('itinerary-card--today')).toBe(false);
+        expect(card.classList.contains('itinerary-card--landed')).toBe(false);
+      });
+    });
+  });
+
   it('uses the Arabic Bismillah and a date-first editable programme', () => {
     const { container } = renderExperience();
     const bismillah = screen.getByText('بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ');
