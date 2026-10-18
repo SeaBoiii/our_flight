@@ -59,6 +59,16 @@ A **boarding dock** (`BoardingDock.tsx`) sits in the thumb zone once the guest r
 
 **Share your photos** links (gate card from the start of the event, dock, thank-you card) appear only when `VITE_GALLERY_URL` is set to an HTTPS address. GitHub Pages deployments use https://gallery.aleemxnurul.love/ unless the repository variable `VITE_GALLERY_URL` overrides it; local builds read it from `.env`.
 
+**Family contacts.** After unlock, Getting here shows *Questions? Message the family* with WhatsApp and Call buttons for the guest's hosting family only: the Wahab family for 21 August, the Jamal family for 22 August, both for two-day guests. WhatsApp opens with a greeting in the guest's language naming that family's day. On the wedding day the gate card adds *Lost? Message the family* for that day's hosts.
+
+The contacts come from the build setting `VITE_FAMILY_CONTACTS` and **must never be committed** (this repository is public). Set it as the GitHub repository variable `VITE_FAMILY_CONTACTS`, as one line of JSON with up to three people per day; `role` is optional and local 8-digit Singapore numbers get +65:
+
+```json
+{"day21":[{"name":"…","role":{"en":"Bride's father","ms":"Bapa pengantin perempuan"},"phone":"+65 …"}],"day22":[{"name":"…","phone":"+65 …"}]}
+```
+
+Numbers are shown only after a guest unlocks the invitation, but like everything on a static site they are present in the deployed files. Without the variable the card is hidden.
+
 To preview any moment locally, the development and e2e/demo builds accept `?now=` with an explicit time zone, e.g. `?now=2027-08-22T05:00:00Z` (1:00 pm in Singapore). Production builds ignore it.
 
 The practical experience loads separately from check-in, and Journey plus its cloud renderer load only when the flight is opened. A journey failure leaves the wedding details and RSVP available. The broader loading/error fallback retains scoped dates, times, venue, directions and calendars. Older browsers retain secure UUID and media-query listener fallbacks.

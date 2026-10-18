@@ -11,6 +11,8 @@ type TodayPanelProps = {
   gallery: string;
   now: Date;
   locale: Locale;
+  /** WhatsApp link to today's hosting family, when contacts are configured. */
+  helpUrl?: string;
 };
 
 /**
@@ -18,7 +20,7 @@ type TodayPanelProps = {
  * today's programme and directions first; once the celebration has started,
  * and after the last event, it points guests to the photo gallery.
  */
-export function TodayPanel({ day, landed, gallery, now, locale }: TodayPanelProps) {
+export function TodayPanel({ day, landed, gallery, now, locale, helpUrl }: TodayPanelProps) {
   const d = dockCopy[locale];
   const t = copy[locale];
   if (!day && !(landed && gallery)) return null;
@@ -74,6 +76,9 @@ export function TodayPanel({ day, landed, gallery, now, locale }: TodayPanelProp
         ) : null}
         {day.stage !== 'before' ? photos : null}
       </div>
+      {helpUrl && day.stage !== 'after' ? (
+        <a className="today-help" href={helpUrl} target="_blank" rel="noreferrer">{d.lostHelp}<span aria-hidden="true"> →</span></a>
+      ) : null}
     </section>
   );
 }

@@ -24,6 +24,8 @@ import { ArrowDownIcon, ArrowUpRightIcon } from './Icons';
 import { BoardingDock } from './BoardingDock';
 import { DepartureBoard } from './DepartureBoard';
 import { TodayPanel } from './TodayPanel';
+import { FamilyContacts } from './FamilyContacts';
+import { contactGreeting, contactsForEvents, familyContacts, whatsAppUrl } from '../familyContacts';
 import { LanguageToggle } from './LanguageToggle';
 import { MusicToggle } from './MusicToggle';
 import { OurStory } from './OurStory';
@@ -80,6 +82,8 @@ export default function InvitationExperience({
   const landed = departureStatus(invitation.events, now).phase === 'landed';
   const dockStage = today ? 'day' : landed ? 'after' : 'invite';
   const gallery = galleryUrl();
+  const contacts = contactsForEvents(familyContacts(), invitation.events);
+  const todayContact = today ? contacts.find((contact) => contact.day === today.event.id) : undefined;
   const attendingEvents = invitation.events.filter((event) => receipt?.responses.some((answer) => answer.eventId === event.id && answer.attendance === 'attending'));
   const [addressCopied, setAddressCopied] = useState(false);
   const experienceRef = useRef<HTMLElement>(null);
@@ -311,7 +315,8 @@ export default function InvitationExperience({
         </div>
 
         <DepartureBoard events={invitation.events} locale={locale} />
-        <TodayPanel day={today} landed={landed} gallery={gallery} now={now} locale={locale} />
+        <TodayPanel day={today} landed={landed} gallery={gallery} now={now} locale={locale}
+          helpUrl={todayContact ? whatsAppUrl(todayContact, contactGreeting(todayContact, invitation.events, locale)) : undefined} />
 
         <div className="itinerary-list">
           {/* Days that have landed move below the ones still to come. */}
@@ -398,6 +403,7 @@ export default function InvitationExperience({
               </button>
             </div>
             <p className="visually-hidden" role="status">{addressCopied ? design.addressCopied : ''}</p>
+            <FamilyContacts contacts={contacts} events={invitation.events} locale={locale} />
           </div>
         </div>
         <details className="travel-guidance">

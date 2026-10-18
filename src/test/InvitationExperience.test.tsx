@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import InvitationExperience from '../components/InvitationExperience';
 import { copy } from '../copy';
 import { saveRsvpReceipt } from '../storage';
@@ -34,6 +34,80 @@ function followFragment(link: HTMLElement) {
 }
 
 describe('invitation details', () => {
+  describe('family contacts', () => {
+    // Deliberately fake numbers only; reverse the config keys to check day order.
+    const configuredContacts = JSON.stringify({
+      day22: [{ name: 'Jamal family (test)', phone: '+65 8000 0002' }],
+      day21: [{ name: 'Wahab family (test)', phone: '+65 9000 0001' }],
+    });
+    const bride = { name: 'Wahab family (test)', digits: '6590000001' };
+    const groom = { name: 'Jamal family (test)', digits: '6580000002' };
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2027-08-20T13:00:00+08:00'));
+      vi.stubEnv('VITE_FAMILY_CONTACTS', configuredContacts);
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.unstubAllEnvs();
+    });
+
+    it.each([
+      ['economy', 'bride', [bride]],
+      ['business', 'bride', [bride]],
+      ['economy', 'groom', [groom]],
+      ['business', 'groom', [bride, groom]],
+      ['first', 'bride', [bride, groom]],
+    ] as const)('shows only the invited hosting families in day order for %s on the %s side', (cabin, side, expected) => {
+      const invitation = invitationForClass(cabin, side);
+      renderExperience(invitation);
+
+      const venue = screen.getByRole('region', { name: 'Getting here' });
+      const card = within(venue).getByRole('region', { name: 'Questions? Message the family' });
+      expect(card.closest('.travel-venue')).not.toBeNull();
+      expect(card.closest('details')).toBeNull();
+      const rows = within(card).getAllByRole('listitem');
+      expect(rows).toHaveLength(expected.length);
+      expected.forEach((contact, index) => {
+        expect(within(rows[index]).getByText(contact.name)).toBeTruthy();
+        const greeting = `Assalamualaikum, I'm a guest at Aleem & Nurulain's wedding on ${invitation.events[index].dateLabel.en}.`;
+        const message = within(rows[index]).getByRole('link', { name: `Message ${contact.name} on WhatsApp` });
+        expect(message.getAttribute('href')).toBe(`https://wa.me/${contact.digits}?text=${encodeURIComponent(greeting)}`);
+        expect(within(rows[index]).getByRole('link', { name: `Call ${contact.name}` }).getAttribute('href'))
+          .toBe(`tel:+${contact.digits}`);
+      });
+      for (const contact of [bride, groom]) {
+        if (!expected.some((invited) => invited.name === contact.name)) {
+          expect(screen.queryByText(contact.name)).toBeNull();
+          expect(screen.queryByRole('link', { name: `Message ${contact.name} on WhatsApp` })).toBeNull();
+        }
+      }
+    });
+
+    it.each(['', 'not valid JSON'])('omits the contacts card when configuration is empty or invalid (%j)', (raw) => {
+      vi.stubEnv('VITE_FAMILY_CONTACTS', raw);
+      const { container } = renderExperience(invitationForClass('business', 'groom'));
+
+      expect(screen.queryByRole('region', { name: 'Questions? Message the family' })).toBeNull();
+      expect(container.querySelector('.family-contacts')).toBeNull();
+      expect(screen.queryByText(bride.name)).toBeNull();
+      expect(screen.queryByText(groom.name)).toBeNull();
+      expect(container.querySelector('a[href^="https://wa.me/"]')).toBeNull();
+    });
+
+    it('uses the Jamal contact for the both-days gate card at 13:00 SGT on 22 August', () => {
+      vi.setSystemTime(new Date('2027-08-22T13:00:00+08:00'));
+      renderExperience(invitationForClass('business', 'groom'));
+
+      const gate = screen.getByRole('region', { name: 'We are celebrating now' });
+      const help = within(gate).getByRole('link', { name: 'Lost? Message the family' });
+      const greeting = "Assalamualaikum, I'm a guest at Aleem & Nurulain's wedding on Sunday, 22 August 2027.";
+      expect(help.getAttribute('href')).toBe(`https://wa.me/6580000002?text=${encodeURIComponent(greeting)}`);
+    });
+  });
+
   describe('wedding-day itinerary', () => {
     afterEach(() => {
       vi.useRealTimers();

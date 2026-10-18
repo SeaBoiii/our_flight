@@ -8,8 +8,9 @@ import type { Locale } from '../types';
 import { clockNow, galleryUrl, weddingDay } from '../weddingDay';
 
 const gallery = 'https://gallery.example.test/';
+const helpUrl = 'https://wa.me/6580000002?text=Assalamualaikum';
 
-function renderToday(instant: string, configuredGallery = gallery, locale: Locale = 'en') {
+function renderToday(instant: string, configuredGallery = gallery, locale: Locale = 'en', configuredHelpUrl?: string) {
   vi.setSystemTime(new Date(instant));
   vi.stubEnv('VITE_GALLERY_URL', configuredGallery);
   const events = invitationForClass('business').events;
@@ -21,6 +22,7 @@ function renderToday(instant: string, configuredGallery = gallery, locale: Local
       gallery={galleryUrl()}
       now={now}
       locale={locale}
+      helpUrl={configuredHelpUrl}
     />,
   );
 }
@@ -124,5 +126,39 @@ describe('TodayPanel', () => {
     expect(within(rows[1]).getByText('Perarakan masuk pengantin lelaki')).toBeTruthy();
     expect(within(panel).getByRole('link', { name: /^Kongsi gambar anda/ }).getAttribute('href')).toBe(gallery);
     expectDirections(panel);
+  });
+
+  it.each([
+    ['before', '2027-08-22T09:30:00+08:00', 'en', 'Lost? Message the family'],
+    ['during', '2027-08-22T13:00:00+08:00', 'en', 'Lost? Message the family'],
+    ['before', '2027-08-22T09:30:00+08:00', 'ms', 'Sesat? Hubungi keluarga'],
+    ['during', '2027-08-22T13:00:00+08:00', 'ms', 'Sesat? Hubungi keluarga'],
+  ] as const)('offers a safe family help link %s the celebration at %s (%s)', (_stage, instant, locale, label) => {
+    renderToday(instant, gallery, locale, helpUrl);
+
+    const link = screen.getByRole('link', { name: label });
+    expect(link.getAttribute('href')).toBe(helpUrl);
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toBe('noreferrer');
+  });
+
+  it.each([
+    ['before', '2027-08-22T09:30:00+08:00'],
+    ['during', '2027-08-22T13:00:00+08:00'],
+  ])('does not offer family help %s the celebration when helpUrl is undefined', (_stage, instant) => {
+    renderToday(instant);
+
+    expect(screen.queryByRole('link', { name: 'Lost? Message the family' })).toBeNull();
+  });
+
+  it.each([
+    ['after', '2027-08-22T17:00:00+08:00', 'Thank you for celebrating with us'],
+    ['landed', '2027-08-23T09:30:00+08:00', 'Thank you for flying with us'],
+  ])('does not offer family help in the %s stage even with helpUrl configured', (_stage, instant, title) => {
+    renderToday(instant, gallery, 'en', helpUrl);
+
+    const panel = screen.getByRole('region', { name: title });
+    expect(within(panel).queryByRole('link', { name: 'Lost? Message the family' })).toBeNull();
+    expect(within(panel).queryByRole('link', { name: /^Share your photos/ })).toBeTruthy();
   });
 });
