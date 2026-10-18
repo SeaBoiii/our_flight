@@ -1,0 +1,48 @@
+<!doctype html>
+<html
+  data-composition-variables='[
+    {"id":"monthLine","type":"string","label":"Month","default":"August"},
+    {"id":"placeLine","type":"string","label":"Place","default":"Singapore"}
+  ]'
+>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <link rel="stylesheet" href="assets/trailer.css" />
+      <style>
+        #f02-root { position: absolute; inset: 0; overflow: hidden; background: var(--midnight); }
+        #f02-glow { position: absolute; left: -200px; top: 420px; width: 1480px; height: 1080px; border-radius: 50%;
+          background: radial-gradient(closest-side, rgba(14, 74, 96, 0.55), rgba(4, 18, 27, 0)); }
+        #f02-leak { position: absolute; right: -320px; top: 200px; width: 900px; height: 900px; border-radius: 50%;
+          background: radial-gradient(closest-side, rgba(239, 191, 144, 0.32), rgba(239, 191, 144, 0)); }
+        #f02-stack { position: absolute; left: 0; right: 0; top: 660px; display: flex; flex-direction: column; align-items: center; }
+        #f02-rule { width: 120px; height: 2px; background: var(--gold); }
+        #f02-month { margin-top: 44px; font-size: 220px; line-height: 0.9; letter-spacing: -0.03em; color: var(--ivory); }
+        #f02-year { margin-top: 10px; font-size: 150px; line-height: 0.9; font-style: italic; color: var(--gold); }
+        #f02-place { margin-top: 56px; font-size: 30px; color: var(--gold-soft); }
+      </style>
+      <div data-hf-id="hf-e0cg" id="f02-root" data-composition-id="f02-august" data-width="1080" data-height="1920">
+        <div data-hf-id="hf-ejsn" id="f02-glow"></div>
+        <div data-hf-id="hf-mhqp" id="f02-leak"></div>
+        <div data-hf-id="hf-ceyk" id="f02-stack">
+          <div data-hf-id="hf-by2e" id="f02-rule"></div>
+          <div data-hf-id="hf-bzpu" id="f02-month" class="ysw-serif" data-var-text="monthLine">August</div>
+          <div data-hf-id="hf-x3b6" id="f02-year" class="ysw-serif">2027</div>
+          <div data-hf-id="hf-3btb" id="f02-place" class="ysw-mono" data-var-text="placeLine">Singapore</div>
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        // Month slams on the first downbeat (local 0); year one beat later; place one beat after that.
+        tl.fromTo("#f02-month", { scale: 1.18, opacity: 0, filter: "blur(18px)" }, { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.55, ease: "expo.out" }, 0)
+          .fromTo("#f02-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: "power3.out" }, 0.1)
+          .fromTo("#f02-year", { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" }, 0.53)
+          .fromTo("#f02-place", { opacity: 0, y: 18, scaleX: 1.25 }, { opacity: 1, y: 0, scaleX: 1, duration: 1.1, ease: "power3.out" }, 1.07)
+          .fromTo("#f02-stack", { scale: 1 }, { scale: 1.05, duration: 4.29, ease: "none" }, 0)
+          .fromTo("#f02-leak", { x: 0, opacity: 0.6 }, { x: -260, opacity: 1, duration: 4.29, ease: "sine.inOut" }, 0)
+          .fromTo("#f02-glow", { opacity: 0.5 }, { opacity: 1, duration: 1.2, ease: "power2.out" }, 0);
+        window.__timelines["f02-august"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

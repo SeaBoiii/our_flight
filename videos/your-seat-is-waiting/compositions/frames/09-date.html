@@ -1,0 +1,84 @@
+<!doctype html>
+<html
+  data-composition-variables='[
+    {"id":"dayLine","type":"string","label":"Day","default":"SATURDAY · 21 AUGUST 2027"},
+    {"id":"hostLine","type":"string","label":"Host family","default":"The Wahabs"},
+    {"id":"hostSize","type":"number","label":"Host size","default":190,"min":80,"max":220,"step":1,"unit":"px"},
+    {"id":"inviteLine","type":"string","label":"Invitation","default":"invite you to celebrate with them"},
+    {"id":"venueLine","type":"string","label":"Venue","default":"Crowne Plaza · Changi Airport"}
+  ]'
+>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <link rel="stylesheet" href="assets/trailer.css" />
+      <style>
+        #f09-root { position: absolute; inset: 0; overflow: hidden; background: var(--midnight); }
+        #f09-lattice { position: absolute; inset: 0; opacity: 0.18;
+          background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='88' height='88' viewBox='0 0 44 44' fill='none' stroke='%23d9b472' stroke-width='.6'%3E%3Cpath d='M22 2 42 22 22 42 2 22Z'/%3E%3Cpath d='M22 13l9 9-9 9-9-9Z' opacity='.6'/%3E%3Ccircle cx='22' cy='22' r='1.2' fill='%23d9b472' stroke='none'/%3E%3C/svg%3E") 0 0 / 88px 88px;
+          -webkit-mask-image: radial-gradient(60% 45% at 50% 50%, #000, transparent); mask-image: radial-gradient(60% 45% at 50% 50%, #000, transparent); }
+        #f09-glow { position: absolute; left: 90px; top: 520px; width: 900px; height: 900px; border-radius: 50%;
+          background: radial-gradient(closest-side, rgba(14, 74, 96, 0.6), rgba(4, 18, 27, 0)); }
+        #f09-board { position: absolute; left: 60px; right: 60px; top: 520px; height: 118px; padding: 28px 0; border-radius: 18px;
+          background: rgba(4, 18, 27, 0.85); border: 2px solid rgba(217, 180, 114, 0.4); text-align: center; white-space: pre;
+          font-size: 50px; line-height: 62px; color: var(--gold); letter-spacing: 0.12em; }
+        #f09-board span { display: inline-block; }
+        #f09-host { position: absolute; left: 60px; right: 60px; top: 760px; text-align: center; font-size: calc(var(--hostSize, 190) * 1px); line-height: 0.95;
+          letter-spacing: -0.035em; color: var(--ivory); }
+        #f09-invite { position: absolute; left: 100px; right: 100px; top: 1000px; text-align: center; font-size: 62px; line-height: 1.15;
+          font-style: italic; color: var(--gold-soft); }
+        #f09-venue { position: absolute; left: 60px; right: 60px; top: 1220px; text-align: center; font-size: 26px; color: rgba(248, 243, 234, 0.8); }
+        #f09-rule { position: absolute; left: 480px; top: 1180px; width: 120px; height: 2px; background: var(--gold); }
+      </style>
+      <div data-hf-id="hf-is17" id="f09-root" data-composition-id="f09-date" data-width="1080" data-height="1920">
+        <div data-hf-id="hf-32dy" id="f09-glow"></div>
+        <div data-hf-id="hf-k1hp" id="f09-lattice"></div>
+        <div data-hf-id="hf-golp" id="f09-board" class="ysw-mono"></div>
+        <div data-hf-id="hf-a8od" id="f09-host" class="ysw-serif" data-var-text="hostLine">The Wahabs</div>
+        <div data-hf-id="hf-u498" id="f09-invite" class="ysw-serif" data-var-text="inviteLine">invite you to celebrate with them</div>
+        <div data-hf-id="hf-t1er" id="f09-rule"></div>
+        <div data-hf-id="hf-d1jc" id="f09-venue" class="ysw-mono" data-var-text="venueLine">Crowne Plaza · Changi Airport</div>
+      </div>
+      <script>
+        (function () {
+          const vars = (window.__hyperframes && window.__hyperframes.getVariables && window.__hyperframes.getVariables()) || {};
+          const text = String(vars.dayLine || "SATURDAY · 21 AUGUST 2027").toUpperCase();
+          const DRUM = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+          const FLIP = 0.04, STAGGER = 0.035, AT = 3.0;
+          const board = document.getElementById("f09-board");
+          const chars = [...text].map((ch, i) => {
+            const span = document.createElement("span");
+            board.appendChild(span);
+            const idx = DRUM.indexOf(ch);
+            return { span, ch, target: idx < 0 ? -1 : idx, start: AT + i * STAGGER };
+          });
+          // The date line flips letter by letter, like the departures board, when the VO says the day.
+          function paint(t) {
+            for (const c of chars) {
+              if (t < c.start) { c.span.textContent = c.ch === " " ? " " : "·"; c.span.style.opacity = "0.35"; c.span.style.transform = ""; continue; }
+              c.span.style.opacity = "1";
+              if (c.target < 0) { c.span.textContent = c.ch; c.span.style.transform = ""; continue; }
+              const raw = (t - c.start) / FLIP;
+              let n = Math.floor(raw), p = raw - n;
+              if (n >= c.target) { n = c.target; p = 0; }
+              c.span.textContent = DRUM.charAt(n) === " " ? " " : DRUM.charAt(n);
+              c.span.style.transform = "scaleY(" + (1 - 0.7 * Math.sin(p * Math.PI)).toFixed(3) + ")";
+            }
+          }
+          paint(0);
+          const tl = gsap.timeline({ paused: true });
+          const clock = { t: 0 };
+          tl.to(clock, { t: 6.42, duration: 6.42, ease: "none", onUpdate: () => paint(clock.t) }, 0)
+            .fromTo("#f09-board", { opacity: 0, y: -20 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0)
+            .fromTo("#f09-host", { opacity: 0, scale: 1.08, filter: "blur(12px)" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.9, ease: "expo.out" }, 0.3)
+            .fromTo("#f09-invite", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, 1.1)
+            .fromTo("#f09-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: "power3.out" }, 1.9)
+            .fromTo("#f09-venue", { opacity: 0, y: 16, scaleX: 1.15 }, { opacity: 1, y: 0, scaleX: 1, duration: 1.0, ease: "power3.out" }, 2.1)
+            .fromTo("#f09-glow", { opacity: 0.4, scale: 0.9 }, { opacity: 1, scale: 1.1, duration: 6.42, ease: "none" }, 0)
+            .fromTo("#f09-lattice", { backgroundPosition: "0px 0px" }, { backgroundPosition: "0px -88px", duration: 6.42, ease: "none" }, 0);
+          window.__timelines["f09-date"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

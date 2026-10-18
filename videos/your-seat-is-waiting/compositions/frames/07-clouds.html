@@ -1,0 +1,42 @@
+<!doctype html>
+<html
+  data-composition-variables='[
+    {"id":"seatLine","type":"string","label":"Seat tag","default":"Seat 21A · Window"}
+  ]'
+>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <link rel="stylesheet" href="assets/trailer.css" />
+      <style>
+        #f07-root { position: absolute; inset: 0; overflow: hidden; background: var(--midnight); }
+        #f07-cam { position: absolute; inset: 0; transform-origin: 50% 40%; }
+        .f07-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        /* Sunlight flare that hides the join between the two halves of the Veo take. */
+        #f07-flare { position: absolute; left: -200px; top: 120px; width: 1480px; height: 1400px; border-radius: 50%;
+          background: radial-gradient(closest-side, rgba(255, 246, 222, 1), rgba(255, 220, 160, 0.55) 45%, rgba(255, 220, 160, 0)); opacity: 0; }
+        #f07-warm { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255, 214, 150, 0.0), rgba(255, 196, 120, 0.18)); }
+        #f07-seat { position: absolute; left: 70px; top: 190px; font-size: 22px; color: var(--navy); background: rgba(248, 243, 234, 0.82);
+          padding: 10px 16px; border-radius: 8px; }
+      </style>
+      <div data-hf-id="hf-olsx" id="f07-root" data-composition-id="f07-clouds" data-width="1080" data-height="1920">
+        <div data-hf-id="hf-enhw" id="f07-cam">
+          <video data-hf-id="hf-4f9i" id="f07-a" class="clip f07-video" src="assets/video/cabin.mp4" muted playsinline data-start="0" data-duration="2.3" data-media-start="0" data-track-index="0"></video>
+          <video data-hf-id="hf-kq1q" id="f07-b" class="clip f07-video" src="assets/video/cabin.mp4" muted playsinline data-start="2.3" data-duration="4.12" data-media-start="5.4" data-playback-rate="0.6" data-track-index="1"></video>
+        </div>
+        <div data-hf-id="hf-kfps" id="f07-warm"></div>
+        <div data-hf-id="hf-8151" id="f07-flare"></div>
+        <div data-hf-id="hf-300c" id="f07-seat" class="ysw-mono" data-var-text="seatLine">Seat 21A · Window</div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#f07-cam", { scale: 1.0 }, { scale: 1.08, duration: 6.42, ease: "none" }, 0)
+          .fromTo("#f07-seat", { opacity: 0, y: -14 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, 0.5)
+          .fromTo("#f07-flare", { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1.15, duration: 0.45, ease: "power2.in" }, 1.9)
+          .to("#f07-flare", { opacity: 0.12, scale: 1.3, duration: 1.3, ease: "power2.out" }, 2.35)
+          .fromTo("#f07-warm", { opacity: 0.3 }, { opacity: 1, duration: 4, ease: "power1.inOut" }, 2.3);
+        window.__timelines["f07-clouds"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

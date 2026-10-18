@@ -1,0 +1,72 @@
+<!doctype html>
+<html
+  data-composition-variables='[
+    {"id":"seatLabel","type":"string","label":"Seat label","default":"Your seat"},
+    {"id":"seatNumber","type":"string","label":"Seat","default":"21A"},
+    {"id":"windowLine","type":"string","label":"Window line","default":"Window · Saved for you"},
+    {"id":"flightCode","type":"string","label":"Flight","default":"AN2108"},
+    {"id":"flightKey","type":"string","label":"Flight label","default":"Flight"},
+    {"id":"fromKey","type":"string","label":"From label","default":"From"},
+    {"id":"toKey","type":"string","label":"To label","default":"To"},
+    {"id":"toValue","type":"string","label":"To","default":"Forever"}
+  ]'
+>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <link rel="stylesheet" href="assets/trailer.css" />
+      <style>
+        #f04-root { position: absolute; inset: 0; overflow: hidden; background: var(--midnight); }
+        #f04-glow { position: absolute; left: 90px; top: 210px; width: 900px; height: 1200px; border-radius: 50%;
+          background: radial-gradient(closest-side, rgba(217, 180, 114, 0.2), rgba(217, 180, 114, 0)); }
+        /* Camera wrapper: starts as a macro on "21A" and pulls back to the whole pass. */
+        #f04-cam { position: absolute; inset: 0; transform-origin: 400px 640px; }
+        #f04-pass { position: absolute; left: 110px; top: 240px; width: 860px; height: 1120px; border-radius: 30px; overflow: hidden;
+          background-color: #fffdf8; background-image: url("assets/art/cotton-paper.png"); background-size: 700px 700px; background-position: center; background-blend-mode: multiply;
+          color: var(--navy); box-shadow: 0 50px 110px rgba(0, 0, 0, 0.6); transform: rotate(-3deg); }
+        #f04-band { height: 150px; padding: 0 44px; display: flex; align-items: center; justify-content: space-between;
+          background: linear-gradient(110deg, var(--navy-deep), var(--navy)); color: var(--gold-soft); }
+        #f04-band .mark { font-size: 70px; }
+        #f04-band .tag { font-size: 24px; }
+        #f04-seat-label { margin: 70px 56px 0; font-size: 26px; color: #56646c; }
+        #f04-seat { margin: 6px 52px 0; font-size: 400px; line-height: 0.82; letter-spacing: -0.05em; }
+        #f04-window { margin: 26px 56px 0; font-size: 44px; color: var(--gold-ink); }
+        #f04-meta { display: flex; justify-content: space-between; margin: 70px 56px 0; padding-top: 34px; border-top: 2px solid #ddd3c2; font-size: 26px; }
+        #f04-meta .k { font-size: 18px; color: #56646c; display: block; margin-bottom: 8px; }
+        #f04-stamp { position: absolute; left: 610px; top: 1060px; width: 300px; height: 300px; border-radius: 50%;
+          border: 8px double var(--navy); color: var(--navy); display: grid; place-items: center; text-align: center;
+          background: rgba(255, 253, 248, 0.55); transform: rotate(-14deg); opacity: 0.86; }
+        #f04-stamp .big { font-size: 64px; line-height: 1; }
+        #f04-stamp .small { font-size: 18px; }
+      </style>
+      <div data-hf-id="hf-flwk" id="f04-root" data-composition-id="f04-seat" data-width="1080" data-height="1920">
+        <div data-hf-id="hf-wuh5" id="f04-glow"></div>
+        <div data-hf-id="hf-5fyv" id="f04-cam">
+          <div data-hf-id="hf-h9t9" id="f04-pass">
+            <div data-hf-id="hf-2u6n" id="f04-band"><span data-hf-id="hf-qd84" class="mark ysw-serif">A&amp;N</span><span data-hf-id="hf-2nx8" class="tag ysw-mono">Our Flight</span></div>
+            <div data-hf-id="hf-4swu" id="f04-seat-label" class="ysw-mono" data-var-text="seatLabel">Your seat</div>
+            <div data-hf-id="hf-xrtj" id="f04-seat" class="ysw-serif" data-var-text="seatNumber">21A</div>
+            <div data-hf-id="hf-7ffb" id="f04-window" class="ysw-mono" data-var-text="windowLine">Window · Saved for you</div>
+            <div data-hf-id="hf-ylxj" id="f04-meta" class="ysw-mono">
+              <span data-hf-id="hf-uckh"><span data-hf-id="hf-yw6u" class="k" data-var-text="flightKey">Flight</span><span data-hf-id="hf-32z2" data-var-text="flightCode">AN2108</span></span>
+              <span data-hf-id="hf-kr89"><span data-hf-id="hf-hrg6" class="k" data-var-text="fromKey">From</span>SIN</span>
+              <span data-hf-id="hf-l73p"><span data-hf-id="hf-o0ky" class="k" data-var-text="toKey">To</span><span data-hf-id="hf-l7rg" data-var-text="toValue">Forever</span></span>
+            </div>
+          </div>
+          <div data-hf-id="hf-5gfz" id="f04-stamp"><div data-hf-id="hf-yeow"><div data-hf-id="hf-qnzo" class="small ysw-mono">Changi · 2027</div><div data-hf-id="hf-rj36" class="big ysw-serif">Boarded</div><div data-hf-id="hf-69et" class="small ysw-mono">A&amp;N Airways</div></div></div>
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        // Macro on 21A → pull back to the full pass; the stamp lands on the bar (local 4.28 = 21.46).
+        tl.fromTo("#f04-cam", { scale: 2.3, rotation: 2 }, { scale: 1, rotation: 0, duration: 3.4, ease: "power3.inOut" }, 0)
+          .fromTo("#f04-window", { opacity: 0, x: -30 }, { opacity: 1, x: 0, duration: 0.8, ease: "power3.out" }, 1.4)
+          .fromTo("#f04-glow", { opacity: 0.3 }, { opacity: 1, duration: 3, ease: "power2.out" }, 0.6)
+          .fromTo("#f04-stamp", { scale: 1.9, opacity: 0, rotation: -24 }, { scale: 1, opacity: 0.86, rotation: -14, duration: 0.2, ease: "power4.in" }, 4.08)
+          .fromTo("#f04-pass", { y: 0 }, { y: 8, duration: 0.06, yoyo: true, repeat: 1, ease: "power2.out" }, 4.28)
+          .fromTo("#f04-cam", { y: 0 }, { y: -40, duration: 2.1, ease: "none", immediateRender: false }, 4.3);
+        window.__timelines["f04-seat"] = tl;
+      </script>
+    </template>
+  </body>
+</html>
