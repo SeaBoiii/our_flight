@@ -5,6 +5,9 @@ import type { AccessCredential, Invitation, Locale } from '../types';
 import { localized } from '../types';
 import { crownePlazaLogo } from '../venueLogo';
 import { mapUrl } from '../venue';
+import { wazeUrl } from '../directions';
+import { seatForEvent } from '../departure';
+import { dockCopy } from '../dockCopy';
 import { ExperienceBoundary } from './ExperienceBoundary';
 import { experienceCopy } from '../experienceCopy';
 import { readRsvpReceipt } from '../storage';
@@ -16,6 +19,8 @@ import { preloadForReplay } from '../preload';
 import { sceneAssets } from '../sceneAssets';
 import { Envelope } from './Envelope';
 import { ArrowDownIcon, ArrowUpRightIcon } from './Icons';
+import { BoardingDock } from './BoardingDock';
+import { DepartureBoard } from './DepartureBoard';
 import { LanguageToggle } from './LanguageToggle';
 import { MusicToggle } from './MusicToggle';
 import { OurStory } from './OurStory';
@@ -63,9 +68,11 @@ export default function InvitationExperience({
   const t = copy[locale];
   const words = experienceCopy[locale];
   const design = designCopy[locale];
+  const dock = dockCopy[locale];
   const lowData = useLowDataMode();
   const motion = !reducedMotion && !lowData && typeof IntersectionObserver === 'function';
   const [receipt, setReceipt] = useState(() => readRsvpReceipt(fingerprint, invitation.events.map((event) => event.id)));
+  const attendingEvents = invitation.events.filter((event) => receipt?.responses.some((answer) => answer.eventId === event.id && answer.attendance === 'attending'));
   const [addressCopied, setAddressCopied] = useState(false);
   const experienceRef = useRef<HTMLElement>(null);
   const navigatedRef = useRef(false);
@@ -295,13 +302,15 @@ export default function InvitationExperience({
           <p>{t.singaporeTime}</p>
         </div>
 
+        <DepartureBoard events={invitation.events} locale={locale} />
+
         <div className="itinerary-list">
           {invitation.events.map((event) => {
             const displayDate = localized(event.dateLabel, locale);
             const date = dateParts(displayDate);
             return (
               <article className="itinerary-card" key={event.id}>
-                <p className="itinerary-flight"><span>{event.flightCode}</span><span>{localized(invitation.cabinLabel, locale)}</span></p>
+                <p className="itinerary-flight"><span>{event.flightCode}</span><span>{dock.seat} {seatForEvent(event)}</span><span>{localized(invitation.cabinLabel, locale)}</span></p>
                 <h3 className="itinerary-date">
                   <time dateTime={event.dateIso}>
                     <span className="itinerary-weekday" aria-hidden="true">{date.weekday}</span>
@@ -368,6 +377,9 @@ export default function InvitationExperience({
               <a className="button button-primary travel-directions" href={mapUrl} target="_blank" rel="noreferrer" aria-label={`${t.directions} (${t.newTab})`}>
                 {t.directions}<span className="button-icon"><ArrowUpRightIcon /></span>
               </a>
+              <a className="button button-secondary travel-waze" href={wazeUrl} target="_blank" rel="noreferrer" aria-label={`${dock.openInWaze} (${t.newTab})`}>
+                {dock.openInWaze}<span className="button-icon"><ArrowUpRightIcon /></span>
+              </a>
               <button className="button button-secondary travel-copy" type="button" onClick={() => { void copyAddress(); }}>
                 {addressCopied ? design.addressCopied : design.copyAddress}
               </button>
@@ -399,6 +411,8 @@ export default function InvitationExperience({
         locale={locale}
         onReceiptChange={setReceipt}
       />
+
+      <BoardingDock locale={locale} checkedIn={!!receipt} calendarEvents={attendingEvents} />
 
       <footer className="site-footer">
         {!lowData ? (

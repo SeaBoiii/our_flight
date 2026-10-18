@@ -98,7 +98,9 @@ test('all eight invitation profiles retain event eligibility and bilingual prese
   test.setTimeout(90_000);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   for (const [profile, code] of Object.entries(testCodes)) {
-    await page.goto('/');
+    // Clear storage from a same-origin static file, not the app: the app saves the
+    // language as it mounts and could otherwise restore the previous profile's choice.
+    await page.goto('/favicon.png');
     await page.evaluate(() => localStorage.clear());
     await unlock(page, code);
     await openJourney(page);

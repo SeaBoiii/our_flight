@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { copy } from '../copy';
+import { seatForEvent } from '../departure';
+import { dockCopy } from '../dockCopy';
 import { hapticTap } from '../haptics';
 import { firstScenesReady, openingScenesReady } from '../preload';
 import type { Invitation, InvitationEvent, Locale } from '../types';
@@ -115,6 +117,7 @@ export function BoardingPass({ invitation, locale, guestName, compact = false, s
               <div className="ticket-paper-passenger">
                 <div><span className="ticket-paper-label">{t.passenger}</span><strong>{guestName?.trim() || localized(invitation.passengerLabel, locale)}</strong></div>
                 <div><span className="ticket-paper-label">{t.flight}</span><strong className="ticket-paper-code">{event.flightCode}</strong></div>
+                <div><span className="ticket-paper-label">{dockCopy[locale].seat}</span><strong className="ticket-paper-code">{seatForEvent(event)}</strong></div>
               </div>
 
               <div className="ticket-paper-route">

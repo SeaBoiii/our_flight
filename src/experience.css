@@ -105,7 +105,8 @@
 .experience .itinerary-card::before { position: absolute; top: 0; right: 22px; left: 22px; height: 12px; background: var(--songket-border) repeat-x 0 0 / 22px 12px; opacity: .5; transform: scaleY(-1); content: ''; }
 .experience .itinerary-flight { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 6px 0 0; color: #c3cfd6; font: 500 .6875rem/1.5 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; }
 .experience .itinerary-flight span:first-child { padding: 7px 9px; border-radius: 6px; color: var(--gold-soft); background: #04121b; box-shadow: inset 0 -1px 0 #ffffff12; font-size: 1rem; letter-spacing: .14em; white-space: nowrap; }
-.experience .itinerary-flight span:last-child { max-width: 17ch; text-align: right; }
+.experience .itinerary-flight span:last-child { max-width: 17ch; margin-left: auto; text-align: right; }
+.experience .itinerary-flight span:nth-child(2):not(:last-child) { color: var(--gold-soft); }
 .experience .itinerary-date { margin: 28px 0 26px; font-family: var(--font-display); font-weight: 400; }
 .experience .itinerary-date time { display: grid; gap: 10px; }
 .experience .itinerary-weekday { color: #d9e0e5; font-size: 1.15rem; }

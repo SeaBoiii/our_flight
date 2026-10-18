@@ -1,0 +1,55 @@
+/* Departures countdown, boarding dock and directions sheet. */
+
+/* ── Departures board ─────────────────────────────────────────────── */
+.departure-board { width: min(100%, 560px); margin: -6px auto 40px; padding: 16px 18px 20px; border: 1px solid #d9b47233; border-radius: 16px; color: var(--gold-soft); background: linear-gradient(180deg, #082a3a, #04121b 70%); box-shadow: inset 0 1px 0 #ffffff12, 0 30px 60px -30px #000c; }
+.departure-board-head { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid #f8f3ea14; color: #ead3a2b3; font: 500 .625rem/1.4 var(--font-mono); letter-spacing: .18em; text-transform: uppercase; }
+.departure-board-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 14px 0 12px; }
+.departure-board-label { color: var(--ivory); font: italic 400 clamp(1.25rem, 5.4vw, 1.6rem)/1.1 var(--font-display); }
+.departure-board-flight { color: var(--gold); font: 500 .75rem/1 var(--font-mono); letter-spacing: .16em; white-space: nowrap; }
+.departure-units { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px clamp(12px, 4vw, 22px); }
+.departure-units > span { display: grid; justify-items: start; gap: 8px; }
+.departure-units small { color: #ead3a299; font: 500 .625rem/1 var(--font-mono); letter-spacing: .18em; text-transform: uppercase; }
+.departure-flap .split-flap-cell { font-size: clamp(1.55rem, 8vw, 2.25rem); }
+.departure-status { display: grid; gap: 12px; }
+.departure-status .departure-flap .split-flap-cell { font-size: clamp(1rem, 5vw, 1.5rem); }
+.departure-status p { margin: 0; color: var(--ivory); font: italic 400 1.125rem/1.4 var(--font-display); }
+.departure-board--boarding, .departure-board--landed { border-color: #d9b47266; }
+
+/* ── Boarding dock: a ticket stub in the thumb zone ───────────────── */
+.boarding-dock { position: fixed; bottom: max(12px, env(safe-area-inset-bottom)); left: 50%; z-index: 90; display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: 2px; width: min(100% - 24px, 460px); padding: 6px; border: 1px solid #d9b47240; border-radius: 22px; background: #04121bd9; box-shadow: 0 22px 44px -16px #04121bb3, inset 0 1px 0 #ffffff14; backdrop-filter: blur(16px) saturate(1.2); -webkit-backdrop-filter: blur(16px) saturate(1.2); opacity: 0; transform: translate(-50%, calc(100% + 28px)); transition: transform 420ms var(--ease-out), opacity 240ms ease; }
+.boarding-dock--visible { opacity: 1; transform: translate(-50%, 0); }
+.dock-item { position: relative; display: grid; justify-items: center; align-content: center; gap: 5px; min-width: 0; min-height: 56px; padding: 8px 4px 7px; border: 0; border-radius: 16px; color: var(--gold-soft); background: transparent; font: 500 .625rem/1.15 var(--font-mono); letter-spacing: .1em; text-align: center; text-decoration: none; text-transform: uppercase; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background 160ms ease, transform 160ms var(--ease-out); }
+.dock-item span { max-width: 100%; overflow-wrap: anywhere; }
+.dock-item .dock-icon { width: 22px; height: 22px; }
+.dock-item:active { transform: scale(.95); }
+.dock-item:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+@media (hover: hover) { .dock-item:hover { background: #ffffff0d; } }
+/* The perforation that tears the check-in stub from the dock. */
+.dock-item--primary { color: var(--ink); background: var(--gold-foil); background-size: 160% 100%; box-shadow: inset 0 1px 0 #fff8; }
+.dock-item--primary::before { position: absolute; top: 10px; bottom: 10px; left: -2px; border-left: 1px dashed #ead3a259; content: ''; }
+
+/* ── Directions / calendar sheet ──────────────────────────────────── */
+.dock-sheet { width: min(100%, 560px); max-width: 100%; max-height: 100dvh; margin: auto auto 0; padding: 0; border: 0; color: var(--ink); background: transparent; overflow: visible; }
+.dock-sheet::backdrop { background: #04121b99; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+.dock-sheet-paper { display: grid; gap: 14px; padding: 12px max(22px, env(safe-area-inset-right)) max(24px, calc(env(safe-area-inset-bottom) + 16px)) max(22px, env(safe-area-inset-left)); border-radius: 24px 24px 0 0; background-color: var(--paper); background-image: var(--paper-texture); background-size: 512px; background-blend-mode: multiply; box-shadow: 0 -20px 50px -20px #04121b80; }
+.dock-sheet[open] .dock-sheet-paper { animation: dock-sheet-rise 360ms var(--ease-out) both; }
+.dock-sheet-grip { justify-self: center; width: 40px; height: 4px; margin-bottom: 4px; border-radius: 4px; background: var(--line-strong); }
+.dock-sheet h2 { margin: 0; font: 400 clamp(1.7rem, 7vw, 2.1rem)/1.05 var(--font-display); letter-spacing: -.02em; }
+.dock-sheet address { color: var(--muted); font-style: normal; line-height: 1.6; }
+.dock-sheet-actions { display: grid; gap: 10px; }
+.dock-sheet-actions .button { width: 100%; justify-content: center; }
+.dock-sheet-close { justify-self: center; }
+
+@keyframes dock-sheet-rise { from { transform: translateY(40px); opacity: .4; } to { transform: none; opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .boarding-dock { transform: translate(-50%, 0); transition: opacity 200ms ease; }
+  .boarding-dock:not(.boarding-dock--visible) { visibility: hidden; }
+  .dock-sheet[open] .dock-sheet-paper { animation: none; }
+}
+
+@media (min-width: 768px) {
+  .boarding-dock { bottom: max(20px, env(safe-area-inset-bottom)); }
+  .dock-sheet { margin: auto; }
+  .dock-sheet-paper { border-radius: 24px; }
+}
