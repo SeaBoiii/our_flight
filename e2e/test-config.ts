@@ -23,6 +23,11 @@ export const testEnvironment = {
   VITE_APPS_SCRIPT_URL: testEndpoint,
   VITE_RSVP_STATUS: 'open',
   VITE_GALLERY_URL: 'https://gallery.example.test/',
+  // Fake numbers only: real family contacts live in a GitHub repository variable.
+  VITE_FAMILY_CONTACTS: JSON.stringify({
+    day21: [{ name: 'Wahab family (test)', role: { en: "Bride's father", ms: 'Bapa pengantin perempuan' }, phone: '+65 9000 0001' }],
+    day22: [{ name: 'Jamal family (test)', role: { en: "Groom's father", ms: 'Bapa pengantin lelaki' }, phone: '+65 8000 0002' }],
+  }),
   VITE_LEGACY_INVITES_ENABLED: 'false',
   VITE_PASSCODE_HASH: '',
   VITE_INVITE_HASH_ECONOMY: '',

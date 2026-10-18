@@ -81,3 +81,21 @@
 
 @keyframes today-pulse { 0% { box-shadow: 0 0 0 0 #a9834a80; } 80%, 100% { box-shadow: 0 0 0 8px #a9834a00; } }
 @media (prefers-reduced-motion: reduce) { .today-programme li.is-live .today-programme-label::before { animation: none; } }
+
+/* ── Family contacts ──────────────────────────────────────────────── */
+.family-contacts { display: grid; gap: 12px; margin-top: 28px; padding: 22px 20px; border: 1px solid var(--line); border-radius: 16px; background: #fffefb; text-align: left; }
+.family-contacts h4 { margin: 0; color: var(--navy); font: 400 clamp(1.45rem, 6vw, 1.8rem)/1.1 var(--font-display); letter-spacing: -.01em; }
+.family-contacts-intro { margin: 0; color: var(--muted); font-size: .9375rem; line-height: 1.6; }
+.family-contacts ul { display: grid; gap: 0; margin: 4px 0 0; padding: 0; list-style: none; }
+.experience .travel-section .family-contact { padding-left: 0; color: inherit; line-height: inherit; }
+.experience .travel-section .family-contact::before { content: none; }
+.family-contact { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; padding: 14px 0; border-top: 1px solid var(--line); }
+.family-contact-who { display: grid; gap: 2px; min-width: 0; }
+.family-contact-who strong { color: var(--ink); font-size: 1rem; overflow-wrap: anywhere; }
+.family-contact-who span { color: var(--muted); font: 500 .6875rem/1.4 var(--font-mono); letter-spacing: .1em; text-transform: uppercase; }
+.family-contact-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: 100%; }
+.family-contact-actions .button { max-width: 100%; white-space: normal; }
+.family-contact-whatsapp { gap: 8px; min-height: 44px; }
+.family-contact-call { min-height: 44px; }
+
+.today-help { justify-self: center; color: var(--navy); font-weight: 600; text-decoration: underline; text-decoration-color: var(--gold-deep); text-underline-offset: 4px; }

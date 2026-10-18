@@ -23,6 +23,8 @@ jobs:
       VITE_PUBLIC_SITE_URL: ${{ vars.VITE_PUBLIC_SITE_URL || 'https://rsvp.aleemxnurul.love/' }}
       # Photo-gallery link for the wedding-day and after-wedding views.
       VITE_GALLERY_URL: ${{ vars.VITE_GALLERY_URL || 'https://gallery.aleemxnurul.love/' }}
+      # Family WhatsApp contacts (JSON). Keep real numbers in this repository variable, never in the repo.
+      VITE_FAMILY_CONTACTS: ${{ vars.VITE_FAMILY_CONTACTS }}
       
       INVITE_CODE_HASH_ECONOMY: ${{ secrets.INVITE_CODE_HASH_ECONOMY }}
       INVITE_CODE_HASH_PREMIUM: ${{ secrets.INVITE_CODE_HASH_PREMIUM }}
