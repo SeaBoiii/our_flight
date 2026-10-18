@@ -18,6 +18,8 @@ export default tseslint.config(
       'test-results/**',
       '.playwright/**',
       'work/**',
+      // The trailer is its own HyperFrames project with Node scripts and its own tooling.
+      'videos/**',
       'outputs/**',
       'frontend/**',
     ],

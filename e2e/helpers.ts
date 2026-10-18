@@ -213,7 +213,7 @@ export async function snapshot(locator: Locator, name: string) {
   // tested fixed navigation so its current scroll position cannot hide content
   // or create unstable baselines when Playwright resizes the screenshot clip.
   const component = await locator.evaluate(element => element.matches('.itinerary-section, .rsvp-section, .static-journey'));
-  const style = await locator.page().addStyleTag({ content: `html { scroll-behavior: auto !important; } .gate-cinemagraph { display: none !important; } ${component ? '.experience .experience-nav, .experience .experience-nav * { visibility: hidden !important; }' : ''}` });
+  const style = await locator.page().addStyleTag({ content: `html { scroll-behavior: auto !important; } .gate-cinemagraph { display: none !important; } .boarding-dock { visibility: hidden !important; } ${component ? '.experience .experience-nav, .experience .experience-nav * { visibility: hidden !important; }' : ''}` });
   // The check-in flight code loops AN2108 ↔ AN2208; mask it so baselines are stable.
   try { await expect(locator).toHaveScreenshot(name, { mask: [locator.page().locator('.split-flap--cycling')] }); }
   finally { await style.evaluate(element => element.parentNode?.removeChild(element)); }
