@@ -1,0 +1,99 @@
+<!doctype html>
+<html
+  data-composition-variables='[
+    {"id":"notifLine","type":"string","label":"Notification","default":"You have been invited."},
+    {"id":"passengerKey","type":"string","label":"Passenger label","default":"Passenger"},
+    {"id":"passengerValue","type":"string","label":"Passenger","default":"You"},
+    {"id":"seatKey","type":"string","label":"Seat label","default":"Seat"},
+    {"id":"seatValue","type":"string","label":"Seat","default":"21A"},
+    {"id":"destKey","type":"string","label":"Destination label","default":"Destination"},
+    {"id":"destValue","type":"string","label":"Destination","default":"Forever"},
+    {"id":"dateKey","type":"string","label":"Date label","default":"Date"},
+    {"id":"dateValue","type":"string","label":"Date","default":"Aug 2027"},
+    {"id":"gateLine","type":"string","label":"Footer","default":"Gate opens soon"}
+  ]'
+>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <link rel="stylesheet" href="assets/trailer.css" />
+      <style>
+        #f01-root { position: absolute; inset: 0; overflow: hidden; background: #000; }
+        #f01-cam { position: absolute; inset: 0; transform-origin: 50% 36%; }
+        /* phone-linen.png (1024x1536) covered onto 1080x1920: 1280x1920 at x -100. */
+        #f01-photo { position: absolute; left: -100px; top: 0; width: 1280px; height: 1920px; }
+        #f01-photo img { width: 100%; height: 100%; display: block; }
+        #f01-dark { position: absolute; inset: 0; background: #000; }
+        /* The phone's screen, measured from the still: 325,238 → 763,1119. */
+        #f01-screen {
+          position: absolute; left: 327px; top: 240px; width: 434px; height: 877px;
+          border-radius: 44px; overflow: hidden;
+          background: radial-gradient(130% 70% at 50% 0%, #0e4a60 0%, var(--navy-deep) 55%, #031820 100%);
+          box-shadow: 0 0 120px 24px rgba(217, 180, 114, 0.18);
+        }
+        #f01-screen-off { position: absolute; inset: 0; background: #020507; }
+        #f01-spill { position: absolute; left: 140px; top: 120px; width: 800px; height: 1120px; border-radius: 50%;
+          background: radial-gradient(closest-side, rgba(217, 180, 114, 0.22), rgba(217, 180, 114, 0)); }
+        #f01-notif { position: absolute; left: 22px; right: 22px; top: 70px; padding: 18px 20px; border-radius: 22px;
+          background: rgba(248, 243, 234, 0.12); border: 1px solid rgba(234, 211, 162, 0.35); color: var(--ivory); }
+        #f01-notif .label { font-size: 15px; color: var(--gold-soft); }
+        #f01-notif .msg { margin-top: 8px; font-size: 26px; line-height: 1.2; }
+        #f01-pass { position: absolute; left: 26px; right: 26px; top: 250px; height: 520px; border-radius: 22px; overflow: hidden;
+          background: var(--paper); color: var(--navy); box-shadow: 0 24px 50px rgba(0, 0, 0, 0.45); }
+        #f01-band { height: 86px; padding: 0 22px; display: flex; align-items: center; justify-content: space-between;
+          background: linear-gradient(110deg, var(--navy-deep), var(--navy)); color: var(--gold-soft); }
+        #f01-band .mark { font-size: 40px; }
+        #f01-band .tag { font-size: 13px; }
+        #f01-route { display: flex; justify-content: space-between; align-items: baseline; padding: 30px 24px 0; }
+        #f01-route .code { font-size: 74px; line-height: 1; letter-spacing: -0.03em; }
+        #f01-route .to { font-size: 74px; line-height: 1; color: var(--gold-deep); }
+        #f01-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 12px; padding: 34px 24px 0; }
+        #f01-meta .k { font-size: 12px; color: #56646c; }
+        #f01-meta .v { margin-top: 6px; font-size: 22px; letter-spacing: 0.06em; }
+        #f01-perf { position: absolute; left: 0; right: 0; bottom: 92px; border-top: 3px dotted #c9bba3; }
+        #f01-foot { position: absolute; left: 24px; right: 24px; bottom: 26px; display: flex; justify-content: space-between; font-size: 13px; color: var(--gold-ink); }
+        #f01-sheen { position: absolute; top: -20%; left: -60%; width: 40%; height: 140%; transform: rotate(18deg);
+          background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 246, 220, 0.55), rgba(255, 255, 255, 0)); }
+      </style>
+      <div data-hf-id="hf-p958" id="f01-root" data-composition-id="f01-invitation" data-width="1080" data-height="1920">
+        <div data-hf-id="hf-s2vu" id="f01-cam">
+          <div data-hf-id="hf-wt2z" id="f01-photo"><img data-hf-id="hf-6kji" src="assets/art/phone-linen.png" alt="" /></div>
+          <div data-hf-id="hf-2jt1" id="f01-dark"></div>
+          <div data-hf-id="hf-z95p" id="f01-spill"></div>
+          <div data-hf-id="hf-3q41" id="f01-screen">
+            <div data-hf-id="hf-7jhh" id="f01-notif">
+              <div data-hf-id="hf-1k5a" class="label ysw-mono">Our Flight · now</div>
+              <div data-hf-id="hf-onol" class="msg ysw-serif" data-var-text="notifLine">You have been invited.</div>
+            </div>
+            <div data-hf-id="hf-o0qe" id="f01-pass">
+              <div data-hf-id="hf-dd5s" id="f01-band"><span data-hf-id="hf-qd84" class="mark ysw-serif">A&amp;N</span><span data-hf-id="hf-xhfx" class="tag ysw-mono">Boarding pass</span></div>
+              <div data-hf-id="hf-5bf0" id="f01-route"><span data-hf-id="hf-4ikt" class="code ysw-serif">SIN</span><span data-hf-id="hf-wiks" class="to ysw-serif">A&amp;N</span></div>
+              <div data-hf-id="hf-18v2" id="f01-meta">
+                <div data-hf-id="hf-yeow"><div data-hf-id="hf-yino" class="k ysw-mono" data-var-text="passengerKey">Passenger</div><div data-hf-id="hf-2qhi" class="v ysw-mono" data-var-text="passengerValue">You</div></div>
+                <div data-hf-id="hf-y7yw"><div data-hf-id="hf-2pxy" class="k ysw-mono" data-var-text="seatKey">Seat</div><div data-hf-id="hf-o119" class="v ysw-mono" data-var-text="seatValue">21A</div></div>
+                <div data-hf-id="hf-x11t"><div data-hf-id="hf-eema" class="k ysw-mono" data-var-text="destKey">Destination</div><div data-hf-id="hf-95u6" class="v ysw-mono" data-var-text="destValue">Forever</div></div>
+                <div data-hf-id="hf-xfcu"><div data-hf-id="hf-vpoa" class="k ysw-mono" data-var-text="dateKey">Date</div><div data-hf-id="hf-k1hj" class="v ysw-mono" data-var-text="dateValue">Aug 2027</div></div>
+              </div>
+              <div data-hf-id="hf-u42g" id="f01-perf"></div>
+              <div data-hf-id="hf-8pn3" id="f01-foot" class="ysw-mono"><span data-hf-id="hf-drcl">Changi · T3</span><span data-hf-id="hf-lmbz" data-var-text="gateLine">Gate opens soon</span></div>
+              <div data-hf-id="hf-8vxw" id="f01-sheen"></div>
+            </div>
+            <div data-hf-id="hf-uc9h" id="f01-screen-off"></div>
+          </div>
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        // Slow push-in across the whole shot; the room starts dark and only the screen lights it.
+        tl.fromTo("#f01-cam", { scale: 1.0 }, { scale: 1.1, duration: 6.47, ease: "none" }, 0)
+          .fromTo("#f01-dark", { opacity: 0.92 }, { opacity: 0.35, duration: 2.2, ease: "power2.out" }, 0.9)
+          .fromTo("#f01-screen-off", { opacity: 1 }, { opacity: 0, duration: 0.5, ease: "power2.out" }, 0.9)
+          .fromTo("#f01-spill", { opacity: 0 }, { opacity: 1, duration: 1.6, ease: "power2.out" }, 0.9)
+          .fromTo("#f01-notif", { y: -60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, ease: "back.out(1.6)" }, 1.2)
+          .fromTo("#f01-pass", { y: 80, scale: 0.92, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: 1.1, ease: "expo.out" }, 2.5)
+          .fromTo("#f01-sheen", { xPercent: 0 }, { xPercent: 420, duration: 1.3, ease: "power2.inOut" }, 3.6);
+        window.__timelines["f01-invitation"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

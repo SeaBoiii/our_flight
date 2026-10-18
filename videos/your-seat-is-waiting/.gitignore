@@ -1,0 +1,7 @@
+renders/
+node_modules/
+.hyperframes/
+.thumbnails/
+.media/
+# QA snapshots from builds; the storyboard keeps boards/stills.
+boards/build*/

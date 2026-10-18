@@ -1,0 +1,59 @@
+<!doctype html>
+<html
+  data-composition-variables='[
+    {"id":"flightCode","type":"string","label":"Flight","default":"AN2108"},
+    {"id":"wheelsLine","type":"string","label":"Wheels up","default":"Wheels up"},
+    {"id":"routeLine","type":"string","label":"Route","default":"SIN → Forever"}
+  ]'
+>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <link rel="stylesheet" href="assets/trailer.css" />
+      <style>
+        #f06-root { position: absolute; inset: 0; overflow: hidden; background: var(--midnight); }
+        /* 0–1.96: rushing down the runway. 1.96 →: the Veo take-off, wheels up at local 4.26 (= 32.15). */
+        #f06-runway { position: absolute; inset: 0; transform-origin: 50% 62%; }
+        #f06-runway img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 50%; }
+        #f06-shot { position: absolute; inset: 0; opacity: 0; }
+        #f06-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        #f06-streak { position: absolute; left: -10%; right: -10%; top: 1080px; height: 260px;
+          background: radial-gradient(50% 50% at 50% 50%, rgba(255, 220, 170, 0.5), rgba(255, 220, 170, 0)); filter: blur(10px); }
+        #f06-flash { position: absolute; left: 90px; top: 380px; width: 1100px; height: 1100px; border-radius: 50%;
+          background: radial-gradient(closest-side, rgba(255, 238, 205, 0.85), rgba(239, 191, 144, 0)); opacity: 0; }
+        .f06-bar { position: absolute; left: 0; right: 0; height: 150px; background: #020a10; }
+        #f06-top { top: 0; transform-origin: 50% 0; }
+        #f06-bot { bottom: 0; transform-origin: 50% 100%; }
+        #f06-tags { position: absolute; left: 70px; right: 70px; top: 190px; display: flex; justify-content: space-between; font-size: 22px; }
+        #f06-tag { color: var(--gold-soft); }
+        #f06-alt { color: rgba(248, 243, 234, 0.7); }
+      </style>
+      <div data-hf-id="hf-l2r9" id="f06-root" data-composition-id="f06-takeoff" data-width="1080" data-height="1920">
+        <div data-hf-id="hf-q9ac" id="f06-runway"><img data-hf-id="hf-o6zd" src="assets/art/runway.png" alt="" /></div>
+        <div data-hf-id="hf-jasu" id="f06-streak"></div>
+        <div data-hf-id="hf-9amw" id="f06-shot">
+          <video data-hf-id="hf-o1fz" id="f06-video" class="clip" src="assets/video/takeoff.mp4" muted playsinline data-start="1.96" data-duration="6.58" data-media-start="0" data-track-index="0"></video>
+        </div>
+        <div data-hf-id="hf-6d2m" id="f06-flash"></div>
+        <div data-hf-id="hf-s1oo" class="f06-bar" id="f06-top"></div>
+        <div data-hf-id="hf-kff2" class="f06-bar" id="f06-bot"></div>
+        <div data-hf-id="hf-1c5x" id="f06-tags" class="ysw-mono"><span data-hf-id="hf-t46m" id="f06-tag"><span data-hf-id="hf-32z2" data-var-text="flightCode">AN2108</span> · <span data-hf-id="hf-yl0o" data-var-text="wheelsLine">Wheels up</span></span><span data-hf-id="hf-zfsd" id="f06-alt" data-var-text="routeLine">SIN → Forever</span></div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#f06-runway", { scale: 1.0, filter: "blur(6px)" }, { scale: 1.45, filter: "blur(1px)", duration: 2.1, ease: "power2.in" }, 0)
+          .fromTo("#f06-streak", { opacity: 0.2, scaleX: 0.6 }, { opacity: 1, scaleX: 1.4, duration: 2, ease: "power2.in" }, 0)
+          .fromTo("#f06-shot", { opacity: 0 }, { opacity: 1, duration: 0.18, ease: "none" }, 1.96)
+          .to("#f06-streak", { opacity: 0, duration: 0.3, ease: "none" }, 2.0)
+          .fromTo(".f06-bar", { scaleY: 0 }, { scaleY: 1, duration: 0.9, ease: "power3.out" }, 0.1)
+          // Wheels up: gold bloom and the letterbox breathes open.
+          .fromTo("#f06-flash", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1.1, duration: 0.25, ease: "power2.out" }, 4.1)
+          .to("#f06-flash", { opacity: 0.25, duration: 1.6, ease: "power2.out" }, 4.35)
+          .to(".f06-bar", { scaleY: 0.45, duration: 1.2, ease: "power3.out" }, 4.26)
+          .fromTo("#f06-tags", { opacity: 0, y: -16 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, 4.5)
+          .to(".f06-bar", { scaleY: 1, duration: 1.4, ease: "power2.inOut" }, 6.6);
+        window.__timelines["f06-takeoff"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

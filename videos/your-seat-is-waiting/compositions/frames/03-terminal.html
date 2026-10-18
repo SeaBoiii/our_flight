@@ -1,0 +1,88 @@
+<!doctype html>
+<html
+  data-composition-variables='[
+    {"id":"flightCode","type":"string","label":"Flight","default":"AN2108"},
+    {"id":"destination","type":"string","label":"Destination","default":"FOREVER"},
+    {"id":"status","type":"string","label":"Status","default":"BOARDING"}
+  ]'
+>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <link rel="stylesheet" href="assets/trailer.css" />
+      <style>
+        #f03-root { position: absolute; inset: 0; overflow: hidden; background: var(--midnight); }
+        #f03-shot { position: absolute; inset: 0; }
+        #f03-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        #f03-shade { position: absolute; inset: 0;
+          background: radial-gradient(120% 60% at 50% 30%, rgba(4, 18, 27, 0.15), rgba(4, 18, 27, 0.65)); }
+        /* Departures board: three rows, cells in brand navy with gold status. */
+        #f03-board { position: absolute; left: 70px; right: 70px; top: 230px; padding: 34px 30px 30px; border-radius: 22px;
+          background: rgba(4, 18, 27, 0.82); border: 2px solid rgba(217, 180, 114, 0.35); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5); }
+        #f03-board .head { display: flex; justify-content: space-between; color: var(--gold-soft); font-size: 22px; }
+        .f03-row { display: flex; align-items: center; gap: 22px; margin-top: 24px; }
+        .f03-row .k { width: 150px; font-size: 20px; color: rgba(234, 211, 162, 0.85); }
+        .f03-cells { display: flex; gap: 6px; }
+        .f03-cell { width: 54px; height: 78px; border-radius: 7px; display: grid; place-items: center; position: relative; overflow: hidden;
+          background: linear-gradient(180deg, #13303f 0 49%, #04121b 49% 51%, #0e2734 51% 100%);
+          color: var(--ivory); font-size: 44px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 4px 10px rgba(0, 0, 0, 0.5); }
+        .f03-cell span { display: block; }
+        .f03-row.gold .f03-cell { color: var(--gold); }
+      </style>
+      <div data-hf-id="hf-heq7" id="f03-root" data-composition-id="f03-terminal" data-width="1080" data-height="1920">
+        <div data-hf-id="hf-jf57" id="f03-shot">
+          <video data-hf-id="hf-uwkw" id="f03-video" class="clip" src="assets/video/terminal.mp4" muted playsinline data-start="0" data-duration="6.42" data-track-index="0"></video>
+        </div>
+        <div data-hf-id="hf-2r5u" id="f03-shade"></div>
+        <div data-hf-id="hf-ggxh" id="f03-board">
+          <div data-hf-id="hf-7krf" class="head ysw-mono"><span data-hf-id="hf-siug">Departures</span><span data-hf-id="hf-drcl">Changi · T3</span></div>
+          <div data-hf-id="hf-893q" class="f03-row"><span data-hf-id="hf-m9nj" class="k ysw-mono">Flight</span><span data-hf-id="hf-f7hh" class="f03-cells ysw-mono" id="f03-r0"></span></div>
+          <div data-hf-id="hf-4f0a" class="f03-row"><span data-hf-id="hf-h39s" class="k ysw-mono">To</span><span data-hf-id="hf-efto" class="f03-cells ysw-mono" id="f03-r1"></span></div>
+          <div data-hf-id="hf-vd1o" class="f03-row gold"><span data-hf-id="hf-czbn" class="k ysw-mono">Status</span><span data-hf-id="hf-n3pj" class="f03-cells ysw-mono" id="f03-r2"></span></div>
+        </div>
+      </div>
+      <script>
+        (function () {
+          const vars = (window.__hyperframes && window.__hyperframes.getVariables && window.__hyperframes.getVariables()) || {};
+          const DRUM = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+          const FLIP = 0.055, STAGGER = 0.06;
+          const rows = [
+            { id: "f03-r0", text: String(vars.flightCode || "AN2108").toUpperCase(), at: 0.8 },
+            { id: "f03-r1", text: String(vars.destination || "FOREVER").toUpperCase(), at: 1.7 },
+            { id: "f03-r2", text: String(vars.status || "BOARDING").toUpperCase(), at: 2.7 },
+          ];
+          const cells = [];
+          rows.forEach((row) => {
+            const host = document.getElementById(row.id);
+            [...row.text].forEach((ch, i) => {
+              const cell = document.createElement("span");
+              cell.className = "f03-cell";
+              const glyph = document.createElement("span");
+              cell.appendChild(glyph);
+              host.appendChild(cell);
+              const target = Math.max(0, DRUM.indexOf(ch));
+              cells.push({ glyph, target, start: row.at + i * STAGGER });
+            });
+          });
+          // Pure function of local time: each cell walks the drum forward to its letter.
+          function paint(t) {
+            for (const c of cells) {
+              const raw = Math.max(0, (t - c.start) / FLIP);
+              let n = Math.floor(raw), p = raw - n;
+              if (n >= c.target) { n = c.target; p = 0; }
+              c.glyph.textContent = DRUM.charAt(n);
+              c.glyph.style.transform = "scaleY(" + (1 - 0.7 * Math.sin(p * Math.PI)).toFixed(3) + ")";
+            }
+          }
+          paint(0);
+          const tl = gsap.timeline({ paused: true });
+          const clock = { t: 0 };
+          tl.to(clock, { t: 6.42, duration: 6.42, ease: "none", onUpdate: () => paint(clock.t) }, 0)
+            .fromTo("#f03-shot", { scale: 1.04 }, { scale: 1.12, duration: 6.42, ease: "none" }, 0)
+            .fromTo("#f03-board", { y: -50, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, ease: "power3.out" }, 0.3);
+          window.__timelines["f03-terminal"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

@@ -1,0 +1,23 @@
+/* Golden Hour Departure — shared trailer styles (see frame.md). Linked by every
+   frame so fonts and tokens stay identical across scenes. */
+@font-face { font-family: "Instrument Serif"; font-style: normal; font-weight: 400; src: url("fonts/instrument-serif-latin-400.woff2") format("woff2"); }
+@font-face { font-family: "Instrument Serif"; font-style: italic; font-weight: 400; src: url("fonts/instrument-serif-latin-400-italic.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 500; src: url("fonts/ibm-plex-mono-latin-500.woff2") format("woff2"); }
+
+:root {
+  --midnight: #04121b;
+  --navy-deep: #052433;
+  --navy: #033a4e;
+  --ivory: #f8f3ea;
+  --paper: #fffdf8;
+  --gold: #d9b472;
+  --gold-soft: #ead3a2;
+  --gold-deep: #a9834a;
+  --gold-ink: #7a5a28;
+  --dawn: #efbf90;
+}
+
+.ysw-serif { font-family: "Instrument Serif", Georgia, serif; font-weight: 400; }
+.ysw-mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-weight: 500; text-transform: uppercase; letter-spacing: 0.16em; }
+.ysw-fill { position: absolute; inset: 0; }
+.ysw-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }

@@ -1,0 +1,76 @@
+<!doctype html>
+<html
+  data-composition-variables='[
+    {"id":"leadLine","type":"string","label":"Lead line","default":"Someone has saved you a seat."},
+    {"id":"ctaLine","type":"string","label":"CTA","default":"Confirm your seat"},
+    {"id":"codeLine","type":"string","label":"Code reminder","default":"Use the code in your invitation"},
+    {"id":"deadlineLine","type":"string","label":"Deadline","default":"RSVP by 8 August 2027"}
+  ]'
+>
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <link rel="stylesheet" href="assets/trailer.css" />
+      <style>
+        #f10-root { position: absolute; inset: 0; overflow: hidden; background: var(--midnight); }
+        #f10-glow { position: absolute; left: 40px; top: 360px; width: 1000px; height: 1300px; border-radius: 50%;
+          background: radial-gradient(closest-side, rgba(217, 180, 114, 0.22), rgba(217, 180, 114, 0)); }
+        #f10-lead { position: absolute; left: 70px; right: 70px; top: 200px; text-align: center; font-size: 72px; line-height: 1.05;
+          font-style: italic; color: var(--ivory); }
+        #f10-card { position: absolute; left: 100px; top: 440px; width: 880px; height: 1030px; border-radius: 34px; overflow: hidden;
+          background-color: #fffdf8; background-image: url("assets/art/cotton-paper.png"); background-size: 700px 700px; background-position: center; background-blend-mode: multiply;
+          box-shadow: 0 50px 120px rgba(0, 0, 0, 0.6); color: var(--navy); }
+        #f10-cta { position: absolute; left: 0; right: 0; top: 70px; text-align: center; font-size: 34px; color: var(--gold-ink); }
+        /* The link leads: guests can't scan a QR on their own screen. */
+        #f10-url { position: absolute; left: 30px; right: 30px; top: 150px; text-align: center; font-size: 74px; letter-spacing: -0.01em; color: var(--navy); }
+        #f10-url-sheen { position: absolute; left: 0; right: 0; top: 140px; height: 110px;
+          background: linear-gradient(100deg, rgba(255, 255, 255, 0) 30%, rgba(255, 240, 200, 0.85) 50%, rgba(255, 255, 255, 0) 70%);
+          background-size: 300% 100%; mix-blend-mode: soft-light; }
+        #f10-rule { position: absolute; left: 380px; top: 290px; width: 120px; height: 2px; background: var(--gold-deep); }
+        #f10-qr { position: absolute; left: 240px; top: 340px; width: 400px; height: 400px; }
+        #f10-code { position: absolute; left: 40px; right: 40px; top: 790px; text-align: center; font-size: 24px; color: #56646c; }
+        #f10-deadline { position: absolute; left: 40px; right: 40px; top: 840px; text-align: center; font-size: 28px; color: var(--gold-ink); }
+        #f10-seal { position: absolute; left: 720px; top: 1380px; width: 250px; height: 250px; transform: rotate(-10deg); }
+        #f10-seal img { width: 100%; height: 100%; display: block; }
+        /* The original monogram as an embossed gold mask, centred in the seal's blank impression. */
+        #f10-seal-mark { position: absolute; left: 66px; top: 70px; width: 118px; height: 110px;
+          background: linear-gradient(115deg, #b48a4a 0%, #e9cf93 35%, #fff4d6 48%, #d9b472 62%, #a57c3f 100%);
+          -webkit-mask: url("assets/brand/monogram-a-and-n-display.png") center / contain no-repeat;
+          mask: url("assets/brand/monogram-a-and-n-display.png") center / contain no-repeat; }
+        #f10-end { position: absolute; inset: 0; background: #000; opacity: 0; }
+      </style>
+      <div data-hf-id="hf-9qwd" id="f10-root" data-composition-id="f10-confirm" data-width="1080" data-height="1920">
+        <div data-hf-id="hf-x93o" id="f10-glow"></div>
+        <div data-hf-id="hf-f02c" id="f10-lead" class="ysw-serif" data-var-text="leadLine">Someone has saved you a seat.</div>
+        <div data-hf-id="hf-5rk5" id="f10-card">
+          <div data-hf-id="hf-rahw" id="f10-cta" class="ysw-mono" data-var-text="ctaLine">Confirm your seat</div>
+          <div data-hf-id="hf-k0lf" id="f10-url" class="ysw-serif">rsvp.aleemxnurul.love</div>
+          <div data-hf-id="hf-anpq" id="f10-url-sheen"></div>
+          <div data-hf-id="hf-zxy1" id="f10-rule"></div>
+          <img data-hf-id="hf-p8g4" id="f10-qr" src="assets/brand/rsvp-qr.svg" alt="" />
+          <div data-hf-id="hf-3w1e" id="f10-code" class="ysw-mono" data-var-text="codeLine">Use the code in your invitation</div>
+          <div data-hf-id="hf-x6vg" id="f10-deadline" class="ysw-mono" data-var-text="deadlineLine">RSVP by 8 August 2027</div>
+        </div>
+        <div data-hf-id="hf-q8dk" id="f10-seal"><img data-hf-id="hf-upyj" src="assets/art/wax-seal.png" alt="" /><span data-hf-id="hf-bdgn" id="f10-seal-mark"></span></div>
+        <div data-hf-id="hf-gkva" id="f10-end"></div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#f10-lead", { opacity: 0, y: 30, filter: "blur(10px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 1.0, ease: "power3.out" }, 0.3)
+          .fromTo("#f10-glow", { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 2.5, ease: "power2.out" }, 0.6)
+          .fromTo("#f10-card", { opacity: 0, y: 160, rotation: 2 }, { opacity: 1, y: 0, rotation: 0, duration: 1.2, ease: "expo.out" }, 1.9)
+          .fromTo("#f10-cta", { opacity: 0, y: 14, scaleX: 1.2 }, { opacity: 1, y: 0, scaleX: 1, duration: 1.0, ease: "power3.out" }, 2.3)
+          .fromTo("#f10-url", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, 2.5)
+          .fromTo("#f10-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: "power3.out" }, 2.8)
+          .fromTo("#f10-qr", { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.8, ease: "power3.out" }, 2.9)
+          .fromTo(["#f10-code", "#f10-deadline"], { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.7, stagger: 0.15, ease: "power3.out" }, 3.2)
+          // The seal presses on (local 3.6), the card answers with a small give.
+          .fromTo("#f10-seal", { opacity: 0, scale: 1.7, rotation: -26 }, { opacity: 1, scale: 1, rotation: -10, duration: 0.28, ease: "power4.in" }, 3.6)
+          .fromTo("#f10-card", { scale: 1 }, { scale: 0.992, duration: 0.08, yoyo: true, repeat: 1, ease: "power2.out", immediateRender: false }, 3.88)
+          .fromTo("#f10-url-sheen", { backgroundPosition: "100% 0" }, { backgroundPosition: "-50% 0", duration: 1.4, ease: "power2.inOut" }, 4.6)
+          .to("#f10-end", { opacity: 1, duration: 0.35, ease: "power1.in" }, 7.88);
+        window.__timelines["f10-confirm"] = tl;
+      </script>
+    </template>
+  </body>
+</html>
