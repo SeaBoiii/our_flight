@@ -53,3 +53,31 @@
   .dock-sheet { margin: auto; }
   .dock-sheet-paper { border-radius: 24px; }
 }
+
+/* ── Wedding day: gate card, card badges, skip link ───────────────── */
+.today-panel { display: grid; gap: 14px; width: min(100%, 560px); margin: -20px auto 40px; padding: 22px 20px 22px; border-radius: 16px; color: var(--ink); background-color: var(--paper); background-image: var(--paper-texture); background-size: 512px; background-blend-mode: multiply; box-shadow: var(--shadow-lift); }
+.today-eyebrow { margin: 0; color: var(--gold-text); font: 500 .6875rem/1.4 var(--font-mono); letter-spacing: .16em; text-transform: uppercase; }
+.today-panel h3 { margin: 0; color: var(--navy); font: 400 clamp(1.9rem, 8vw, 2.4rem)/1.02 var(--font-display); letter-spacing: -.02em; }
+.today-note { margin: 0; color: var(--muted); line-height: 1.6; }
+.today-programme { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.today-programme li { display: grid; grid-template-columns: 5.5rem 3.4rem 1fr; align-items: baseline; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.today-programme-label { color: var(--muted); font: 500 .625rem/1.3 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; }
+.today-programme-time { color: var(--navy); font: 500 .9375rem/1 var(--font-mono); }
+.today-programme-title { font-weight: 600; line-height: 1.35; }
+.today-programme li.is-live .today-programme-label { color: var(--gold-text); }
+.today-programme li.is-live .today-programme-label::before { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--gold-deep); box-shadow: 0 0 0 0 #a9834a80; vertical-align: 1px; animation: today-pulse 2s ease-out infinite; content: ''; }
+.today-actions { display: grid; gap: 10px; }
+.today-actions .button { width: 100%; justify-content: center; }
+.today-actions .today-photos, .today-panel--landed .today-photos { color: var(--ink); background: var(--gold-foil); background-size: 160% 100%; box-shadow: inset 0 1px 0 #fff8, 0 10px 24px -12px #7a5a2899; }
+.today-panel--landed { text-align: center; justify-items: center; }
+.today-panel--landed .button { width: 100%; justify-content: center; }
+
+.experience .itinerary-card--landed { opacity: .62; }
+.itinerary-status { position: absolute; z-index: 1; top: -11px; right: 18px; padding: 5px 9px; border-radius: 999px; color: var(--ink); background: var(--gold-foil); font: 500 .625rem/1 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; }
+.itinerary-card--landed .itinerary-status { color: var(--gold-soft); background: #04121b; box-shadow: inset 0 0 0 1px #d9b47255; }
+.experience .itinerary-card--today { box-shadow: inset 0 0 0 1px #d9b47280, 0 30px 60px -30px #000c; }
+
+.boarding-skip-today { display: flex; width: min(100% - 2 * var(--gutter), 420px); margin: 18px auto 0; justify-content: center; }
+
+@keyframes today-pulse { 0% { box-shadow: 0 0 0 0 #a9834a80; } 80%, 100% { box-shadow: 0 0 0 8px #a9834a00; } }
+@media (prefers-reduced-motion: reduce) { .today-programme li.is-live .today-programme-label::before { animation: none; } }

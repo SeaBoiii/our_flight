@@ -1,35 +1,12 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { departureStatus, eventWindow } from '../departure';
 import { dockCopy } from '../dockCopy';
 import type { InvitationEvent, Locale } from '../types';
+import { useMinuteClock } from '../useMinuteClock';
 import { SplitFlap } from './SplitFlap';
 import '../dock.css';
 
 const singaporeTime = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Singapore', hour: '2-digit', minute: '2-digit', hour12: false });
-
-/** Re-renders on each minute boundary, and again when the tab returns to view. */
-function useMinuteClock(): Date {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    let timer = 0;
-    const schedule = () => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(() => { setNow(new Date()); schedule(); }, 60_000 - (Date.now() % 60_000) + 50);
-    };
-    const onVisible = () => {
-      if (document.visibilityState !== 'visible') return;
-      setNow(new Date());
-      schedule();
-    };
-    schedule();
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      window.clearTimeout(timer);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, []);
-  return now;
-}
 
 const pad = (value: number, size: number) => String(value).padStart(size, '0');
 
@@ -64,11 +41,11 @@ export function DepartureBoard({ events, locale }: { events: readonly Invitation
     body = <div className="departure-status"><SplitFlap text={d.flapToday} className="departure-flap split-flap--status" delay={200} /><p>{time}</p></div>;
   } else if (status.phase === 'boarding' && status.event) {
     const time = singaporeTime.format(eventWindow(status.event).end);
-    label = d.board;
+    label = d.boardStatus;
     summary = d.boardingSummary(flight, time);
     body = <div className="departure-status"><SplitFlap text={d.flapBoarding} className="departure-flap split-flap--status" delay={200} /><p>{d.boardingUntil(time)}</p></div>;
   } else {
-    label = d.board;
+    label = d.boardStatus;
     summary = d.landedSummary;
     body = <div className="departure-status"><SplitFlap text={d.flapLanded} className="departure-flap split-flap--status" delay={200} /><p>{d.landedBody}</p></div>;
   }

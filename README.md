@@ -49,6 +49,18 @@ A **departures board** at the top of the itinerary counts down (days, hours, min
 
 A **boarding dock** (`BoardingDock.tsx`) sits in the thumb zone once the guest reaches the itinerary and hides while the RSVP form or footer is on screen. It offers **Itinerary**, **Directions** (a sheet with Google Maps, Waze and Copy address), **Check in** (scrolls to the RSVP; reads **Checked in** after a reply) and, only after an attending RSVP, **Calendar** for the attending days. Boarding passes and itinerary cards show the seat for each day: **21A** on 21 August (AN2108) and **22A** on 22 August (AN2208).
 
+**Wedding-day mode** follows the guest's own events in Singapore time (`src/weddingDay.ts`):
+
+- On an event day a paper **gate card** sits under the board: *See you at the gate* with the first programme item before the start, *We are celebrating now* with **Now** and **Next** items during the event, and *Thank you for celebrating with us* afterwards. Google Maps and Waze lead until the event ends.
+- Today's itinerary card leads with a **TODAY** tab; finished days move below it, dimmed, marked **LANDED**.
+- The dock's gold action changes from **Check in** to **Directions** on the day, then to **Photos** after the last event.
+- A guest opening the invitation for the first time on the day gets **Skip to today’s details** under the boarding pass (fast-track to the itinerary; Back returns to the pass).
+- After the last event the board reads **LANDED** and a thank-you card remains.
+
+**Share your photos** links (gate card from the start of the event, dock, thank-you card) appear only when `VITE_GALLERY_URL` is set to an HTTPS address. GitHub Pages deployments use https://gallery.aleemxnurul.love/ unless the repository variable `VITE_GALLERY_URL` overrides it; local builds read it from `.env`.
+
+To preview any moment locally, the development and e2e/demo builds accept `?now=` with an explicit time zone, e.g. `?now=2027-08-22T05:00:00Z` (1:00 pm in Singapore). Production builds ignore it.
+
 The practical experience loads separately from check-in, and Journey plus its cloud renderer load only when the flight is opened. A journey failure leaves the wedding details and RSVP available. The broader loading/error fallback retains scoped dates, times, venue, directions and calendars. Older browsers retain secure UUID and media-query listener fallbacks.
 
 The itinerary derives one card per eligible event, preserving programme and venue. Cards have no calendar/directions buttons: directions are in the venue section (Google Maps, Waze and Copy address) and the dock, and calendars follow successful attending RSVPs, both in the confirmation and in the dock. `presentInvitationEvent` clones presentation labels without changing the shared event catalogue. A one-day reception reads **Wedding Reception** / **Resepsi Perkahwinan**; a one-day invitation including Nikah reads **Nikah & Wedding Reception** / **Nikah & Resepsi Perkahwinan**. Both-day invitations retain their specific Bride/Groom headings. The same labels flow through tickets, programme reception entries, RSVP, confirmations and calendars. Programme arrival and Nikah times remain distinct.
