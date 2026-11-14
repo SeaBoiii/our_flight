@@ -73,6 +73,13 @@ export function getJourneyFrame(rawProgress: number, viewportWidth: number, view
     stampRotate: -22 + chopLanding * 9,
     ticketY: -ticket * viewportHeight * 0.7,
     ticketRotate: ticket * -32,
+    // The pass dips under the stamp, then banks away in depth like paper
+    // caught by the air, while one foil highlight crosses it.
+    ticketPress: chopLanding * (1 - chopSettle),
+    ticketYaw: ticket * 22,
+    ticketRoll: -5 - ticket * 9,
+    ticketDepth: -ticket * 320,
+    ticketSheen: phase(progress, 0.03, 0.17),
     ticketOpacity: 1 - phase(progress, 0.10, 0.18),
     introOpacity: 1 - phase(progress, 0.07, 0.15),
     airportOpacity: 1 - phase(progress, 0.16, 0.26),
@@ -82,11 +89,20 @@ export function getJourneyFrame(rawProgress: number, viewportWidth: number, view
     aircraftX: (takeoff * 0.85 - 0.48) * viewportWidth,
     aircraftY: (0.20 - takeoff * 0.44) * viewportHeight,
     aircraftScale: 0.76 + takeoff * 0.42,
+    // Take-off film (phones): one scroll-scrubbed shot from brake release to
+    // the climb. It owns the whole take-off phase and hands over to the cabin.
+    filmOpacity: phase(progress, 0.15, 0.20) * (1 - phase(progress, 0.395, 0.445)),
+    filmPosition: phase(progress, 0.165, 0.405),
     takeoffCopyOpacity: phase(progress, 0.19, 0.23) * (1 - phase(progress, 0.33, 0.39)),
     cabinOpacity: phase(progress, 0.39, 0.47) * (1 - phase(progress, 0.80, 0.85)),
     cabinCopyOpacity: phase(progress, 0.44, 0.48) * (1 - phase(progress, 0.55, 0.59)),
     cameraScale: 1 + (getWindowExitScale(viewportWidth, viewportHeight) - 1) * camera,
     skyOpacity: phase(progress, 0.55, 0.61),
+    // With the living window the sky waits behind the closed shade until the
+    // cabin is fully present; the shade then lifts to reveal it.
+    liveSkyOpacity: phase(progress, 0.462, 0.474),
+    liveSkyScale: 1.16 - smooth(phase(progress, 0.44, 0.86)) * 0.16,
+    shadeOpen: smooth(phase(progress, 0.475, 0.555)),
     // Golden hour: the clouds give way to warm light behind the monogram.
     goldenOpacity: phase(progress, 0.74, 0.86),
     goldenScale: 1.12 - smooth(phase(progress, 0.74, 1)) * 0.12,

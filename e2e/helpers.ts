@@ -218,3 +218,13 @@ export async function snapshot(locator: Locator, name: string) {
   try { await expect(locator).toHaveScreenshot(name, { mask: [locator.page().locator('.split-flap--cycling')] }); }
   finally { await style.evaluate(element => element.parentNode?.removeChild(element)); }
 }
+
+/**
+ * Phones add two progressive layers to the journey: the scrubbed take-off film
+ * and the living-window video. Blocking them leaves the original journey (the
+ * stills, the aircraft cut-out and the WebGL clouds), which is also what Low
+ * Power Mode, tablets and desktops receive, so those specs keep testing it.
+ */
+export async function withoutMotionLayers(page: Page) {
+  await page.route(/\/flight\/(?:takeoff\/|window-sky-portrait\.mp4)/, route => route.abort());
+}

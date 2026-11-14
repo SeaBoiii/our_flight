@@ -1,5 +1,5 @@
 import { expect, test, type Locator } from '@playwright/test';
-import { unlock, noHorizontalOverflow } from './helpers';
+import { unlock, noHorizontalOverflow, withoutMotionLayers } from './helpers';
 
 async function scrollCloudProgress(journey: Locator, progress: number) {
   // After a viewport resize ScrollTrigger restores the reader's position once
@@ -28,6 +28,7 @@ test('three-dimensional clouds fit every aspect ratio and reverse with scrolling
   test.setTimeout(90_000);
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
+  await withoutMotionLayers(page);
   await unlock(page);
   await page.getByRole('button', { name: 'Tap ticket to scan and board', exact: true }).click();
   await expect(page.locator('.ticket-stack--scanning')).toBeVisible();
@@ -36,7 +37,7 @@ test('three-dimensional clouds fit every aspect ratio and reverse with scrolling
   await expect(journey).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(120); // Let entry scroll restoration settle before driving the scene.
-  const canvas = journey.locator('canvas');
+  const canvas = journey.locator('canvas.flight-cloud-volume');
   await expect(canvas).not.toHaveAttribute('data-renderer');
   await scrollCloudProgress(journey, .075);
   await expect.poll(() => journey.evaluate(el => Number(el.style.getPropertyValue('--ticket-chop-opacity')))).toBe(1);
@@ -80,6 +81,7 @@ test('unavailable WebGL leaves a readable sky and usable navigation', async ({ p
       return Reflect.apply(getContext, this, [type, ...args]);
     } as typeof getContext;
   });
+  await withoutMotionLayers(page);
   await unlock(page);
   await page.getByRole('button', { name: 'Tap ticket to scan and board', exact: true }).click();
   const journey = page.locator('.journey');
@@ -87,8 +89,8 @@ test('unavailable WebGL leaves a readable sky and usable navigation', async ({ p
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(120); // Match the cinematic test's entry-restoration settling period.
   await scrollCloudProgress(journey, .72);
-  await expect(journey.locator('canvas')).toHaveAttribute('data-renderer', 'fallback');
-  await expect(journey.locator('canvas')).not.toHaveAttribute('data-rendered');
+  await expect(journey.locator('canvas.flight-cloud-volume')).toHaveAttribute('data-renderer', 'fallback');
+  await expect(journey.locator('canvas.flight-cloud-volume')).not.toHaveAttribute('data-rendered');
   await page.locator('.itinerary-rsvp').click();
   await expect(page.locator('#rsvp-title')).toBeFocused();
 });
@@ -96,6 +98,7 @@ test('unavailable WebGL leaves a readable sky and usable navigation', async ({ p
 test('lost WebGL context falls back, restores the current clouds, and keeps RSVP reachable', async ({ page }, testInfo) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
+  await withoutMotionLayers(page);
   await unlock(page);
   await page.getByRole('button', { name: 'Tap ticket to scan and board', exact: true }).click();
   const journey = page.locator('.journey');
@@ -103,7 +106,7 @@ test('lost WebGL context falls back, restores the current clouds, and keeps RSVP
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(120);
   await scrollCloudProgress(journey, .72);
-  const canvas = journey.locator('canvas');
+  const canvas = journey.locator('canvas.flight-cloud-volume');
   await expect(canvas).toHaveAttribute('data-renderer', /webgl|fallback/);
   const renderer = await canvas.getAttribute('data-renderer');
   if (testInfo.project.name === 'design-chromium') expect(renderer).toBe('webgl');

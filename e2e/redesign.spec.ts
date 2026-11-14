@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { unlock, openJourney, showBoarding, noHorizontalOverflow, comfortableTargets, mockRsvpBridge, fillRsvp, cardTextDoesNotClipOrOverlap } from './helpers';
+import { unlock, openJourney, showBoarding, noHorizontalOverflow, comfortableTargets, mockRsvpBridge, fillRsvp, cardTextDoesNotClipOrOverlap, withoutMotionLayers } from './helpers';
 import { testCodes } from './test-config';
 import AxeBuilder from '@axe-core/playwright';
 
@@ -19,6 +19,7 @@ test('airport check-in adapts from small phones through desktop', async ({ page 
 test('cinematic phases load progressively, reverse and resize without losing navigation', async ({ page }, testInfo) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
+  await withoutMotionLayers(page);
   await unlock(page, testCodes.BUSINESS);
   await openJourney(page);
   const journey = page.locator('.journey');
@@ -37,7 +38,7 @@ test('cinematic phases load progressively, reverse and resize without losing nav
     if (progress >= .51) {
       await expect(page.locator('.journey-cabin img')).toHaveJSProperty('complete', true);
       await expect(page.locator('.journey-cabin img')).not.toHaveJSProperty('naturalWidth', 0);
-      const canvas = journey.locator('canvas');
+      const canvas = journey.locator('canvas.flight-cloud-volume');
       await expect(canvas).toHaveAttribute('data-renderer', /webgl|fallback/);
       // From .86 the golden-hour sky fully covers the clouds, which pause there.
       if (progress >= .56 && progress < .86 && await canvas.getAttribute('data-renderer') === 'webgl') {
