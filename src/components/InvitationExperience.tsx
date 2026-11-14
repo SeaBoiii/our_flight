@@ -18,7 +18,9 @@ import { gsap, ScrollTrigger, SplitText } from '../motion/gsap';
 import { useGsapScene } from '../motion/useGsapScene';
 import { pauseMusic } from '../music';
 import { preloadForReplay } from '../preload';
-import { sceneAssets } from '../sceneAssets';
+import { goldenArrivalVideo, sceneAssets } from '../sceneAssets';
+import { motionLayersAllowed } from '../filmStrip';
+import { LivingLoop } from './LivingLoop';
 import { Envelope } from './Envelope';
 import { ArrowDownIcon, ArrowUpRightIcon } from './Icons';
 import { BoardingDock } from './BoardingDock';
@@ -87,6 +89,8 @@ export default function InvitationExperience({
   const attendingEvents = invitation.events.filter((event) => receipt?.responses.some((answer) => answer.eventId === event.id && answer.attendance === 'attending'));
   const [addressCopied, setAddressCopied] = useState(false);
   const experienceRef = useRef<HTMLElement>(null);
+  const footerRef = useRef<HTMLElement>(null);
+  const [arrivalLoop] = useState(() => motion && motionLayersAllowed());
   const navigatedRef = useRef(false);
   const sectionFocusFrameRef = useRef(0);
   const copiedTimerRef = useRef(0);
@@ -384,7 +388,7 @@ export default function InvitationExperience({
           <div className="travel-introduction" data-reveal>
             <h2 id="venue-title">{t.gettingHere}</h2>
             <div className="travel-destination" aria-hidden="true"><span>SIN</span><span>Singapore<br />Changi Airport</span></div>
-            <VenueMap motion={motion} />
+            <VenueMap motion={motion} href={mapUrl} label={`${design.openMap} (${t.newTab})`} />
           </div>
           <div className="travel-venue" data-reveal>
             <img className="travel-venue-logo" src={crownePlazaLogo} width="140" height="85" loading="lazy" decoding="async" alt="" />
@@ -433,7 +437,7 @@ export default function InvitationExperience({
 
       <BoardingDock locale={locale} checkedIn={!!receipt} calendarEvents={attendingEvents} stage={dockStage} gallery={gallery} />
 
-      <footer className="site-footer">
+      <footer ref={footerRef} className="site-footer">
         {!lowData ? (
           <picture className="arrival-sky" aria-hidden="true">
             <source media="(min-width: 768px)" type="image/avif" srcSet={`${base}${sceneAssets.golden.landscape.avif}`} />
@@ -442,6 +446,8 @@ export default function InvitationExperience({
             <img src={`${base}${sceneAssets.golden.portrait.webp}`} alt="" width="848" height="1264" loading="lazy" decoding="async" />
           </picture>
         ) : null}
+        {/* The journey's golden-hour sky returns, alive, for the goodbye (phones). */}
+        <LivingLoop watch={footerRef} src={`${base}${goldenArrivalVideo}`} className="arrival-sky-live" enabled={arrivalLoop} />
         <div className="site-footer-content">
           <img src={`${base}monogram-a-and-n-display.webp`} alt="" width="120" height="83" loading="lazy" decoding="async" />
           <p className="arrival-title">{design.arrivalTitle}</p>

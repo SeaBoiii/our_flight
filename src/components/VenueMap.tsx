@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { gsap } from '../motion/gsap';
 import { useGsapScene } from '../motion/useGsapScene';
 import { fastConnection } from '../filmStrip';
 import { venueMapArt } from '../sceneAssets';
+import { LivingLoop } from './LivingLoop';
 
 // The walk, drawn over the paper model in the artwork's own 1280 x 958 space:
 // up from the MRT station, across the forecourt into Terminal 3, then along
@@ -17,43 +18,15 @@ const percent = (value: number, size: number) => `${(value / size) * 100}%`;
 
 /**
  * Illustrated walking route from Changi Airport MRT through Terminal 3 to
- * Crowne Plaza, over a paper model of the airport. Decorative: the written
- * directions remain the source of truth. With motion, the route draws itself
+ * Crowne Plaza, over a paper model of the airport. Illustrative: the written
+ * directions remain the source of truth, and tapping the model opens the map. With motion, the route draws itself
  * as the guest scrolls and the model comes alive with a small muted loop.
  */
-export function VenueMap({ motion }: { motion: boolean }) {
+export function VenueMap({ motion, href, label }: { motion: boolean; href: string; label: string }) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const base = import.meta.env.BASE_URL;
-  // The loop is fetched only once the map is close, on a connection that can afford it.
+  // The loop needs motion and a connection that can afford it.
   const [loop] = useState(() => motion && fastConnection());
-  const [near, setNear] = useState(false);
-  const [inView, setInView] = useState(false);
-  const [live, setLive] = useState(false);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!loop || !map) return undefined;
-    const approach = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) setNear(true);
-    }, { rootMargin: '120% 0px' });
-    const view = new IntersectionObserver((entries) => setInView(entries.some((entry) => entry.isIntersecting)), { threshold: 0.15 });
-    approach.observe(map);
-    view.observe(map);
-    return () => { approach.disconnect(); view.disconnect(); };
-  }, [loop]);
-
-  const showVideo = loop && near && !failed;
-  // Plays only while the map is on screen; a refused autoplay keeps the still.
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!showVideo || !video) return undefined;
-    if (!inView) { video.pause(); return undefined; }
-    const played = video.play();
-    if (played && typeof played.catch === 'function') played.catch(() => setFailed(true));
-    return undefined;
-  }, [showVideo, inView]);
 
   useGsapScene(mapRef, () => {
     const map = mapRef.current!;
@@ -92,28 +65,28 @@ export function VenueMap({ motion }: { motion: boolean }) {
   }, motion);
 
   return (
-    <div ref={mapRef} className={`venue-map${motion ? ' venue-map--motion' : ''}${live ? ' venue-map--live' : ''}`} aria-hidden="true">
-      <div className="venue-map-scene">
+    <div ref={mapRef} className={`venue-map${motion ? ' venue-map--motion' : ''}`}>
+      {/* Tapping the model opens the real map. */}
+      <a className="venue-map-scene" href={href} target="_blank" rel="noreferrer" aria-label={label}>
         <picture>
           <source type="image/avif" srcSet={`${base}${venueMapArt.avif}`} />
           <img src={`${base}${venueMapArt.webp}`} width={venueMapArt.width} height={venueMapArt.height} alt="" loading="lazy" decoding="async" />
         </picture>
-        {showVideo && <video ref={videoRef} className="venue-map-loop" src={`${base}${venueMapArt.video}`}
-          muted loop playsInline preload="auto" disablePictureInPicture tabIndex={-1}
-          onPlaying={() => setLive(true)} onError={() => { setLive(false); setFailed(true); }} />}
-        <svg className="venue-map-overlay" viewBox={`0 0 ${venueMapArt.width} ${venueMapArt.height}`} preserveAspectRatio="none">
+        <LivingLoop watch={mapRef} src={`${base}${venueMapArt.video}`} className="venue-map-loop" enabled={loop} />
+        <svg className="venue-map-overlay" aria-hidden="true" viewBox={`0 0 ${venueMapArt.width} ${venueMapArt.height}`} preserveAspectRatio="none">
           <path d={ROUTE} className="venue-map-route" />
           <path d={ROUTE} className="venue-map-trail" pathLength={1} />
         </svg>
-        <span className="venue-map-traveller" />
+        <span className="venue-map-traveller" aria-hidden="true" />
         {STOPS.map((stop, index) => (
-          <span key={stop.name} className={`venue-map-stop${index === STOPS.length - 1 ? ' venue-map-stop--destination' : ''}`}
+          <span key={stop.name} aria-hidden="true" className={`venue-map-stop${index === STOPS.length - 1 ? ' venue-map-stop--destination' : ''}`}
             style={{ left: percent(stop.x, venueMapArt.width), top: percent(stop.y, venueMapArt.height) }}>{index + 1}</span>
         ))}
-      </div>
+        <span className="venue-map-open" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 16 16 8m-6.5 0H16v6.5" /></svg></span>
+      </a>
       <ol className="venue-map-steps">
         {STOPS.map((stop, index) => (
-          <li key={stop.name} className="venue-map-step"><span>{index + 1}</span>{stop.name}</li>
+          <li key={stop.name} className="venue-map-step"><span aria-hidden="true">{index + 1}</span>{stop.name}</li>
         ))}
       </ol>
     </div>

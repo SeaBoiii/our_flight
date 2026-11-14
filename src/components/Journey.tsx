@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import { copy } from '../copy';
 import { designCopy } from '../designCopy';
 import { getJourneyFrame, getWindowAperture, getWindowGeometry } from '../journeyMotion';
@@ -19,6 +19,7 @@ const journeyCopy = {
     cabin: 'And some bring you home.', cabinLabel: '02 / Above the clouds', arrival: 'Our next chapter. With you.',
     staticBody: 'Our next chapter begins with the people we love. Welcome to our wedding celebration.',
     scroll: 'Scroll to take flight', accepted: 'CLEARED FOR FOREVER',
+    skip: 'Skip flight', skipLabel: 'Skip the flight and go to the invitation',
   },
   ms: {
     boarding: 'Permulaan sebuah selamanya', pass: 'Pas masuk', routeFrom: 'HARI INI', routeTo: 'SELAMANYA',
@@ -26,6 +27,7 @@ const journeyCopy = {
     cabin: 'Ada yang membawa kita pulang.', cabinLabel: '02 / Di atas awan', arrival: 'Bab seterusnya. Bersama anda.',
     staticBody: 'Bab seterusnya bermula bersama insan tersayang. Selamat datang ke majlis perkahwinan kami.',
     scroll: 'Tatal untuk memulakan perjalanan', accepted: 'MENUJU SELAMANYA',
+    skip: 'Langkau', skipLabel: 'Langkau penerbangan dan terus ke jemputan',
   },
 } satisfies Record<Locale, Record<string, string>>;
 
@@ -185,6 +187,7 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
       px('--cloud-clip-radius-x', aperture.width * 0.48);
       px('--cloud-clip-radius-y', aperture.height * 0.18);
       section.classList.toggle('journey--started', frame.progress > 0.012);
+      section.classList.toggle('journey--arriving', frame.progress > 0.8);
       setAssetTier((current) => Math.max(current, frame.assetTier));
       if (canvas && frame.progress >= .48 && !cloudAttempted && !liveSky) {
         cloudAttempted = true;
@@ -309,6 +312,17 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
     };
   }, [showGoldenVideo]);
 
+  // Guests in a hurry can land straight on the invitation. The jump is
+  // instant, so the film is not fast-forwarded on the way.
+  const skipFlight = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const target = document.getElementById('invitation');
+    if (!target) return;
+    event.preventDefault();
+    window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY, behavior: 'instant' });
+    target.focus({ preventScroll: true });
+  };
+
   if (staticMode) return <StaticJourney invitation={invitation} locale={locale} guestName={guestName} />;
 
   return (
@@ -347,6 +361,9 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
         <div className="flight-caption flight-caption--takeoff" aria-hidden="true"><p className="eyebrow">{words.takeoffLabel}</p><p className="flight-caption-text" key={`takeoff-${locale}`}>{words.takeoff}</p></div>
         <div className="flight-caption flight-caption--cabin" aria-hidden="true"><p className="eyebrow">{words.cabinLabel}</p><p className="flight-caption-text" key={`cabin-${locale}`}>{words.cabin}</p></div>
         <div className="journey-reveal" aria-hidden="true"><img src={`${base}monogram-a-and-n-display.webp`} width="640" height="640" alt="" decoding="async" /><p key={`arrival-${locale}`}>{words.arrival}</p></div>
+        <a className="journey-skip" href="#invitation" aria-label={words.skipLabel} onClick={skipFlight}>
+          <span>{words.skip}</span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 6 7 6-7 6M13 6l7 6-7 6" /></svg>
+        </a>
         <div className="flight-hud" aria-hidden="true">
           <span className="flight-hud-code">{design.routeFrom}</span>
           <span className="flight-hud-track">

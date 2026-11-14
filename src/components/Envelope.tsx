@@ -33,6 +33,34 @@ export function Envelope({ locale, guestName }: EnvelopeProps) {
     return () => observer.disconnect();
   }, [near]);
 
+  // A tap on the envelope opens it: the page glides through the scene as if
+  // the guest had scrolled, and any touch, wheel or key hands control back.
+  const glideRef = useRef(0);
+  useEffect(() => () => window.cancelAnimationFrame(glideRef.current), []);
+  const openOnTap = () => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const from = window.scrollY;
+    const to = scene.getBoundingClientRect().top + from + scene.offsetHeight - window.innerHeight * 0.45;
+    if (to - from < 40) return;
+    const duration = 900 + 2100 * Math.min(1, (to - from) / scene.offsetHeight);
+    const started = performance.now();
+    const stop = () => {
+      window.cancelAnimationFrame(glideRef.current);
+      for (const type of ['wheel', 'touchstart', 'keydown'] as const) window.removeEventListener(type, stop);
+    };
+    const step = (now: number) => {
+      const time = Math.min(1, (now - started) / duration);
+      const eased = time < 0.5 ? 2 * time * time : 1 - (-2 * time + 2) ** 2 / 2;
+      window.scrollTo({ top: from + (to - from) * eased, behavior: 'instant' });
+      if (time < 1) glideRef.current = window.requestAnimationFrame(step);
+      else stop();
+    };
+    stop();
+    for (const type of ['wheel', 'touchstart', 'keydown'] as const) window.addEventListener(type, stop, { passive: true });
+    glideRef.current = window.requestAnimationFrame(step);
+  };
+
   useGsapScene(sceneRef, () => {
     const scene = sceneRef.current!;
     const timeline = gsap.timeline({
@@ -71,7 +99,7 @@ export function Envelope({ locale, guestName }: EnvelopeProps) {
       <div className="envelope-stage">
         <div className="envelope-linen" />
         <div className="envelope-glow" />
-        <div className="envelope">
+        <div className="envelope" onClick={openOnTap}>
           <div className="envelope-body envelope-back" />
           <div className="envelope-pocket"><div className="envelope-card">
             {near && <img className="envelope-card-arch" src={`${base}${envelopeArt.archWindow}`} width="336" height="600" alt="" decoding="async" />}

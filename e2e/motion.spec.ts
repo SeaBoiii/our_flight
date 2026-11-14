@@ -155,7 +155,7 @@ test('the venue map draws the walk from the MRT to Crowne Plaza over a living mo
   await expect(map.locator('.venue-map-step')).toHaveText(['1Changi Airport MRT', '2Terminal 3', '3Crowne Plaza']);
   const loop = map.locator('video.venue-map-loop');
   await expect(loop).toHaveCount(1);
-  await expect(map).toHaveClass(/venue-map--live/);
+  await expect(loop).toHaveClass(/is-live/);
   await expect(loop).toHaveJSProperty('muted', true);
   await expect(loop).toHaveJSProperty('paused', false);
   // Out of view, the loop rests.
@@ -172,6 +172,35 @@ test('the venue map keeps its still and its full route when the loop cannot load
   await map.evaluate(element => window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY - 80, behavior: 'instant' }));
   await expect(map.locator('.venue-map-stop.is-reached')).toHaveCount(3);
   await expect(map.locator('video')).toHaveCount(0);
-  await expect(map).not.toHaveClass(/venue-map--live/);
   await expect(map.locator('img')).toBeVisible();
+});
+
+test('guests can skip the flight, tap the envelope open and tap the map for directions', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const journey = await board(page);
+  const skip = journey.getByRole('link', { name: 'Skip the flight and go to the invitation' });
+  // Not offered on the opening screen, only once the flight is under way.
+  await expect(skip).toHaveCSS('opacity', '0');
+  await scrollJourney(journey, .3);
+  await expect(skip).toHaveCSS('opacity', '1');
+
+  // A tap on the envelope glides through the scene to the invitation.
+  const scene = page.locator('.envelope-scene');
+  await scrollThrough(scene, 0);
+  await expect(scene.locator('.envelope-hint')).toHaveText('Tap or scroll to open');
+  await scene.locator('.envelope').click({ position: { x: 40, y: 40 } });
+  const invitation = page.locator('#invitation');
+  await expect.poll(async () => (await invitation.boundingBox())!.y, { timeout: 8000 }).toBeLessThan(page.viewportSize()!.height * 0.6);
+
+  // Skipping lands on the invitation at once, without playing the film.
+  await scrollJourney(journey, .3);
+  await skip.click();
+  await expect.poll(async () => Math.abs((await invitation.boundingBox())!.y)).toBeLessThan(2);
+  await expect(invitation).toBeFocused();
+
+  const mapLink = page.locator('.venue-map').getByRole('link', { name: 'Open the map in Google Maps (opens in a new tab)' });
+  await expect(mapLink).toHaveAttribute('href', /^https:\/\/www\.google\.com\/maps\//);
+  await expect(mapLink).toHaveAttribute('target', '_blank');
+  expect(errors).toEqual([]);
 });
