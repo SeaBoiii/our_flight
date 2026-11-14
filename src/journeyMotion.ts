@@ -91,7 +91,9 @@ export function getJourneyFrame(rawProgress: number, viewportWidth: number, view
     aircraftScale: 0.76 + takeoff * 0.42,
     // Take-off film (phones): one scroll-scrubbed shot from brake release to
     // the climb. It owns the whole take-off phase and hands over to the cabin.
-    filmOpacity: phase(progress, 0.15, 0.20) * (1 - phase(progress, 0.395, 0.445)),
+    // It ends on empty night sky and holds there, a dark backdrop for the
+    // cabin to fade in over, then switches off once the cabin covers it.
+    filmOpacity: progress < 0.475 ? phase(progress, 0.15, 0.20) : 0,
     filmPosition: phase(progress, 0.165, 0.405),
     takeoffCopyOpacity: phase(progress, 0.19, 0.23) * (1 - phase(progress, 0.33, 0.39)),
     cabinOpacity: phase(progress, 0.39, 0.47) * (1 - phase(progress, 0.80, 0.85)),

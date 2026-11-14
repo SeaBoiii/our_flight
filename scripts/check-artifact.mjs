@@ -230,13 +230,26 @@ for (const format of ['avif', 'webp']) {
   if (sceneBytes > 2 * 1024 * 1024) failures.push(`Mobile ${format} scene artwork exceeds the 2 MiB budget.`);
   mobileSceneBudgets[format] = sceneBytes;
 }
-// The only permitted video is the small, optional check-in cinemagraph, which
-// loads after the page and never on low data or with reduced motion.
+// Two small, optional loops are permitted: the check-in cinemagraph and the
+// living cabin window. Both load after the page, on phones only, and never on
+// low data or with reduced motion. Nothing is ever scrubbed from a video.
 const CINEMAGRAPH = join('flight', 'gate-cinemagraph-portrait.mp4');
+const WINDOW_SKY = join('flight', 'window-sky-portrait.mp4');
+const permittedVideos = [CINEMAGRAPH, WINDOW_SKY];
 for (const file of files.filter(file => /\.(?:mp4|webm)$/i.test(file))) {
-  if (relative(root, file) !== CINEMAGRAPH && file !== CINEMAGRAPH) failures.push(`Unexpected video in the artifact: ${file}. The journey must stay video-free.`);
+  if (!permittedVideos.includes(relative(root, file)) && !permittedVideos.includes(file)) failures.push(`Unexpected video in the artifact: ${file}. Only the check-in cinemagraph and the window sky loop are allowed.`);
 }
 if (await exists(join(root, CINEMAGRAPH)) && (await stat(join(root, CINEMAGRAPH))).size > 400 * 1024) failures.push('The check-in cinemagraph exceeds its 400 KiB budget.');
+if (await exists(join(root, WINDOW_SKY)) && (await stat(join(root, WINDOW_SKY))).size > 600 * 1024) failures.push('The window sky loop exceeds its 600 KiB budget.');
+// The take-off film is 40 numbered frames scrubbed on a canvas (phones only).
+const TAKEOFF_FRAMES = 40;
+let takeoffBytes = 0;
+for (let frame = 1; frame <= TAKEOFF_FRAMES; frame++) {
+  const file = join(root, 'flight', 'takeoff', `takeoff-portrait-${String(frame).padStart(2, '0')}.webp`);
+  if (await exists(file)) takeoffBytes += (await stat(file)).size;
+  else failures.push(`Take-off film frame missing: ${relative(root, file)}.`);
+}
+if (takeoffBytes > 800 * 1024) failures.push(`The take-off film is ${takeoffBytes} bytes (limit 819200).`);
 if (await exists(join(root, 'flight', 'clouds-960.webp'))) failures.push('Retired foreground cloud cutout is still present in the artifact.');
 
 const indexHtml = await readFile(join(root, 'index.html'), 'utf8');
