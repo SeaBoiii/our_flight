@@ -3,7 +3,7 @@ import { copy } from '../copy';
 import { designCopy } from '../designCopy';
 import { getJourneyFrame, getWindowAperture, getWindowGeometry } from '../journeyMotion';
 import { gsap, ScrollTrigger, SplitText } from '../motion/gsap';
-import { aircraftAsset, sceneAssets, windowSkyVideo, type SceneAsset } from '../sceneAssets';
+import { aircraftAsset, sceneAssets, goldenArrivalVideo, windowSkyVideo, type SceneAsset } from '../sceneAssets';
 import { createFilmStrip, loadFilmFrames, motionLayersAllowed, type FilmStrip } from '../filmStrip';
 import type { Invitation, Locale } from '../types';
 import { useLowDataMode } from '../useLowDataMode';
@@ -98,11 +98,14 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
   // The living window is live only while its video is really playing; the
   // scroll driver reads this without re-subscribing.
   const liveSkyRef = useRef(false);
+  const goldenVideoRef = useRef<HTMLVideoElement>(null);
+  const liveGoldenRef = useRef(false);
   const refreshRef = useRef<() => void>(() => undefined);
   const [assetTier, setAssetTier] = useState(0);
   // Phone-only motion layers; decided once so a rotation never swaps scenes.
   const [motionLayers] = useState(() => !staticMode && typeof window !== 'undefined' && motionLayersAllowed());
   const [skyVideoFailed, setSkyVideoFailed] = useState(false);
+  const [goldenVideoFailed, setGoldenVideoFailed] = useState(false);
   const t = copy[locale];
   const words = journeyCopy[locale];
   const design = designCopy[locale];
@@ -157,13 +160,14 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
       const liveSky = liveSkyRef.current;
       number('--sky-opacity', liveSky ? frame.liveSkyOpacity : frame.skyOpacity);
       number('--live-sky-scale', frame.liveSkyScale);
-      // The loop only runs while the window can be seen.
-      const skyVideo = skyVideoRef.current;
-      if (liveSky && skyVideo) {
-        const visible = frame.liveSkyOpacity > 0 && frame.goldenOpacity < 1 && !document.hidden;
-        if (visible && skyVideo.paused) void skyVideo.play().catch(() => undefined);
-        else if (!visible && !skyVideo.paused) skyVideo.pause();
-      }
+      // Each loop only runs while its scene can be seen.
+      const runLoop = (video: HTMLVideoElement | null, visible: boolean) => {
+        if (!video) return;
+        if (visible && video.paused) void video.play().catch(() => undefined);
+        else if (!visible && !video.paused) video.pause();
+      };
+      if (liveSky) runLoop(skyVideoRef.current, frame.liveSkyOpacity > 0 && frame.goldenOpacity < 1 && !document.hidden);
+      if (liveGoldenRef.current) runLoop(goldenVideoRef.current, frame.goldenOpacity > 0 && !document.hidden);
       number('--golden-opacity', frame.goldenOpacity);
       number('--golden-scale', frame.goldenScale);
       number('--reveal-opacity', frame.revealOpacity);
@@ -284,6 +288,27 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
     };
   }, [showSkyVideo]);
 
+  // The arrival sky follows the same rules, one scene later.
+  const showGoldenVideo = motionLayers && assetTier >= 3 && !goldenVideoFailed;
+  const setLiveGolden = (live: boolean) => {
+    if (liveGoldenRef.current === live) return;
+    liveGoldenRef.current = live;
+    sectionRef.current?.classList.toggle('journey--live-golden', live);
+    refreshRef.current();
+  };
+  useEffect(() => {
+    const video = goldenVideoRef.current;
+    const section = sectionRef.current;
+    if (!showGoldenVideo || !video) return undefined;
+    const played = video.play();
+    if (played && typeof played.catch === 'function') played.catch(() => setGoldenVideoFailed(true));
+    return () => {
+      video.pause();
+      liveGoldenRef.current = false;
+      section?.classList.remove('journey--live-golden');
+    };
+  }, [showGoldenVideo]);
+
   if (staticMode) return <StaticJourney invitation={invitation} locale={locale} guestName={guestName} />;
 
   return (
@@ -303,7 +328,12 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
             onPlaying={() => setLiveSky(true)} onError={() => { setLiveSky(false); setSkyVideoFailed(true); }} />}
         </div>
         <div className="flight-shade" aria-hidden="true"><span className="flight-shade-panel" /></div>
-        <div className="flight-golden" aria-hidden="true">{assetTier >= 2 && <ScenePicture asset={sceneAssets.golden} />}</div>
+        <div className="flight-golden" aria-hidden="true">
+          {assetTier >= 2 && <ScenePicture asset={sceneAssets.golden} />}
+          {showGoldenVideo && <video ref={goldenVideoRef} className="flight-golden-live" src={`${base}${goldenArrivalVideo}`}
+            muted loop playsInline preload="auto" disablePictureInPicture aria-hidden="true" tabIndex={-1}
+            onPlaying={() => setLiveGolden(true)} onError={() => { setLiveGolden(false); setGoldenVideoFailed(true); }} />}
+        </div>
         <div className="flight-daylight" aria-hidden="true" />
         <div className="journey-opening">
           <div className="journey-intro">

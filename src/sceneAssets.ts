@@ -65,3 +65,6 @@ export const takeoffFilm = {
 
 /** Seamless loop of the view outside the cabin window. */
 export const windowSkyVideo = 'flight/window-sky-portrait.mp4';
+
+/** Seamless loop of the golden-hour cloudscape behind the monogram. */
+export const goldenArrivalVideo = 'flight/golden-arrival-portrait.mp4';

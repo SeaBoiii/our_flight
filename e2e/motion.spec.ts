@@ -69,6 +69,29 @@ test('the window shade lifts on a living sky that carries through the window', a
   expect(errors).toEqual([]);
 });
 
+test('the arrival sky is alive behind the monogram and rests out of view', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const journey = await board(page);
+  // The loop is fetched once the window has opened, and waits paused.
+  await scrollJourney(journey, .40);
+  await expect(journey.locator('video.flight-golden-live')).toHaveCount(0);
+  await scrollJourney(journey, .60);
+  const video = journey.locator('video.flight-golden-live');
+  await expect(video).toHaveCount(1);
+  await expect(journey).toHaveClass(/journey--live-golden/);
+  await expect(video).toHaveJSProperty('muted', true);
+  await expect(video).toHaveJSProperty('paused', true);
+  await scrollJourney(journey, .96);
+  await expect(video).toHaveJSProperty('paused', false);
+  await expect(video).toHaveCSS('opacity', '1');
+  await expect(journey.locator('.journey-reveal img')).toBeVisible();
+  await scrollJourney(journey, .60);
+  await expect(video).toHaveJSProperty('paused', true);
+  await noHorizontalOverflow(page);
+  expect(errors).toEqual([]);
+});
+
 test('without the motion layers the original journey still flies', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -81,5 +104,9 @@ test('without the motion layers the original journey still flies', async ({ page
   await expect(journey.locator('video')).toHaveCount(0);
   await expect(journey).not.toHaveClass(/journey--live-sky/);
   await expect(journey.locator('canvas.flight-cloud-volume')).toHaveAttribute('data-renderer', /webgl|fallback/);
+  await scrollJourney(journey, .96);
+  await expect(journey.locator('video')).toHaveCount(0);
+  await expect(journey).not.toHaveClass(/journey--live-golden/);
+  await expect(journey.locator('.flight-golden img')).toBeVisible();
   expect(errors).toEqual([]);
 });

@@ -220,11 +220,11 @@ export async function snapshot(locator: Locator, name: string) {
 }
 
 /**
- * Phones add two progressive layers to the journey: the scrubbed take-off film
- * and the living-window video. Blocking them leaves the original journey (the
+ * Phones add three progressive layers to the journey: the scrubbed take-off film,
+ * the living-window video and the golden-hour arrival loop. Blocking them leaves the original journey (the
  * stills, the aircraft cut-out and the WebGL clouds), which is also what Low
  * Power Mode, tablets and desktops receive, so those specs keep testing it.
  */
 export async function withoutMotionLayers(page: Page) {
-  await page.route(/\/flight\/(?:takeoff\/|window-sky-portrait\.mp4)/, route => route.abort());
+  await page.route(/\/flight\/(?:takeoff\/|window-sky-portrait\.mp4|golden-arrival-portrait\.mp4)/, route => route.abort());
 }
