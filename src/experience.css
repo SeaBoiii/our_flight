@@ -35,26 +35,56 @@
 .music-toggle--playing .music-toggle-bars > span:nth-child(4) { animation-delay: -.15s; }
 .music-toggle:not(.music-toggle--playing) .music-toggle-bars > span:nth-child(odd) { height: 9px; }
 
-/* ── Envelope prelude ──────────────────────────────────────────────── */
+/* ── Envelope prelude ────────────────────────────────────────────────
+   Styled after the printed boarding-pass card: arch-window light on linen,
+   a night-sky liner, a navy wax seal and the arch window on the card. The
+   photographs load as the scene draws near (.envelope-scene--art); until
+   then, and if they fail, plain paper tones stand in. */
 .envelope-scene { position: relative; height: 240svh; background: linear-gradient(180deg, var(--ivory), #f3eadb 50%, var(--ivory)); }
 .envelope-stage { position: sticky; top: 0; display: grid; height: 100svh; place-items: center; overflow: hidden; perspective: 1400px; }
 .envelope-stage::before { position: absolute; inset: 0; background: var(--songket-lattice) 50% 50% / 44px 44px; opacity: .14; -webkit-mask-image: radial-gradient(60% 50% at 50% 50%, #000, transparent); mask-image: radial-gradient(60% 50% at 50% 50%, #000, transparent); content: ''; }
+.envelope-linen { position: absolute; inset: 0; background: radial-gradient(70% 46% at 50% 50%, #f1e2c6, transparent 72%); -webkit-mask-image: linear-gradient(180deg, transparent, #000 20%, #000 80%, transparent); mask-image: linear-gradient(180deg, transparent, #000 20%, #000 80%, transparent); }
+.envelope-scene--art .envelope-linen { background: url('/flight/envelope-linen-720.webp') 50% 50% / cover no-repeat; }
 .envelope-glow { position: absolute; width: 80vmin; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, #f6dcbcaa, transparent 65%); opacity: .4; }
 .envelope { position: relative; width: min(84vw, 420px); aspect-ratio: 1.42; transform-style: preserve-3d; }
 .envelope-body { position: absolute; inset: 0; border-radius: 10px; }
-.envelope-back { background: var(--songket-lattice) 0 0 / 30px 30px, linear-gradient(180deg, #e8dcc5, #ddcdb0); box-shadow: var(--shadow-lift); }
-.envelope-front { z-index: 3; background: var(--paper-surface); background-blend-mode: multiply, normal; clip-path: polygon(0 0, 50% 54%, 100% 0, 100% 100%, 0 100%); filter: drop-shadow(0 -1px 0 #c9bba3); }
+.envelope-back { background: linear-gradient(180deg, #0b3246, #1d5364 38%, #e7b98f 54%, #ddcdb0 62%); box-shadow: 0 34px 46px -22px rgba(70,48,16,.42), 0 10px 18px -8px rgba(70,48,16,.24); }
+.envelope-scene--art .envelope-back { background: url('/flight/envelope-liner-640.webp') 50% 100% / 100% auto no-repeat, #0b3246; }
+.envelope-front { z-index: 3; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M0 100 50 55 100 100' fill='none' stroke='%23a48f66' stroke-opacity='.42' stroke-width='1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat, linear-gradient(0deg, rgba(120,96,56,.13), transparent 46%), var(--paper-surface); background-blend-mode: normal, normal, multiply, normal; clip-path: polygon(0 0, 50% 54%, 100% 0, 100% 100%, 0 100%); filter: drop-shadow(0 -1px 0 #c9a45c) drop-shadow(0 -4px 7px rgba(50,34,10,.3)); }
 .envelope-front::after { position: absolute; right: 6%; bottom: 8%; left: 6%; height: 12px; background: var(--songket-border) repeat-x 0 0 / 22px 12px; opacity: .6; content: ''; }
-.envelope-flap { position: absolute; top: 0; right: 0; left: 0; z-index: 4; height: 60%; background: linear-gradient(180deg, #f5ecdc, #e9dcc4); clip-path: polygon(0 0, 100% 0, 50% 100%); transform-origin: 50% 0; backface-visibility: visible; }
-.envelope-card { position: absolute; top: 6%; right: 6%; left: 6%; z-index: 2; display: grid; justify-items: center; gap: 6px; height: 88%; padding: 8% 6% 6%; border-radius: 8px; background: var(--paper-surface); background-blend-mode: multiply, normal; box-shadow: 0 6px 18px #0a22301f; text-align: center; }
-.envelope-card img { width: 46%; height: auto; }
-.envelope-card-label { margin: 0; color: var(--gold-text); font: 500 .5625rem/1.4 var(--font-mono); letter-spacing: .2em; text-transform: uppercase; }
-.envelope-card-guest { margin: 0; color: var(--muted); font: italic 400 1rem/1.2 var(--font-display); overflow-wrap: anywhere; }
-.envelope-card-names { margin: 0; font: 400 clamp(1.3rem, 6vw, 2rem)/1 var(--font-display); letter-spacing: -.02em; white-space: nowrap; }
+.envelope-flap { --flap-turn: 0; position: absolute; top: 0; right: 0; left: 0; z-index: 4; height: 62%; transform-origin: 50% 0; transform-style: preserve-3d; }
+.envelope-flap-face { position: absolute; inset: 0; -webkit-backface-visibility: hidden; backface-visibility: hidden; filter: drop-shadow(0 1px 0 #c9a45c) drop-shadow(0 5px 6px rgba(60,40,10,.2)); }
+.envelope-flap-face::before { position: absolute; inset: 0; content: ''; }
+.envelope-flap-outer::before { background: linear-gradient(180deg, rgba(255,255,255,.5), rgba(205,186,150,.26)), var(--paper-surface); background-blend-mode: normal, multiply, normal; clip-path: polygon(0% 0%, 4.1% 11.4%, 8.4% 22.6%, 12.9% 33.4%, 17.6% 43.8%, 22.5% 54%, 27.6% 63.8%, 32.9% 73.4%, 38.4% 82.6%, 44.1% 91.4%, 50% 100%, 55.9% 91.4%, 61.6% 82.6%, 67.1% 73.4%, 72.4% 63.8%, 77.5% 54%, 82.4% 43.8%, 87.1% 33.4%, 91.6% 22.6%, 95.9% 11.4%, 100% 0%); filter: brightness(calc(1 - var(--flap-turn) * .24)); }
+.envelope-flap-inner { transform: rotateX(180deg); filter: drop-shadow(0 -1px 0 #c9a45c) drop-shadow(0 -4px 6px rgba(60,40,10,.18)); }
+.envelope-flap-inner::before { background: linear-gradient(180deg, #082a3c, #174a5c); clip-path: polygon(0% 100%, 4.1% 88.6%, 8.4% 77.4%, 12.9% 66.6%, 17.6% 56.2%, 22.5% 46%, 27.6% 36.2%, 32.9% 26.6%, 38.4% 17.4%, 44.1% 8.6%, 50% 0%, 55.9% 8.6%, 61.6% 17.4%, 67.1% 26.6%, 72.4% 36.2%, 77.5% 46%, 82.4% 56.2%, 87.1% 66.6%, 91.6% 77.4%, 95.9% 88.6%, 100% 100%); }
+.envelope-scene--art .envelope-flap-inner::before { background: url('/flight/envelope-liner-640.webp') 50% 0 / 100% auto no-repeat, #082a3c; }
+/* The card waits out of sight inside the pocket; only its foot is clipped. */
+.envelope-pocket { position: absolute; z-index: 2; top: -120%; right: -24%; bottom: 0; left: -24%; overflow: hidden; pointer-events: none; }
+.envelope-card { position: absolute; top: calc(54.5% + 6% * .455); right: 20.3%; left: 20.3%; display: grid; grid-template-columns: 31% minmax(0, 1fr); align-items: center; gap: 5%; height: calc(88% * .4545); padding: 3% 4% 3% 3.4%; border-radius: 8px; background: var(--paper-surface); background-blend-mode: multiply, normal; box-shadow: 0 6px 18px #0a22301f; }
+.envelope-card::before { position: absolute; inset: 5px; border: 1px solid #c9a45c; border-radius: 5px; opacity: .55; content: ''; pointer-events: none; }
+.envelope-card-arch { grid-column: 1; width: 100%; height: auto; max-height: 100%; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(10,34,48,.2)); }
+.envelope-card-copy { grid-column: 2; display: grid; gap: 5px; min-width: 0; text-align: left; }
+.envelope-card-label { margin: 0; color: var(--gold-text); font: 500 .5rem/1.4 var(--font-mono); letter-spacing: .16em; text-transform: uppercase; }
+.envelope-card-guest { margin: 2px 0 0; padding-top: 6px; border-top: 1px solid #c9a45c88; color: var(--muted); font: italic 400 .9375rem/1.2 var(--font-display); overflow-wrap: anywhere; }
+.envelope-card-names { margin: 0; color: var(--navy); font: 400 clamp(1.45rem, 6.6vw, 2.2rem)/.98 var(--font-display); letter-spacing: -.02em; }
 .envelope-card-names span { color: var(--gold-deep); font-style: italic; }
-.envelope-seal { position: absolute; z-index: 5; top: calc(60% - 13%); left: 50%; width: 26%; aspect-ratio: 1; margin-left: -13%; filter: drop-shadow(0 6px 10px #0a223055); }
+.envelope-card-names span::before { content: '\A'; white-space: pre; }
+.envelope-card-route { display: flex; align-items: center; gap: 6px; margin: 3px 0 0; color: var(--navy); font: 500 .5rem/1 var(--font-mono); letter-spacing: .14em; }
+.envelope-card-route i { flex: 1; min-width: 6px; height: 1px; background: #c9a45c; }
+.envelope-card-route svg { width: 9px; height: 9px; flex: 0 0 auto; fill: var(--gold-deep); transform: rotate(45deg); }
+.envelope-sparks { position: absolute; z-index: 5; top: 4%; left: 50%; width: 0; height: 0; pointer-events: none; }
+.envelope-spark { position: absolute; width: 8px; height: 8px; background: #d2a85a; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); opacity: 0; filter: drop-shadow(0 0 3px #fff1cf); }
+.envelope-spark:nth-child(1) { left: -86px; top: 22px; }
+.envelope-spark:nth-child(2) { left: 58px; top: 6px; width: 5px; height: 5px; }
+.envelope-spark:nth-child(3) { left: -34px; top: -4px; width: 9px; height: 9px; }
+.envelope-spark:nth-child(4) { left: 96px; top: 30px; }
+.envelope-spark:nth-child(5) { left: 14px; top: 18px; width: 5px; height: 5px; }
+.envelope-spark:nth-child(6) { left: -118px; top: 44px; width: 5px; height: 5px; }
+.envelope-spark:nth-child(7) { left: 128px; top: 52px; width: 6px; height: 6px; }
+.envelope-seal { position: absolute; z-index: 6; top: 45%; left: 50%; width: 26%; aspect-ratio: 1; margin-left: -13%; filter: drop-shadow(0 7px 9px rgba(10,34,48,.42)); }
 .envelope-seal img { width: 100%; height: 100%; }
-.envelope-seal-mark { position: absolute; inset: 27%; background: var(--gold-foil); -webkit-mask: url('/monogram-a-and-n-display.webp') center / contain no-repeat; mask: url('/monogram-a-and-n-display.webp') center / contain no-repeat; opacity: .92; }
+.envelope-seal-mark { position: absolute; inset: 25%; background: var(--gold-foil); -webkit-mask: url('/monogram-a-and-n-display.webp') center / contain no-repeat; mask: url('/monogram-a-and-n-display.webp') center / contain no-repeat; opacity: .94; filter: drop-shadow(0 1px 0 rgba(0,0,0,.45)); }
 .envelope-hint { position: absolute; bottom: max(28px, calc(env(safe-area-inset-bottom) + 18px)); display: grid; justify-items: center; gap: 8px; margin: 0; color: var(--muted); font: 500 .625rem/1.4 var(--font-mono); letter-spacing: .18em; text-transform: uppercase; }
 .envelope-hint svg { width: 20px; height: 24px; fill: none; stroke: var(--gold-deep); stroke-width: 1.2; }
 
