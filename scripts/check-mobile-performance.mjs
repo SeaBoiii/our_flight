@@ -52,8 +52,12 @@ try {
 const median = values => [...values].sort((a, b) => a - b)[1];
 // Check-in deliberately hard-loads the journey after the gate has rendered
 // (src/preload.ts). Budget that preload separately from the critical gate.
-const PRELOAD = /\/assets\/(?:InvitationExperience|Journey|cloudRenderer|gsap)-|\/flight\/(?!airport-)/;
-const preloaded = run => run.resources.filter(resource => PRELOAD.test(resource.name));
+const PRELOAD = /\/assets\/(?:InvitationExperience|Journey|cloudRenderer|gsap|filmStrip)-|\/flight\/(?!airport-)/;
+// The take-off film queues behind the stills and the journey never waits for
+// it, so it has its own budget and does not count towards "journey ready".
+const FILM = /\/flight\/takeoff\//;
+const preloaded = run => run.resources.filter(resource => PRELOAD.test(resource.name) && !FILM.test(resource.name));
+const film = run => run.resources.filter(resource => FILM.test(resource.name));
 const critical = run => run.resources.filter(resource => !PRELOAD.test(resource.name));
 const bytes = list => list.reduce((sum, resource) => sum + resource.bytes, 0);
 const result = {
@@ -64,11 +68,13 @@ const result = {
   maximumCls: Math.max(...runs.map(run => run.cls)),
   maximumTransferBytes: Math.max(...runs.map(run => bytes(critical(run)))),
   maximumPreloadBytes: Math.max(...runs.map(run => bytes(preloaded(run)))),
+  maximumFilmBytes: Math.max(...runs.map(run => bytes(film(run)))),
+  medianFilmReadyMs: median(runs.map(run => Math.max(0, ...film(run).map(resource => resource.endMs)))),
   medianJourneyReadyMs: median(runs.map(run => Math.max(0, ...preloaded(run).map(resource => resource.endMs)))),
-  targets: { lcpMs: 2500, cls: .1, transferBytes: 500 * 1024, preloadBytes: 600 * 1024, journeyReadyMs: 10_000 },
+  targets: { lcpMs: 2500, cls: .1, transferBytes: 500 * 1024, preloadBytes: 600 * 1024, journeyReadyMs: 10_000, filmBytes: 800 * 1024 },
   runs,
 };
 await writeFile(new URL('metrics.json', output), JSON.stringify(result, null, 2));
 console.log(JSON.stringify({ ...result, runs: undefined }, null, 2));
-if (result.maximumTransferBytes > result.targets.transferBytes || result.maximumPreloadBytes > result.targets.preloadBytes
+if (result.maximumTransferBytes > result.targets.transferBytes || result.maximumPreloadBytes > result.targets.preloadBytes || result.maximumFilmBytes > result.targets.filmBytes
   || result.medianJourneyReadyMs > result.targets.journeyReadyMs || result.maximumCls >= result.targets.cls || result.medianLcpMs >= result.targets.lcpMs) process.exitCode = 1;

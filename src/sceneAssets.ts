@@ -49,3 +49,19 @@ export const aircraftAsset = 'flight/aircraft-960.webp';
 export function sceneVariant(asset: SceneAsset, viewportWidth: number): SceneVariant {
   return viewportWidth >= 768 ? asset.landscape : asset.portrait;
 }
+
+// Phone-only motion layers. Both are progressive: the journey is complete
+// without them and falls back to the stills, the aircraft cut-out and the
+// WebGL clouds. Landscape (tablet and desktop) keeps that original journey.
+export const MOTION_MAX_WIDTH = 767;
+
+/** Take-off film: numbered frames drawn to a canvas and scrubbed by scroll. */
+export const takeoffFilm = {
+  frames: 40,
+  width: 540,
+  height: 960,
+  url: (index: number) => `flight/takeoff/takeoff-portrait-${String(index + 1).padStart(2, '0')}.webp`,
+};
+
+/** Seamless loop of the view outside the cabin window. */
+export const windowSkyVideo = 'flight/window-sky-portrait.mp4';

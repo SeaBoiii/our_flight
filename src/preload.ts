@@ -5,6 +5,7 @@
 // nothing guest-specific is requested. Low-data visits request nothing.
 import { aircraftAsset, sceneAssets, sceneVariant, waxSealAsset } from './sceneAssets';
 import { isLowDataConnection } from './network';
+import { loadFilmFrames, motionLayersAllowed } from './filmStrip';
 
 const AVIF_PROBE = 'data:image/avif;base64,AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUIAAADybWV0YQAAAAAAAAAoaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAGxpYmF2aWYAAAAADnBpdG0AAAAAAAEAAAAeaWxvYwAAAABEAAABAAEAAAABAAABGgAAAB0AAAAoaWluZgAAAAAAAQAAABppbmZlAgAAAAABAABhdjAxQ29sb3IAAAAAamlwcnAAAABLaXBjbwAAABRpc3BlAAAAAAAAAAIAAAACAAAAEHBpeGkAAAAAAwgICAAAAAxhdjFDgQ0MAAAAABNjb2xybmNseAACAAIAAYAAAAAXaXBtYQAAAAAAAAABAAEEAQKDBAAAACVtZGF0EgAKCBgANogQEAwgMg8f8D///8WfhwB8+ErK42A=';
 
@@ -104,12 +105,22 @@ export function loadJourneyArt(): Promise<LoadedImage[]> {
   return journeyEntries().then((list) => Promise.all(list.map((entry) => entry.loaded)).then(() => list));
 }
 
+/**
+ * The take-off film is the heaviest journey layer, so it queues behind the
+ * stills: the journey is already complete (and boardable) without it.
+ */
+function loadTakeoffFilm(): void {
+  if (!cinematicAllowed() || !motionLayersAllowed()) return;
+  void loadJourneyArt().then(() => loadFilmFrames());
+}
+
 /** Check-in: fetch everything once the gate itself has rendered. */
 export function preloadForCheckIn(): void {
   if (isLowDataConnection()) return;
   void afterPageSettles().then(() => {
     void warmJourneyCode();
     void loadJourneyArt();
+    loadTakeoffFilm();
   });
 }
 
@@ -118,6 +129,7 @@ export function preloadForReplay(): void {
   if (isLowDataConnection()) return;
   void warmJourneyCode();
   void loadJourneyArt();
+  loadTakeoffFilm();
 }
 
 /** Boarding pass: decode the cached images and pre-compile the cloud shader. */

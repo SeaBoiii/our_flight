@@ -3,7 +3,8 @@ import { copy } from '../copy';
 import { designCopy } from '../designCopy';
 import { getJourneyFrame, getWindowAperture, getWindowGeometry } from '../journeyMotion';
 import { gsap, ScrollTrigger, SplitText } from '../motion/gsap';
-import { aircraftAsset, sceneAssets, type SceneAsset } from '../sceneAssets';
+import { aircraftAsset, sceneAssets, windowSkyVideo, type SceneAsset } from '../sceneAssets';
+import { createFilmStrip, loadFilmFrames, motionLayersAllowed, type FilmStrip } from '../filmStrip';
 import type { Invitation, Locale } from '../types';
 import { useLowDataMode } from '../useLowDataMode';
 import { createCloudRenderer, type CloudRenderer } from '../cloudRenderer';
@@ -92,7 +93,16 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
   const sectionRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const cloudCanvasRef = useRef<HTMLCanvasElement>(null);
+  const filmCanvasRef = useRef<HTMLCanvasElement>(null);
+  const skyVideoRef = useRef<HTMLVideoElement>(null);
+  // The living window is live only while its video is really playing; the
+  // scroll driver reads this without re-subscribing.
+  const liveSkyRef = useRef(false);
+  const refreshRef = useRef<() => void>(() => undefined);
   const [assetTier, setAssetTier] = useState(0);
+  // Phone-only motion layers; decided once so a rotation never swaps scenes.
+  const [motionLayers] = useState(() => !staticMode && typeof window !== 'undefined' && motionLayersAllowed());
+  const [skyVideoFailed, setSkyVideoFailed] = useState(false);
   const t = copy[locale];
   const words = journeyCopy[locale];
   const design = designCopy[locale];
@@ -107,7 +117,10 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
     let cloudRenderer: CloudRenderer | null = null;
     let cloudAttempted = false;
     let driver: ScrollTrigger | null = null;
+    let film: FilmStrip | null = null;
+    let disposed = false;
     const canvas = cloudCanvasRef.current;
+    const filmCanvas = filmCanvasRef.current;
 
     const apply = (progress: number) => {
       const width = Math.max(1, stage.clientWidth);
@@ -129,11 +142,28 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
       px('--aircraft-x', frame.aircraftX);
       px('--aircraft-y', frame.aircraftY);
       number('--aircraft-scale', frame.aircraftScale);
+      number('--ticket-press', frame.ticketPress);
+      section.style.setProperty('--ticket-yaw', `${frame.ticketYaw}deg`);
+      section.style.setProperty('--ticket-roll', `${frame.ticketRoll}deg`);
+      px('--ticket-depth', frame.ticketDepth);
+      number('--ticket-sheen', frame.ticketSheen);
+      number('--film-opacity', frame.filmOpacity);
+      number('--shade-open', frame.shadeOpen);
+      if (film && frame.filmOpacity > 0) film.draw(frame.filmPosition);
       number('--takeoff-copy-opacity', frame.takeoffCopyOpacity);
       number('--cabin-copy-opacity', frame.cabinCopyOpacity);
       number('--cabin-opacity', frame.cabinOpacity);
       number('--cabin-scale', frame.cameraScale);
-      number('--sky-opacity', frame.skyOpacity);
+      const liveSky = liveSkyRef.current;
+      number('--sky-opacity', liveSky ? frame.liveSkyOpacity : frame.skyOpacity);
+      number('--live-sky-scale', frame.liveSkyScale);
+      // The loop only runs while the window can be seen.
+      const skyVideo = skyVideoRef.current;
+      if (liveSky && skyVideo) {
+        const visible = frame.liveSkyOpacity > 0 && frame.goldenOpacity < 1 && !document.hidden;
+        if (visible && skyVideo.paused) void skyVideo.play().catch(() => undefined);
+        else if (!visible && !skyVideo.paused) skyVideo.pause();
+      }
       number('--golden-opacity', frame.goldenOpacity);
       number('--golden-scale', frame.goldenScale);
       number('--reveal-opacity', frame.revealOpacity);
@@ -152,12 +182,12 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
       px('--cloud-clip-radius-y', aperture.height * 0.18);
       section.classList.toggle('journey--started', frame.progress > 0.012);
       setAssetTier((current) => Math.max(current, frame.assetTier));
-      if (canvas && frame.progress >= .48 && !cloudAttempted) {
+      if (canvas && frame.progress >= .48 && !cloudAttempted && !liveSky) {
         cloudAttempted = true;
         cloudRenderer = createCloudRenderer(canvas);
         canvas.dataset.renderer = cloudRenderer ? 'webgl' : 'fallback';
       }
-      if (cloudRenderer && frame.skyOpacity > 0 && frame.goldenOpacity < 1 && !document.hidden) {
+      if (cloudRenderer && !liveSky && frame.skyOpacity > 0 && frame.goldenOpacity < 1 && !document.hidden) {
         cloudRenderer.draw(frame.progress, width, height);
       }
     };
@@ -172,6 +202,19 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
       cloudAttempted = false;
       if (driver) apply(driver.progress);
     };
+
+    refreshRef.current = () => { if (driver) apply(driver.progress); };
+
+    // Take-off film: swap in only once every frame has arrived.
+    if (motionLayers && filmCanvas) {
+      void loadFilmFrames().then((images) => {
+        if (disposed || !images) return;
+        film = createFilmStrip(filmCanvas, images);
+        if (!film) return;
+        section.classList.add('journey--film');
+        if (driver) apply(driver.progress);
+      });
+    }
 
     const context = gsap.context(() => {
       // Scene layers follow scroll exactly (no smoothing), so the camera and
@@ -208,12 +251,38 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
     canvas?.addEventListener('webglcontextlost', onContextLost);
     canvas?.addEventListener('webglcontextrestored', onContextRestored);
     return () => {
+      disposed = true;
+      refreshRef.current = () => undefined;
+      film?.dispose();
+      section.classList.remove('journey--film');
       context.revert();
       canvas?.removeEventListener('webglcontextlost', onContextLost);
       canvas?.removeEventListener('webglcontextrestored', onContextRestored);
       cloudRenderer?.dispose();
     };
-  }, [staticMode, locale]);
+  }, [staticMode, locale, motionLayers]);
+
+  const showSkyVideo = motionLayers && assetTier >= 2 && !skyVideoFailed;
+  const setLiveSky = (live: boolean) => {
+    if (liveSkyRef.current === live) return;
+    liveSkyRef.current = live;
+    sectionRef.current?.classList.toggle('journey--live-sky', live);
+    refreshRef.current();
+  };
+  // Autoplay can be refused (Low Power Mode, some in-app browsers). The window
+  // then keeps its photograph and the WebGL clouds, exactly as before.
+  useEffect(() => {
+    const video = skyVideoRef.current;
+    const section = sectionRef.current;
+    if (!showSkyVideo || !video) return undefined;
+    const played = video.play();
+    if (played && typeof played.catch === 'function') played.catch(() => setSkyVideoFailed(true));
+    return () => {
+      video.pause();
+      liveSkyRef.current = false;
+      section?.classList.remove('journey--live-sky');
+    };
+  }, [showSkyVideo]);
 
   if (staticMode) return <StaticJourney invitation={invitation} locale={locale} guestName={guestName} />;
 
@@ -223,12 +292,17 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
         <div className="flight-airport" aria-hidden="true">{assetTier >= 1 && <ScenePicture asset={sceneAssets.airport} />}</div>
         <div className="flight-departure" aria-hidden="true">{assetTier >= 1 && <ScenePicture asset={sceneAssets.runway} />}</div>
         <div className="flight-runway-glow" aria-hidden="true"><span /><span /><span /></div>
+        {motionLayers && <canvas ref={filmCanvasRef} className="flight-film" aria-hidden="true" />}
         <div className="flight-aircraft" aria-hidden="true">{assetTier >= 1 && <img src={`${base}${aircraftAsset}`} width="960" height="640" alt="" decoding="async" onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }} />}</div>
         <div className="journey-cabin" aria-hidden="true">{assetTier >= 2 && <ScenePicture asset={sceneAssets.cabin} />}</div>
         <div className="journey-clouds" aria-hidden="true">
           {assetTier >= 2 && <ScenePicture asset={sceneAssets.sky} />}
           <canvas ref={cloudCanvasRef} className="flight-cloud-volume" />
+          {showSkyVideo && <video ref={skyVideoRef} className="flight-sky-live" src={`${base}${windowSkyVideo}`}
+            muted loop playsInline preload="auto" disablePictureInPicture aria-hidden="true" tabIndex={-1}
+            onPlaying={() => setLiveSky(true)} onError={() => { setLiveSky(false); setSkyVideoFailed(true); }} />}
         </div>
+        <div className="flight-shade" aria-hidden="true"><span className="flight-shade-panel" /></div>
         <div className="flight-golden" aria-hidden="true">{assetTier >= 2 && <ScenePicture asset={sceneAssets.golden} />}</div>
         <div className="flight-daylight" aria-hidden="true" />
         <div className="journey-opening">
@@ -237,7 +311,7 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
             <h1>{t.welcome}</h1>
             <p className="journey-welcome-body">{t.welcomeBody}</p>
           </div>
-          <div className="journey-ticket-slot"><div className="journey-ticket"><DecorativeTicket invitation={invitation} locale={locale} guestName={guestName} showChop /></div></div>
+          <div className="journey-ticket-slot"><div className="journey-ticket"><DecorativeTicket invitation={invitation} locale={locale} guestName={guestName} showChop /><span className="journey-ticket-sheen" /></div></div>
           <p className="journey-scroll-cue"><span>{words.scroll}</span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v17m-5-5 5 5 5-5" /></svg></p>
         </div>
         <div className="flight-caption flight-caption--takeoff" aria-hidden="true"><p className="eyebrow">{words.takeoffLabel}</p><p className="flight-caption-text" key={`takeoff-${locale}`}>{words.takeoff}</p></div>
