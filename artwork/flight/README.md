@@ -29,6 +29,15 @@ The redesign added three generated masters. They were created with Google Gemini
   ffmpeg -i artwork/video/gate-cinemagraph-portrait-master.mp4 -an -vf "crop=720:1080:0:100,scale=512:768:flags=lanczos,format=yuv420p" -c:v libx264 -profile:v high -preset veryslow -crf 26 -r 24 -g 48 -movflags +faststart public/flight/gate-cinemagraph-portrait.mp4
   ```
 
+## Phone motion layers
+
+Two generated clips bring the journey to life on phones. Both are image-to-video from this folder's own artwork, 9:16 at 720 x 1280, with no people, text or logos. The prompts and the reasoning are in [`changes.md`](../../changes.md).
+
+- **../video/takeoff-portrait-master.mp4:** Generated with Higgsfield (Cinema Studio Video 3.0). The first frame is `runway.png` cropped to 9:16 with `aircraft.png` placed small just above the horizon and graded toward blue hour. The airliner climbs toward a low runway camera and sweeps overhead while the camera tilts up into the night sky.
+- **../video/window-sky-portrait-master.mp4:** Generated with Kling 4.0. The first frame is `sky-portrait.png` cropped to 9:16. Cloud tops glide right to left with depth parallax, as seen from a side window.
+
+`node scripts/prepare-motion-assets.mjs` (needs ffmpeg) writes the delivery files: 40 evenly spaced 540 x 960 WebP frames in `public/flight/takeoff/`, and `public/flight/window-sky-portrait.mp4`, an 8.5 s loop made seamless by cross-fading the clip's first 1.5 s over its last.
+
 Grain on dark scenes remains procedural SVG (`src/design/tokens.css`).
 
 ## Rebuilding delivery files

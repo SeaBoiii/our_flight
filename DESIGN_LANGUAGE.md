@@ -17,11 +17,11 @@ A luxury editorial travel story that runs from **midnight to golden hour**. It i
 
 **Rejected:**
 - **Florals and script:** dated and hard to read.
-- **Scroll-scrubbed video and full 3D scenes:** 10–30 MB clips, iOS seeking stutter and hot phones.
+- **Scroll-scrubbed video and full 3D scenes:** 10–30 MB clips, iOS seeking stutter and hot phones. The take-off is therefore scrubbed from 40 still frames on a canvas, never from a video.
 - **Smooth-scroll hijacking such as Lenis:** it fights native touch scrolling and accessibility.
 - **ScrollTrigger pinning:** CSS `position: sticky` is smoother on iOS.
 
-The only video is the small, autoplaying check-in cinemagraph. It is a progressive layer over the still photograph and never sits on the critical path.
+There are two videos, both small, muted, autoplaying loops on phones only: the check-in cinemagraph and the living cabin window. Each is a progressive layer over a still photograph, never scrubbed and never on the critical path. If autoplay is refused, the still stays.
 
 ## Tokens
 
@@ -49,6 +49,7 @@ All tokens live in [`src/design/tokens.css`](src/design/tokens.css).
 - **Scroll is time.** Scenes are scrubbed. Each chapter has one hero moment, then the page lets the guest read.
 - **Easing.** Exponential ease-out (`expo.out`), with no bounce or elastic curves. The only overshoot is the physical RSVP stamp.
 - **Transform and opacity only** in scroll scenes. Clouds stop drawing once the golden-hour sky fully covers them.
+- **Phone motion layers.** On phones the take-off is a scroll-scrubbed film (`src/filmStrip.ts`), the cabin window shows a looping sky behind a shade that lifts, and the boarding pass banks away in depth. Each layer switches on only once it is ready and otherwise leaves the original still, cut-out aircraft or WebGL clouds in place. Tablets and desktops keep the original journey for now. See [`changes.md`](changes.md).
 - **Reduced motion, low data and no IntersectionObserver** keep the existing static journey. No GSAP scene runs, and the content is fully visible in its natural CSS state.
 
 ## Chapters
@@ -57,7 +58,7 @@ All tokens live in [`src/design/tokens.css`](src/design/tokens.css).
 |---|---|---|
 | 0 | Check-in | Split-flap board (`AN2108 ↔ AN2208 → FOREVER · ON TIME`). The flight code loops between both wedding days the way a real board turns: forward round the digit wheel, so 1 → 2 is one flip and 2 → 1 rolls 3…9, 0, 1. Letter-by-letter names appear over midnight Changi. On phones, a seamless cinemagraph brings the photograph to life. The code form sits in the thumb zone. |
 | 1 | Boarding pass | Cotton-paper pass with a foil "A&N" and an optional **Board with music** switch. A tap sweeps the scanner beam, the stub tears along the perforation with a haptic tap, and the pass lifts away. |
-| 2 | Journey | Runway → take-off → cabin → window → WebGL clouds → **golden-hour sky** → monogram. Kinetic line-masked captions and a SIN → FOREVER route HUD. |
+| 2 | Journey | Runway → take-off → cabin → window → clouds → **golden-hour sky** → monogram. Kinetic line-masked captions and a SIN → FOREVER route HUD. On phones the airliner lifts off toward the guest and sweeps overhead as they scroll, the window shade lifts on a moving sky, and that same sky carries through the window. |
 | 3 | Envelope | Wax seal lifts, flap opens, card rises. It is decorative; the formal invitation that follows carries the words. |
 | 4 | Invitation | Bismillah, salam and the formal invitation, revealed line by line; names flip in letter by letter. |
 | 5 | Our story | Quote inks in word by word; the flight line draws itself; three postcards stack as you scroll. |
@@ -76,6 +77,8 @@ Guests spend 10–40 seconds entering their code. [`src/preload.ts`](src/preload
 4. When the guest boards, the opening scenes are already decoded. If they aren't, boarding waits at most 700 ms more, never longer.
 
 Low-data visits download nothing extra, reduced-motion visits skip the artwork, and returning guests warm up only when they tap **Replay**.
+
+On phones the take-off film (40 frames, about 650 KB) queues behind those stills and boarding never waits for it. The window sky loop (about 450 KB) is requested once the journey has opened. The measurements below predate these two layers; re-run `scripts/check-mobile-performance.mjs`, which now budgets the film separately.
 
 Lab measurements at 390 × 844 on throttled 4G (1.6 Mbps, 4× CPU slowdown):
 
