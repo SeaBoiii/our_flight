@@ -7,6 +7,8 @@
 //       a seamless loop: the clip's first seconds are cross-faded over its last
 //   golden-arrival-portrait-master.mp4 -> public/flight/golden-arrival-portrait.mp4
 //       the same kind of loop, for the sky behind the monogram
+//   venue-map-loop-master.mp4       -> public/flight/venue-map-loop.mp4
+//       the living paper model in Getting here (first frame equals last)
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -47,7 +49,15 @@ const loop = (master, output, crf) => {
 const skyBytes = loop(source('window-sky-portrait-master.mp4'), `${root}public/flight/window-sky-portrait.mp4`, 27);
 const goldenBytes = loop(source('golden-arrival-portrait-master.mp4'), `${root}public/flight/golden-arrival-portrait.mp4`, Number(process.env.GOLDEN_CRF ?? 27));
 
+// The venue map was generated with the same first and last frame, so it loops
+// as it is: only the duplicated final frame is dropped.
+const mapMaster = source('venue-map-loop-master.mp4');
+const mapOutput = `${root}public/flight/venue-map-loop.mp4`;
+run(['-i', mapMaster, '-an', '-t', String(duration(mapMaster) - 1 / 24), '-vf', 'fps=24,scale=800:600:flags=lanczos,format=yuv420p',
+  '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'veryslow', '-crf', '27', '-g', '48', '-movflags', '+faststart', mapOutput]);
+
 const total = readdirSync(frames).reduce((sum, name) => sum + statSync(`${frames}${name}`).size, 0);
 console.log(`take-off film: ${readdirSync(frames).length} frames, ${total.toLocaleString()} bytes`);
 console.log(`window sky loop: ${skyBytes.toLocaleString()} bytes`);
 console.log(`golden arrival loop: ${goldenBytes.toLocaleString()} bytes`);
+console.log(`venue map loop: ${statSync(mapOutput).size.toLocaleString()} bytes`);

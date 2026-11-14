@@ -18,11 +18,16 @@ const WINDOW_BEHIND = 4;
 const WINDOW_AHEAD = 6;
 const EVICT_DISTANCE = 12;
 
-/** Motion layers are for phones in portrait on a connection that can afford them. */
-export function motionLayersAllowed(viewportWidth: number = window.innerWidth): boolean {
-  if (viewportWidth > MOTION_MAX_WIDTH || isLowDataConnection()) return false;
+/** A connection that can afford the optional films and loops. */
+export function fastConnection(): boolean {
+  if (isLowDataConnection()) return false;
   const network = networkConnection();
   return !network || !network.effectiveType || network.effectiveType === '4g';
+}
+
+/** Motion layers are for phones in portrait on a connection that can afford them. */
+export function motionLayersAllowed(viewportWidth: number = window.innerWidth): boolean {
+  return viewportWidth <= MOTION_MAX_WIDTH && fastConnection();
 }
 
 const cache = new Map<string, Promise<HTMLImageElement[] | null>>();

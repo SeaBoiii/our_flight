@@ -19,14 +19,13 @@ const SPARKS = [0, 1, 2, 3, 4, 5, 6];
 export function Envelope({ locale, guestName }: EnvelopeProps) {
   const sceneRef = useRef<HTMLElement>(null);
   // The photographic layers are fetched only as the scene draws near.
-  const [near, setNear] = useState(false);
+  const [near, setNear] = useState(() => typeof IntersectionObserver === 'undefined');
   const words = designCopy[locale];
   const base = import.meta.env.BASE_URL;
 
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene || near) return undefined;
-    if (typeof IntersectionObserver === 'undefined') { setNear(true); return undefined; }
     const observer = new IntersectionObserver((entries) => {
       if (entries.some((entry) => entry.isIntersecting)) setNear(true);
     }, { rootMargin: '250% 0px' });

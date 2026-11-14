@@ -230,19 +230,21 @@ for (const format of ['avif', 'webp']) {
   if (sceneBytes > 2 * 1024 * 1024) failures.push(`Mobile ${format} scene artwork exceeds the 2 MiB budget.`);
   mobileSceneBudgets[format] = sceneBytes;
 }
-// Three small, optional loops are permitted: the check-in cinemagraph, the
-// living cabin window and the golden-hour arrival. All load after the page, on phones only, and never on
+// Four small, optional loops are permitted: the check-in cinemagraph, the
+// living cabin window, the golden-hour arrival and the venue map. All load after the page and never on
 // low data or with reduced motion. Nothing is ever scrubbed from a video.
 const CINEMAGRAPH = join('flight', 'gate-cinemagraph-portrait.mp4');
 const WINDOW_SKY = join('flight', 'window-sky-portrait.mp4');
 const GOLDEN_ARRIVAL = join('flight', 'golden-arrival-portrait.mp4');
-const permittedVideos = [CINEMAGRAPH, WINDOW_SKY, GOLDEN_ARRIVAL];
+const VENUE_MAP = join('flight', 'venue-map-loop.mp4');
+const permittedVideos = [CINEMAGRAPH, WINDOW_SKY, GOLDEN_ARRIVAL, VENUE_MAP];
 for (const file of files.filter(file => /\.(?:mp4|webm)$/i.test(file))) {
-  if (!permittedVideos.includes(relative(root, file)) && !permittedVideos.includes(file)) failures.push(`Unexpected video in the artifact: ${file}. Only the check-in cinemagraph, the window sky loop and the golden arrival loop are allowed.`);
+  if (!permittedVideos.includes(relative(root, file)) && !permittedVideos.includes(file)) failures.push(`Unexpected video in the artifact: ${file}. Only the check-in cinemagraph, the window sky loop, the golden arrival loop and the venue map loop are allowed.`);
 }
 if (await exists(join(root, CINEMAGRAPH)) && (await stat(join(root, CINEMAGRAPH))).size > 400 * 1024) failures.push('The check-in cinemagraph exceeds its 400 KiB budget.');
 if (await exists(join(root, WINDOW_SKY)) && (await stat(join(root, WINDOW_SKY))).size > 600 * 1024) failures.push('The window sky loop exceeds its 600 KiB budget.');
 if (await exists(join(root, GOLDEN_ARRIVAL)) && (await stat(join(root, GOLDEN_ARRIVAL))).size > 600 * 1024) failures.push('The golden arrival loop exceeds its 600 KiB budget.');
+if (await exists(join(root, VENUE_MAP)) && (await stat(join(root, VENUE_MAP))).size > 500 * 1024) failures.push('The venue map loop exceeds its 500 KiB budget.');
 // The take-off film is 40 numbered frames scrubbed on a canvas (phones only).
 const TAKEOFF_FRAMES = 40;
 let takeoffBytes = 0;
