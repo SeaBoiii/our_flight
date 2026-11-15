@@ -5,6 +5,10 @@
 //       40 evenly spaced 540 x 960 frames, scrubbed on a canvas (src/filmStrip.ts)
 //   window-sky-portrait-master.mp4  -> public/flight/window-sky-portrait.mp4
 //       a seamless loop: the clip's first seconds are cross-faded over its last
+//   golden-arrival-portrait-master.mp4 -> public/flight/golden-arrival-portrait.mp4
+//       the same kind of loop, for the sky behind the monogram
+//   venue-map-loop-master.mp4       -> public/flight/venue-map-loop.mp4
+//       the living paper model in Getting here (first frame equals last)
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -30,16 +34,30 @@ run(['-ss', String(TAKEOFF_TRIM.start), '-t', String(usable), '-i', takeoff,
   '-frames:v', String(FRAMES), '-c:v', 'libwebp', '-quality', '64', '-compression_level', '6',
   '-start_number', '1', `${frames}takeoff-portrait-%02d.webp`]);
 
-const sky = source('window-sky-portrait-master.mp4');
-const length = duration(sky);
-const overlap = 1.5;
-run(['-i', sky, '-an', '-filter_complex',
-  `[0:v]fps=24,scale=${FRAME_SIZE}:force_original_aspect_ratio=increase:flags=lanczos,crop=${FRAME_SIZE},split[a][b];`
-  + `[a]trim=${overlap}:${length},setpts=PTS-STARTPTS[main];[b]trim=0:${overlap},setpts=PTS-STARTPTS[head];`
-  + `[main][head]xfade=transition=fade:duration=${overlap}:offset=${length - 2 * overlap},format=yuv420p[out]`,
-  '-map', '[out]', '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'veryslow', '-crf', '27',
-  '-g', '48', '-movflags', '+faststart', `${root}public/flight/window-sky-portrait.mp4`]);
+// A seamless loop: the clip's first seconds are cross-faded over its last.
+const loop = (master, output, crf) => {
+  const length = duration(master);
+  const overlap = 1.5;
+  run(['-i', master, '-an', '-filter_complex',
+    `[0:v]fps=24,scale=${FRAME_SIZE}:force_original_aspect_ratio=increase:flags=lanczos,crop=${FRAME_SIZE},split[a][b];`
+    + `[a]trim=${overlap}:${length},setpts=PTS-STARTPTS[main];[b]trim=0:${overlap},setpts=PTS-STARTPTS[head];`
+    + `[main][head]xfade=transition=fade:duration=${overlap}:offset=${length - 2 * overlap},format=yuv420p[out]`,
+    '-map', '[out]', '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'veryslow', '-crf', String(crf),
+    '-g', '48', '-movflags', '+faststart', output]);
+  return statSync(output).size;
+};
+const skyBytes = loop(source('window-sky-portrait-master.mp4'), `${root}public/flight/window-sky-portrait.mp4`, 27);
+const goldenBytes = loop(source('golden-arrival-portrait-master.mp4'), `${root}public/flight/golden-arrival-portrait.mp4`, Number(process.env.GOLDEN_CRF ?? 27));
+
+// The venue map was generated with the same first and last frame, so it loops
+// as it is: only the duplicated final frame is dropped.
+const mapMaster = source('venue-map-loop-master.mp4');
+const mapOutput = `${root}public/flight/venue-map-loop.mp4`;
+run(['-i', mapMaster, '-an', '-t', String(duration(mapMaster) - 1 / 24), '-vf', 'fps=24,scale=800:600:flags=lanczos,format=yuv420p',
+  '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'veryslow', '-crf', '27', '-g', '48', '-movflags', '+faststart', mapOutput]);
 
 const total = readdirSync(frames).reduce((sum, name) => sum + statSync(`${frames}${name}`).size, 0);
 console.log(`take-off film: ${readdirSync(frames).length} frames, ${total.toLocaleString()} bytes`);
-console.log(`window sky loop: ${statSync(`${root}public/flight/window-sky-portrait.mp4`).size.toLocaleString()} bytes`);
+console.log(`window sky loop: ${skyBytes.toLocaleString()} bytes`);
+console.log(`golden arrival loop: ${goldenBytes.toLocaleString()} bytes`);
+console.log(`venue map loop: ${statSync(mapOutput).size.toLocaleString()} bytes`);

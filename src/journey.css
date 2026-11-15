@@ -51,6 +51,9 @@
   box-shadow: 0 10px 24px rgba(20,14,6,.4); filter: brightness(calc(.58 + var(--shade-open, 1) * .42)); transform: translateY(calc(var(--shade-open, 1) * -104%)); }
 .journey--cinematic .flight-shade-panel::after { position: absolute; bottom: 9px; left: 50%; width: 22%; height: 5px; border-radius: 3px; background: linear-gradient(180deg, rgba(92,72,44,.55), rgba(255,250,238,.55)); content: ''; transform: translateX(-50%); }
 .journey--cinematic .flight-golden { z-index: 5; opacity: var(--golden-opacity); transform: scale(var(--golden-scale)); transform-origin: 50% 60%; }
+/* Living arrival (phones): the golden-hour clouds drift behind the monogram. */
+.journey--cinematic .flight-golden-live { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; opacity: 0; transition: opacity .8s var(--ease-out, ease-out); pointer-events: none; }
+.journey--cinematic.journey--live-golden .flight-golden-live { opacity: 1; }
 .journey--cinematic .flight-golden::after { position: absolute; inset: 0; background: radial-gradient(60% 45% at 50% 45%, rgba(255,246,226,.55), transparent 70%); content: ''; }
 .journey--cinematic .flight-daylight { z-index: 6; opacity: var(--daylight-opacity); background: linear-gradient(180deg, rgba(248,243,234,.25), var(--ivory) 80%); }
 .journey--cinematic .journey-opening {
@@ -94,10 +97,22 @@
 .journey--cinematic .kinetic-line { will-change: transform; }
 .journey--cinematic .flight-caption--takeoff { opacity: var(--takeoff-copy-opacity); }
 .journey--cinematic .flight-caption--cabin { opacity: var(--cabin-copy-opacity); }
+/* As the shade lifts the cabin wall turns pale, so the caption brings its own
+   pool of dusk with it and the label warms to a deeper gold. */
+.journey--cinematic .flight-caption--cabin::before { position: absolute; z-index: -1; inset: -90px -24px -70px; background: radial-gradient(ellipse 62% 45% at 50% 47%, rgba(7,19,33,.8), rgba(7,19,33,.6) 46%, rgba(7,19,33,0) 100%); content: ''; opacity: var(--shade-open, 0); }
+.journey--cinematic .flight-caption--cabin .eyebrow { color: #f8e6bd; font-weight: 500; text-shadow: 0 1px 2px rgba(5,14,26,.75), 0 0 18px rgba(5,14,26,.6); }
+.journey--cinematic .flight-caption--cabin > p:last-child { text-shadow: 0 2px 6px rgba(5,14,26,.45), 0 2px 35px rgba(0,0,0,.55); }
 .journey--cinematic .journey-reveal { position: absolute; z-index: 8; top: 50%; left: 50%; display: flex; flex-direction: column; align-items: center; width: min(82%, 550px); gap: 20px; opacity: var(--reveal-opacity); color: var(--navy); transform: translate(-50%, calc(-50% + var(--reveal-y))); text-align: center; }
 .journey--cinematic .journey-reveal img { display: block; width: min(100%, 360px); height: auto; mix-blend-mode: multiply; }
 .journey--cinematic .journey-reveal p { margin: 0; font-family: var(--font-display, Georgia, serif); font-size: clamp(1.8rem, 6.5vw, 3rem); line-height: 1.1; letter-spacing: -.025em; }
-.journey--cinematic .flight-hud { position: absolute; z-index: 10; left: 50%; bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px)); display: flex; align-items: center; gap: 10px; padding: 8px 14px; border: 1px solid rgba(217,180,114,.35); border-radius: 999px; color: var(--gold-soft); background: rgba(4,18,27,.62); transform: translateX(-50%); opacity: calc(1 - var(--daylight-opacity)); }
+/* Skip flight: offered once the journey is under way, gone by the arrival. */
+.journey--cinematic .journey-skip { position: absolute; z-index: 10; top: calc(var(--controls-clearance, 78px) - 6px); right: max(14px, env(safe-area-inset-right)); display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px 0 10px; color: var(--gold-soft); font: 500 .625rem/1 var(--font-mono); letter-spacing: .16em; text-decoration: none; text-transform: uppercase; opacity: 0; pointer-events: none; transition: opacity .5s var(--ease-out, ease-out); -webkit-tap-highlight-color: transparent; }
+.journey--cinematic .journey-skip > span { padding: 8px 4px 8px 12px; }
+.journey--cinematic .journey-skip::before { position: absolute; z-index: -1; inset: 7px 0; border: 1px solid var(--glass-border); border-radius: 999px; background: var(--glass-fill); box-shadow: var(--glass-edge); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); content: ''; }
+.journey--cinematic .journey-skip svg { width: 14px; height: 14px; margin-right: 10px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.journey--cinematic.journey--started:not(.journey--arriving) .journey-skip { opacity: 1; pointer-events: auto; }
+.journey--cinematic .journey-skip:focus-visible { opacity: 1; pointer-events: auto; outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 999px; }
+.journey--cinematic .flight-hud { position: absolute; z-index: 10; left: 50%; bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px)); display: flex; align-items: center; gap: 10px; padding: 8px 14px; border: 1px solid var(--glass-border); border-radius: 999px; color: var(--gold-soft); background: var(--glass-fill); box-shadow: var(--glass-edge); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); transform: translateX(-50%); opacity: calc(1 - var(--daylight-opacity)); }
 .journey--cinematic .flight-hud-code { font: 500 .625rem/1 var(--font-mono); letter-spacing: .16em; }
 .journey--cinematic .flight-hud-track { position: relative; width: 150px; height: 30px; flex: 0 0 auto; }
 .journey--cinematic .flight-hud-track > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
@@ -137,6 +152,19 @@
   .journey--cinematic .ceremonial-ticket-band { padding: 11px 20px; }
   .journey--cinematic .ceremonial-ticket-stub { padding: 10px 22px; }
   .journey--cinematic .journey-scroll-cue { gap: 5px; font-size: .65rem; }
+}
+/* Short phones: the pass gives way so the scroll guidance stays in view below it. */
+@media (max-height: 700px) and (orientation: portrait) {
+  .journey--cinematic .journey-opening { padding-top: 84px; padding-bottom: 78px; gap: 8px; }
+  .journey--cinematic .journey-intro .eyebrow { margin-bottom: 8px; }
+  .journey--cinematic .journey-intro h1 { font-size: clamp(2.2rem, 9vw, 3.4rem); }
+  .journey--cinematic .journey-welcome-body { margin-top: 6px; line-height: 1.45; }
+  .journey--cinematic .journey-ticket-slot { max-width: 300px; }
+  .journey--cinematic .ceremonial-ticket-content { padding: 10px 20px; }
+  .journey--cinematic .ceremonial-ticket-names { margin-bottom: 7px; font-size: 1.8rem; }
+  .journey--cinematic .ceremonial-ticket-details { margin-top: 6px; }
+  .journey--cinematic .ceremonial-ticket-band { padding: 8px 18px; }
+  .journey--cinematic .ceremonial-ticket-stub { padding: 7px 20px; }
 }
 @media (max-height: 540px) and (orientation: landscape) {
   .journey--cinematic .journey-opening { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr auto; gap: 10px 30px; padding: 80px 7vw 78px; }

@@ -112,6 +112,7 @@ export function getJourneyFrame(rawProgress: number, viewportWidth: number, view
     revealY: (1 - arrival) * 36,
     daylightOpacity: phase(progress, 0.91, 1),
     // Prefetch the next scene early, without requesting the entire journey at boarding.
-    assetTier: progress >= 0.075 ? 2 : 1,
+    // Tier 3 (phones): the arrival loop, fetched once the window has opened.
+    assetTier: progress >= 0.56 ? 3 : progress >= 0.075 ? 2 : 1,
   };
 }

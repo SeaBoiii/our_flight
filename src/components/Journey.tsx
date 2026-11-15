@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import { copy } from '../copy';
 import { designCopy } from '../designCopy';
 import { getJourneyFrame, getWindowAperture, getWindowGeometry } from '../journeyMotion';
 import { gsap, ScrollTrigger, SplitText } from '../motion/gsap';
-import { aircraftAsset, sceneAssets, windowSkyVideo, type SceneAsset } from '../sceneAssets';
+import { aircraftAsset, sceneAssets, goldenArrivalVideo, windowSkyVideo, type SceneAsset } from '../sceneAssets';
 import { createFilmStrip, loadFilmFrames, motionLayersAllowed, type FilmStrip } from '../filmStrip';
 import type { Invitation, Locale } from '../types';
 import { useLowDataMode } from '../useLowDataMode';
@@ -19,6 +19,7 @@ const journeyCopy = {
     cabin: 'And some bring you home.', cabinLabel: '02 / Above the clouds', arrival: 'Our next chapter. With you.',
     staticBody: 'Our next chapter begins with the people we love. Welcome to our wedding celebration.',
     scroll: 'Scroll to take flight', accepted: 'CLEARED FOR FOREVER',
+    skip: 'Skip flight', skipLabel: 'Skip the flight and go to the invitation',
   },
   ms: {
     boarding: 'Permulaan sebuah selamanya', pass: 'Pas masuk', routeFrom: 'HARI INI', routeTo: 'SELAMANYA',
@@ -26,6 +27,7 @@ const journeyCopy = {
     cabin: 'Ada yang membawa kita pulang.', cabinLabel: '02 / Di atas awan', arrival: 'Bab seterusnya. Bersama anda.',
     staticBody: 'Bab seterusnya bermula bersama insan tersayang. Selamat datang ke majlis perkahwinan kami.',
     scroll: 'Tatal untuk memulakan perjalanan', accepted: 'MENUJU SELAMANYA',
+    skip: 'Langkau', skipLabel: 'Langkau penerbangan dan terus ke jemputan',
   },
 } satisfies Record<Locale, Record<string, string>>;
 
@@ -98,11 +100,14 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
   // The living window is live only while its video is really playing; the
   // scroll driver reads this without re-subscribing.
   const liveSkyRef = useRef(false);
+  const goldenVideoRef = useRef<HTMLVideoElement>(null);
+  const liveGoldenRef = useRef(false);
   const refreshRef = useRef<() => void>(() => undefined);
   const [assetTier, setAssetTier] = useState(0);
   // Phone-only motion layers; decided once so a rotation never swaps scenes.
   const [motionLayers] = useState(() => !staticMode && typeof window !== 'undefined' && motionLayersAllowed());
   const [skyVideoFailed, setSkyVideoFailed] = useState(false);
+  const [goldenVideoFailed, setGoldenVideoFailed] = useState(false);
   const t = copy[locale];
   const words = journeyCopy[locale];
   const design = designCopy[locale];
@@ -157,13 +162,14 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
       const liveSky = liveSkyRef.current;
       number('--sky-opacity', liveSky ? frame.liveSkyOpacity : frame.skyOpacity);
       number('--live-sky-scale', frame.liveSkyScale);
-      // The loop only runs while the window can be seen.
-      const skyVideo = skyVideoRef.current;
-      if (liveSky && skyVideo) {
-        const visible = frame.liveSkyOpacity > 0 && frame.goldenOpacity < 1 && !document.hidden;
-        if (visible && skyVideo.paused) void skyVideo.play().catch(() => undefined);
-        else if (!visible && !skyVideo.paused) skyVideo.pause();
-      }
+      // Each loop only runs while its scene can be seen.
+      const runLoop = (video: HTMLVideoElement | null, visible: boolean) => {
+        if (!video) return;
+        if (visible && video.paused) void video.play().catch(() => undefined);
+        else if (!visible && !video.paused) video.pause();
+      };
+      if (liveSky) runLoop(skyVideoRef.current, frame.liveSkyOpacity > 0 && frame.goldenOpacity < 1 && !document.hidden);
+      if (liveGoldenRef.current) runLoop(goldenVideoRef.current, frame.goldenOpacity > 0 && !document.hidden);
       number('--golden-opacity', frame.goldenOpacity);
       number('--golden-scale', frame.goldenScale);
       number('--reveal-opacity', frame.revealOpacity);
@@ -181,6 +187,7 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
       px('--cloud-clip-radius-x', aperture.width * 0.48);
       px('--cloud-clip-radius-y', aperture.height * 0.18);
       section.classList.toggle('journey--started', frame.progress > 0.012);
+      section.classList.toggle('journey--arriving', frame.progress > 0.8);
       setAssetTier((current) => Math.max(current, frame.assetTier));
       if (canvas && frame.progress >= .48 && !cloudAttempted && !liveSky) {
         cloudAttempted = true;
@@ -284,6 +291,38 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
     };
   }, [showSkyVideo]);
 
+  // The arrival sky follows the same rules, one scene later.
+  const showGoldenVideo = motionLayers && assetTier >= 3 && !goldenVideoFailed;
+  const setLiveGolden = (live: boolean) => {
+    if (liveGoldenRef.current === live) return;
+    liveGoldenRef.current = live;
+    sectionRef.current?.classList.toggle('journey--live-golden', live);
+    refreshRef.current();
+  };
+  useEffect(() => {
+    const video = goldenVideoRef.current;
+    const section = sectionRef.current;
+    if (!showGoldenVideo || !video) return undefined;
+    const played = video.play();
+    if (played && typeof played.catch === 'function') played.catch(() => setGoldenVideoFailed(true));
+    return () => {
+      video.pause();
+      liveGoldenRef.current = false;
+      section?.classList.remove('journey--live-golden');
+    };
+  }, [showGoldenVideo]);
+
+  // Guests in a hurry can land straight on the invitation. The jump is
+  // instant, so the film is not fast-forwarded on the way.
+  const skipFlight = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const target = document.getElementById('invitation');
+    if (!target) return;
+    event.preventDefault();
+    window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY, behavior: 'instant' });
+    target.focus({ preventScroll: true });
+  };
+
   if (staticMode) return <StaticJourney invitation={invitation} locale={locale} guestName={guestName} />;
 
   return (
@@ -303,7 +342,12 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
             onPlaying={() => setLiveSky(true)} onError={() => { setLiveSky(false); setSkyVideoFailed(true); }} />}
         </div>
         <div className="flight-shade" aria-hidden="true"><span className="flight-shade-panel" /></div>
-        <div className="flight-golden" aria-hidden="true">{assetTier >= 2 && <ScenePicture asset={sceneAssets.golden} />}</div>
+        <div className="flight-golden" aria-hidden="true">
+          {assetTier >= 2 && <ScenePicture asset={sceneAssets.golden} />}
+          {showGoldenVideo && <video ref={goldenVideoRef} className="flight-golden-live" src={`${base}${goldenArrivalVideo}`}
+            muted loop playsInline preload="auto" disablePictureInPicture aria-hidden="true" tabIndex={-1}
+            onPlaying={() => setLiveGolden(true)} onError={() => { setLiveGolden(false); setGoldenVideoFailed(true); }} />}
+        </div>
         <div className="flight-daylight" aria-hidden="true" />
         <div className="journey-opening">
           <div className="journey-intro">
@@ -317,6 +361,9 @@ export function Journey({ invitation, locale, reducedMotion, guestName }: Journe
         <div className="flight-caption flight-caption--takeoff" aria-hidden="true"><p className="eyebrow">{words.takeoffLabel}</p><p className="flight-caption-text" key={`takeoff-${locale}`}>{words.takeoff}</p></div>
         <div className="flight-caption flight-caption--cabin" aria-hidden="true"><p className="eyebrow">{words.cabinLabel}</p><p className="flight-caption-text" key={`cabin-${locale}`}>{words.cabin}</p></div>
         <div className="journey-reveal" aria-hidden="true"><img src={`${base}monogram-a-and-n-display.webp`} width="640" height="640" alt="" decoding="async" /><p key={`arrival-${locale}`}>{words.arrival}</p></div>
+        <a className="journey-skip" href="#invitation" aria-label={words.skipLabel} onClick={skipFlight}>
+          <span>{words.skip}</span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 6 7 6-7 6M13 6l7 6-7 6" /></svg>
+        </a>
         <div className="flight-hud" aria-hidden="true">
           <span className="flight-hud-code">{design.routeFrom}</span>
           <span className="flight-hud-track">

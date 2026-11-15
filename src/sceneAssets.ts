@@ -44,6 +44,22 @@ export const sceneAssets: Record<'airport' | 'runway' | 'cabin' | 'sky' | 'golde
 };
 
 export const waxSealAsset = 'flight/wax-seal-360.webp';
+
+/** Envelope prelude art, matching the printed boarding-pass invitation. */
+export const envelopeArt = {
+  linen: 'flight/envelope-linen-720.webp',
+  liner: 'flight/envelope-liner-640.webp',
+  archWindow: 'flight/arch-window-336.webp',
+};
+
+/** Getting here: the paper model of the airport precinct, and its living loop. */
+export const venueMapArt = {
+  width: 1280,
+  height: 958,
+  webp: 'flight/venue-map-1280.webp',
+  avif: 'flight/venue-map-1280.avif',
+  video: 'flight/venue-map-loop.mp4',
+};
 export const aircraftAsset = 'flight/aircraft-960.webp';
 
 export function sceneVariant(asset: SceneAsset, viewportWidth: number): SceneVariant {
@@ -65,3 +81,6 @@ export const takeoffFilm = {
 
 /** Seamless loop of the view outside the cabin window. */
 export const windowSkyVideo = 'flight/window-sky-portrait.mp4';
+
+/** Seamless loop of the golden-hour cloudscape behind the monogram. */
+export const goldenArrivalVideo = 'flight/golden-arrival-portrait.mp4';

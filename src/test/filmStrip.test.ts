@@ -99,6 +99,15 @@ describe('motion layer storyboard', () => {
     expect(at(0.555).cameraScale).toBe(1);
   });
 
+  it('fetches the arrival loop only once the window has opened, well before golden hour', () => {
+    expect(at(0.05).assetTier).toBe(1);
+    expect(at(0.3).assetTier).toBe(2);
+    expect(at(0.555).assetTier).toBe(2);
+    expect(at(0.56).assetTier).toBe(3);
+    expect(at(0.56).goldenOpacity).toBe(0);
+    expect(at(0.74).goldenOpacity).toBe(0);
+  });
+
   it('rests the boarding pass flat until it is stamped, then banks it away in depth', () => {
     const rest = at(0);
     expect([rest.ticketPress, rest.ticketYaw, rest.ticketDepth, rest.ticketSheen]).toEqual([0, 0, -0, 0]);

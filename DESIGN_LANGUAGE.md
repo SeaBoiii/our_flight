@@ -21,7 +21,7 @@ A luxury editorial travel story that runs from **midnight to golden hour**. It i
 - **Smooth-scroll hijacking such as Lenis:** it fights native touch scrolling and accessibility.
 - **ScrollTrigger pinning:** CSS `position: sticky` is smoother on iOS.
 
-There are two videos, both small, muted, autoplaying loops on phones only: the check-in cinemagraph and the living cabin window. Each is a progressive layer over a still photograph, never scrubbed and never on the critical path. If autoplay is refused, the still stays.
+There are four videos, all small, muted, autoplaying loops: the check-in cinemagraph, the living cabin window and the golden-hour arrival (phones only; the arrival loop is reused on the goodbye screen), and the living venue map (any screen with motion and a good connection). Each is a progressive layer over a still photograph, never scrubbed and never on the critical path. If autoplay is refused, the still stays.
 
 ## Tokens
 
@@ -40,7 +40,7 @@ All tokens live in [`src/design/tokens.css`](src/design/tokens.css).
   - **Grain:** procedural grain (`--grain`) is kept for dark scenes.
   - **Songket:** the border and lattice are inline SVG data URIs, which the CSP already allows.
 - **Foil:** lettering on paper uses `--gold-foil-ink`, which rests in deep gold so every letter stays legible. The bright highlight only sweeps across once.
-- **Elevation:** declared once, as a tinted soft shadow (`--shadow-paper` or `--shadow-lift`). Cards stay at 12–16 px radii. Blur is used only on the fixed navigation.
+- **Elevation:** declared once, as a tinted soft shadow (`--shadow-paper` or `--shadow-lift`). Cards stay at 12–16 px radii. Blur is used only on the fixed navigation, which is one liquid-glass material: a smoked navy pane (`--glass-fill`, `--glass-filter`, `--glass-border`, `--glass-edge` in `src/styles.css`) shared by the top controls, the bottom dock, the flight tracker and the skip control. It turns solid where blur is unsupported or reduced transparency is requested.
 
 ## Motion
 
@@ -59,11 +59,11 @@ All tokens live in [`src/design/tokens.css`](src/design/tokens.css).
 | 0 | Check-in | Split-flap board (`AN2108 ↔ AN2208 → FOREVER · ON TIME`). The flight code loops between both wedding days the way a real board turns: forward round the digit wheel, so 1 → 2 is one flip and 2 → 1 rolls 3…9, 0, 1. Letter-by-letter names appear over midnight Changi. On phones, a seamless cinemagraph brings the photograph to life. The code form sits in the thumb zone. |
 | 1 | Boarding pass | Cotton-paper pass with a foil "A&N" and an optional **Board with music** switch. A tap sweeps the scanner beam, the stub tears along the perforation with a haptic tap, and the pass lifts away. |
 | 2 | Journey | Runway → take-off → cabin → window → clouds → **golden-hour sky** → monogram. Kinetic line-masked captions and a SIN → FOREVER route HUD. On phones the airliner lifts off toward the guest and sweeps overhead as they scroll, the window shade lifts on a moving sky, and that same sky carries through the window. |
-| 3 | Envelope | Wax seal lifts, flap opens, card rises. It is decorative; the formal invitation that follows carries the words. |
+| 3 | Envelope | Styled after the printed boarding-pass invitation: arch-window light on linen, the navy wax seal lifts, the curved flap turns over on a night-sky liner and a small boarding-pass card with the arch window rises out of the golden horizon. A tap opens it too. It is decorative; the formal invitation that follows carries the words. |
 | 4 | Invitation | Bismillah, salam and the formal invitation, revealed line by line; names flip in letter by letter. |
 | 5 | Our story | Quote inks in word by word; the flight line draws itself; three postcards stack as you scroll. |
 | 6 | Itinerary | Departures board: heading letters flip in, and timeline dots light up as each item scrolls past. |
-| 7 | Getting here | Line map (MRT → T3 → Crowne Plaza) draws itself, with **Get directions** and **Copy address**. |
+| 7 | Getting here | A paper model of the airport (MRT → T3 → Crowne Plaza): the walk draws itself in gold, the three stops light in turn, a muted loop adds cloud shadows and a paper aeroplane, and tapping the model opens Google Maps. With **Get directions** and **Copy address**. |
 | 8 | RSVP | Large choice cards and a −/+ party-size stepper. Confirmation shows a **CONFIRMED** stamp and a short burst of paper planes and petals. |
 | 9 | Arrival | Golden-hour sky with "Thank you for flying with us", device controls and the music credit. |
 
