@@ -204,3 +204,56 @@ test('guests can skip the flight, tap the envelope open and tap the map for dire
   await expect(mapLink).toHaveAttribute('target', '_blank');
   expect(errors).toEqual([]);
 });
+
+test('the itinerary is a boarding pass whose flight plan is flown as the guest scrolls, under a living cruise', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await board(page);
+  const itinerary = page.locator('#itinerary');
+  const card = itinerary.locator('.itinerary-card').first();
+  const track = card.locator('.event-programme-track');
+  const progress = () => track.evaluate(element => Number(getComputedStyle(element).getPropertyValue('--plan-progress')));
+  const stops = card.locator('.event-programme li');
+  const count = await stops.count();
+  expect(count).toBeGreaterThan(1);
+
+  // Before the plan is reached nothing has been flown.
+  await track.evaluate(element => window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.98, behavior: 'instant' }));
+  await expect.poll(progress).toBeLessThan(0.05);
+  await expect(card.locator('.event-programme li.is-lit')).toHaveCount(0);
+  // Scrolled through, every stop is lit and the route is complete, whatever the number of stops.
+  await track.evaluate(element => window.scrollTo({ top: element.getBoundingClientRect().bottom + window.scrollY - window.innerHeight * 0.4, behavior: 'instant' }));
+  await expect.poll(progress).toBeGreaterThan(0.98);
+  await expect(card.locator('.event-programme li.is-lit')).toHaveCount(count);
+  await expect(card.locator('.itinerary-plan-label')).toHaveText('Flight plan');
+
+  // The cruise above the heading is alive while on screen and rests out of view.
+  const cruise = itinerary.locator('.itinerary-cruise');
+  await cruise.evaluate(element => window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY - 80, behavior: 'instant' }));
+  const loop = cruise.locator('video.itinerary-cruise-loop');
+  await expect(loop).toHaveClass(/is-live/);
+  await expect(loop).toHaveJSProperty('muted', true);
+  await expect(loop).toHaveJSProperty('paused', false);
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await expect(loop).toHaveJSProperty('paused', true);
+  await noHorizontalOverflow(page);
+  expect(errors).toEqual([]);
+});
+
+test('the bottom bar is a small pill that keeps comfortable touch targets and its names', async ({ page }) => {
+  await board(page);
+  const itinerary = page.locator('#itinerary');
+  await itinerary.evaluate(element => window.scrollTo({ top: element.getBoundingClientRect().top + window.scrollY + 200, behavior: 'instant' }));
+  const dock = page.getByRole('navigation', { name: 'Quick actions', exact: true });
+  await expect(dock).toHaveClass(/boarding-dock--visible/);
+  await expect(dock.locator('.dock-item')).toHaveText(['Itinerary', 'Directions', 'Check in']);
+  await expect(dock.getByRole('button', { name: 'Directions', exact: true })).toBeVisible();
+  await expect.poll(async () => (await dock.boundingBox())!.height).toBeLessThanOrEqual(56);
+  const box = (await dock.boundingBox())!;
+  expect(box.width).toBeLessThanOrEqual(page.viewportSize()!.width * 0.75);
+  for (const item of await dock.locator('.dock-item').all()) {
+    const size = (await item.boundingBox())!;
+    expect(size.width).toBeGreaterThanOrEqual(44);
+    expect(size.height).toBeGreaterThanOrEqual(44);
+  }
+});

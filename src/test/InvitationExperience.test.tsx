@@ -274,6 +274,26 @@ describe('invitation details', () => {
     });
   });
 
+  it('draws the flight plan from whatever the programme data holds, in order', () => {
+    const base = invitationForClass('business', 'groom');
+    const programme = [
+      { time: '09:30', title: { en: 'Doors open', ms: 'Pintu dibuka' } },
+      { time: '10:15', title: { en: 'Solemnisation', ms: 'Akad nikah' } },
+      { time: '--:--', title: { en: 'Family portraits', ms: 'Sesi bergambar keluarga' } },
+      { time: '12:00', title: { en: 'Lunch is served', ms: 'Jamuan makan tengah hari' } },
+      { time: '13:30', title: { en: 'Speeches', ms: 'Ucapan' } },
+      { time: '15:45', title: { en: 'Farewell', ms: 'Bersurai' } },
+    ];
+    const invitation = { ...base, events: [{ ...base.events[0], time: '09:30–16:00', programme }, ...base.events.slice(1)] };
+    const { container } = renderExperience(invitation);
+    const card = container.querySelector<HTMLElement>('.itinerary-card')!;
+    const rows = [...card.querySelectorAll('.event-programme li')].map((row) => row.textContent);
+    expect(rows).toEqual(programme.map((item) => `${item.time}${item.title.en}`));
+    expect(card.textContent).toContain('09:30–16:00');
+    expect(card.querySelector('.itinerary-plan-label')?.textContent).toBe('Flight plan');
+    expect(within(card).getByLabelText('Time to be confirmed')).toBeTruthy();
+  });
+
   it('opens the returning itinerary with focus and no journey or cabin/video assets', async () => {
     const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
     const { container } = render(

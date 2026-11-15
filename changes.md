@@ -224,6 +224,83 @@ Prompts, for retakes:
 - Production build and `npm run check:artifact` pass.
 - Not checked: Safari and real phones, as before. The envelope's two-faced flap uses 3D transforms that deserve a look on an iPhone in particular.
 
+## Round three: the itinerary and a smaller bottom bar
+
+15 November 2026. One pull request, not live until it is merged.
+
+### What you asked for
+
+| You asked | What changed |
+|---|---|
+| Make the itinerary fit the theme a lot better | Each day is now a real boarding pass on cotton paper, under the aircraft at cruising altitude. See below. |
+| 3D motion graphics in the flight theme | The aircraft cruises above the heading as a living shot, each pass is laid down in 3D and tips with the scroll, and a small aircraft flies the day's flight plan. |
+| The itinerary may change, so keep it easy to edit | Nothing about the programme is drawn into a picture. Every word still comes from the same two files as before. See "Changing the itinerary". |
+| The bottom bar is too big and too disruptive | It is now a small glass pill. See "The bottom bar". |
+
+### The thinking
+
+The journey has a take-off, a window seat and an arrival, but the itinerary was the one place where the flight stopped: flat navy cards that looked like an app screen. It is the part of the invitation a guest returns to most, so it should feel like the object they would actually hold on a flight: the boarding pass. The printed invitation is a boarding pass, the journey opens with one, and now the itinerary is one too.
+
+The missing leg of the flight was the cruise. So the itinerary opens with the aircraft at altitude at blue hour, the same aircraft and livery as the take-off, filmed as if from another aircraft alongside. It sits above the heading and melts into the navy below, so the section reads as "now we are on our way, and here is the plan".
+
+### What it is
+
+- **The cruise.** A photograph of the aircraft over a sea of clouds at blue hour with the last gold on the horizon. On a good connection it comes alive: the clouds slide beneath the aircraft and its beacon blinks, in a six-second seamless loop of 180 KB. It drifts slightly against the page as you scroll, which makes the aircraft feel far away. Returning guests, who open straight on the itinerary, get the still only.
+- **The pass.** A navy band with the songket border carries the flight code, seat and cabin, as on the journey's pass. Below it, on cotton paper: the day, the title and the hours. Then a perforation with punched notches, the flight plan, a second perforation, and a stub with the hotel, ballroom, terminal and a barcode.
+- **The 3D.** Each pass is laid down from its top edge as it arrives. After that it tips a few degrees with the scroll, like a card held in the hand, and a glint crosses the navy band as it tips. It leans away from the guest and never towards them, so a long pass cannot swell past the edge of the screen.
+- **The flight plan.** The programme is a dashed route with a ring at each stop. As the guest scrolls, the route fills in gold, a small aircraft flies down it, and each ring fills as the aircraft reaches it.
+- **Kept.** The split-flap departures countdown, the "Today" and "Landed" badges, the order (landed days move below), and every word and heading level.
+
+### Changing the itinerary
+
+Nothing here is baked into artwork, so edits show up the moment the site is rebuilt.
+
+- **Programme rows** (the flight plan): `src/programme.ts`. Add, remove or reorder rows, change a time, or use `--:--` for a time that is not confirmed yet. Give each row an English and a Malay title. The route, the aircraft and the rings adjust by themselves to any number of rows.
+- **Date, title, hours and flight code of each day**: `src/invitationEvents.ts`.
+- **Hotel, ballroom and terminal**: the invitation details, as before.
+- The pass grows or shrinks with its content. A day with one row simply shows that row without a route. A unit test renders a six-row programme with an unconfirmed time to keep this honest.
+
+### The bottom bar
+
+- It is now a small pill in the middle of the bottom edge: about 54 px tall and 220 px wide, where it was about 70 px tall and almost the full width of the phone.
+- Itinerary and Directions are icons. Only the one gold action keeps its word ("Check in", or "Directions" on the day, or "Photos" afterwards). The names are still there for screen readers.
+- Every button keeps a 44 px touch target, and it is the same liquid glass as the top controls.
+- It still appears only once the guest reaches the itinerary, and still steps aside over the RSVP form and the footer.
+
+### Two fixes found along the way
+
+- **A loop that was interrupted could disappear for good.** If a guest scrolled past a living picture just as it started to play, the browser reported the interruption and the loop treated it as "cannot play" and removed itself for the rest of the visit. It now tries again the next time it comes into view. This affected the map and the goodbye sky from round two.
+- **Returning guests were being sent a video.** The promise for a return visit is that it opens straight on the itinerary with no film. Round two's goodbye-sky loop broke that promise once the guest scrolled near the footer. An end-to-end test was already checking this, and I missed its failure among the expected picture-comparison failures. Living loops are now limited to the visit that flew the journey.
+
+### New assets in this round
+
+All from Higgsfield, 39 credits in total.
+
+| Asset | Model | Credits | Delivered as |
+|---|---|---|---|
+| Cruise still (two options, one used) | GPT Image 2.6, 4:3, with the site's own aircraft as the reference | about 9 | `public/flight/cruise-960.webp` 25 KB, `.avif` 19 KB |
+| Cruise loop | Cinema Studio Video 3.0, 6 s, the still as first and last frame | 30 | `public/flight/cruise-loop.mp4` 180 KB |
+
+- Still: "Cinematic air-to-air photograph of the exact airliner from the reference image [...] cruising level at high altitude at blue hour just after sunset. Seen from another aircraft flying alongside, slightly above and behind its left wing [...] a thin warm golden-amber afterglow band along the horizon [...] a calm sea of dark blue clouds that grows darker toward the bottom edge and fades to almost solid deep navy teal."
+- Loop: "Air-to-air formation shot filmed from a chase aircraft flying alongside at exactly the same speed. The airliner holds its exact position, size and angle in the frame [...] The sea of clouds below drifts slowly and steadily from right to left [...] The red beacon light on top of the fuselage blinks softly. [...] the final frame is identical to the first frame."
+- Masters: `artwork/flight/cruise.png` and `artwork/video/cruise-loop-master.mp4`. The unused option is kept in the project files.
+
+### Files in this round
+
+- `src/components/InvitationExperience.tsx`: the pass markup, the cruise, and the itinerary motion.
+- `src/experience.css`: the pass, the flight plan and the cruise. `src/dock.css`: the pill.
+- `src/components/LivingLoop.tsx`: the interrupted-play fix.
+- `src/sceneAssets.ts`, `src/designCopy.ts` ("Flight plan" in both languages).
+- `scripts/prepare-stationery-assets.py`, `scripts/prepare-motion-assets.mjs`, `scripts/check-artifact.mjs` (the cruise loop is allowed, with a 500 KiB budget).
+- `e2e/motion.spec.ts` (two new tests), `src/test/InvitationExperience.test.tsx` (the edited-programme test).
+
+### Checked in this round
+
+- 484 unit tests, type-check and lint pass.
+- End-to-end in Chromium at four phone sizes: all 145 pass. This time the picture-comparison tests were given temporary Linux baselines for the run, so a real failure can no longer hide among them; those temporary pictures are not committed. The Windows baselines still need refreshing with `npm run test:e2e:update`, because the itinerary and the bottom bar look different by design.
+- Production build and `npm run check:artifact` pass.
+- Not checked: Safari and real phones, as before. The punched notches use CSS masks and the pass tilt uses 3D transforms, which deserve a look on an iPhone.
+
 ## Not done, and worth doing next
 
 - **Desktop and tablet versions** of the take-off film and the window sky (landscape clips), as agreed to follow later.

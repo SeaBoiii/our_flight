@@ -237,14 +237,16 @@ const CINEMAGRAPH = join('flight', 'gate-cinemagraph-portrait.mp4');
 const WINDOW_SKY = join('flight', 'window-sky-portrait.mp4');
 const GOLDEN_ARRIVAL = join('flight', 'golden-arrival-portrait.mp4');
 const VENUE_MAP = join('flight', 'venue-map-loop.mp4');
-const permittedVideos = [CINEMAGRAPH, WINDOW_SKY, GOLDEN_ARRIVAL, VENUE_MAP];
+const CRUISE = join('flight', 'cruise-loop.mp4');
+const permittedVideos = [CINEMAGRAPH, WINDOW_SKY, GOLDEN_ARRIVAL, VENUE_MAP, CRUISE];
 for (const file of files.filter(file => /\.(?:mp4|webm)$/i.test(file))) {
-  if (!permittedVideos.includes(relative(root, file)) && !permittedVideos.includes(file)) failures.push(`Unexpected video in the artifact: ${file}. Only the check-in cinemagraph, the window sky loop, the golden arrival loop and the venue map loop are allowed.`);
+  if (!permittedVideos.includes(relative(root, file)) && !permittedVideos.includes(file)) failures.push(`Unexpected video in the artifact: ${file}. Only the check-in cinemagraph, the window sky loop, the golden arrival loop, the venue map loop and the itinerary cruise loop are allowed.`);
 }
 if (await exists(join(root, CINEMAGRAPH)) && (await stat(join(root, CINEMAGRAPH))).size > 400 * 1024) failures.push('The check-in cinemagraph exceeds its 400 KiB budget.');
 if (await exists(join(root, WINDOW_SKY)) && (await stat(join(root, WINDOW_SKY))).size > 600 * 1024) failures.push('The window sky loop exceeds its 600 KiB budget.');
 if (await exists(join(root, GOLDEN_ARRIVAL)) && (await stat(join(root, GOLDEN_ARRIVAL))).size > 600 * 1024) failures.push('The golden arrival loop exceeds its 600 KiB budget.');
 if (await exists(join(root, VENUE_MAP)) && (await stat(join(root, VENUE_MAP))).size > 500 * 1024) failures.push('The venue map loop exceeds its 500 KiB budget.');
+if (await exists(join(root, CRUISE)) && (await stat(join(root, CRUISE))).size > 500 * 1024) failures.push('The itinerary cruise loop exceeds its 500 KiB budget.');
 // The take-off film is 40 numbered frames scrubbed on a canvas (phones only).
 const TAKEOFF_FRAMES = 40;
 let takeoffBytes = 0;

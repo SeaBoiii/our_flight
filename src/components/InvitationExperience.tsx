@@ -18,8 +18,8 @@ import { gsap, ScrollTrigger, SplitText } from '../motion/gsap';
 import { useGsapScene } from '../motion/useGsapScene';
 import { pauseMusic } from '../music';
 import { preloadForReplay } from '../preload';
-import { goldenArrivalVideo, sceneAssets } from '../sceneAssets';
-import { motionLayersAllowed } from '../filmStrip';
+import { cruiseArt, goldenArrivalVideo, sceneAssets } from '../sceneAssets';
+import { fastConnection, motionLayersAllowed } from '../filmStrip';
 import { LivingLoop } from './LivingLoop';
 import { Envelope } from './Envelope';
 import { ArrowDownIcon, ArrowUpRightIcon } from './Icons';
@@ -90,7 +90,12 @@ export default function InvitationExperience({
   const [addressCopied, setAddressCopied] = useState(false);
   const experienceRef = useRef<HTMLElement>(null);
   const footerRef = useRef<HTMLElement>(null);
-  const [arrivalLoop] = useState(() => motion && motionLayersAllowed());
+  const cruiseRef = useRef<HTMLDivElement>(null);
+  // Returning guests land on the itinerary with stills only; the cruise comes alive after the journey.
+  const [quickNetwork] = useState(() => fastConnection());
+  const cruiseLoop = motion && quickNetwork && entryMode === 'journey';
+  const [arrivalAllowed] = useState(() => motion && motionLayersAllowed());
+  const arrivalLoop = arrivalAllowed && entryMode === 'journey';
   const navigatedRef = useRef(false);
   const sectionFocusFrameRef = useRef(0);
   const copiedTimerRef = useRef(0);
@@ -160,11 +165,27 @@ export default function InvitationExperience({
         scrollTrigger: { trigger: heading, start: 'top 88%', once: true },
       });
     }
+    // The cruise drifts a little against the page, so the aircraft feels far away.
+    const cruise = root.querySelector('.itinerary-cruise');
+    if (cruise) {
+      gsap.fromTo(cruise.querySelectorAll('picture, .itinerary-cruise-loop'), { yPercent: -5, scale: 1.1 }, { yPercent: 5, scale: 1.02, ease: 'none',
+        scrollTrigger: { trigger: cruise, start: 'top bottom', end: 'bottom top', scrub: true } });
+    }
     gsap.utils.toArray<HTMLElement>('.itinerary-card', root).forEach((card) => {
-      gsap.from(card, { y: 60, opacity: 0, scale: 0.97, transformOrigin: '50% 0%', duration: 1, scrollTrigger: { trigger: card, start: 'top 90%', once: true } });
-      const line = card.querySelector('.event-programme-line');
-      if (line) {
-        gsap.fromTo(line, { scaleY: 0 }, { scaleY: 1, ease: 'none', transformOrigin: '50% 0%',
+      // Each pass is laid down from its top edge. It leans away, never towards the guest,
+      // so even a long pass stays inside the screen while it settles.
+      gsap.from(card, { y: 70, opacity: 0, rotationX: -22, scale: 0.94, transformPerspective: 1100, transformOrigin: '50% 0%', duration: 1.2, ease: 'expo.out',
+        scrollTrigger: { trigger: card, start: 'top 90%', once: true } });
+      // Then it tips gently with the scroll, like a card held in the hand, and its band catches the light.
+      const pass = card.querySelector('.itinerary-pass');
+      if (pass) {
+        gsap.fromTo(pass, { rotationX: 3.5, '--pass-sheen': 0 }, { rotationX: -3.5, '--pass-sheen': 1, ease: 'none', transformPerspective: 1400,
+          scrollTrigger: { trigger: card, start: 'top bottom', end: 'bottom top', scrub: 0.6 } });
+      }
+      // The flight plan: the route fills in and a small aircraft flies it, however many stops there are.
+      const track = card.querySelector('.event-programme-track');
+      if (track) {
+        gsap.fromTo(track, { '--plan-progress': 0 }, { '--plan-progress': 1, ease: 'none',
           scrollTrigger: { trigger: card.querySelector('.event-programme'), start: 'top 75%', end: 'bottom 55%', scrub: true } });
       }
       card.querySelectorAll('.event-programme li').forEach((item) => {
@@ -312,6 +333,16 @@ export default function InvitationExperience({
             onClick={onReplay ?? onBack}
           >{words.replay}</button>
         </div> : null}
+        {/* The cruise: the aircraft at altitude, above the passes. Decorative, and skipped on data saver. */}
+        {!lowData ? (
+          <div ref={cruiseRef} className="itinerary-cruise" aria-hidden="true">
+            <picture>
+              <source type="image/avif" srcSet={`${base}${cruiseArt.avif}`} />
+              <img src={`${base}${cruiseArt.webp}`} width={cruiseArt.width} height={cruiseArt.height} alt="" loading={entryMode === 'fast-track' ? 'eager' : 'lazy'} decoding="async" />
+            </picture>
+            <LivingLoop watch={cruiseRef} src={`${base}${cruiseArt.video}`} className="itinerary-cruise-loop" enabled={cruiseLoop} />
+          </div>
+        ) : null}
         <div className="section-heading">
           <p className="eyebrow">{localized(invitation.cabinLabel, locale)}</p>
           <h2 id="itinerary-title" tabIndex={-1} key={`itinerary-${locale}`}>{t.itinerary}</h2>
@@ -322,7 +353,7 @@ export default function InvitationExperience({
         <TodayPanel day={today} landed={landed} gallery={gallery} now={now} locale={locale}
           helpUrl={todayContact ? whatsAppUrl(todayContact, contactGreeting(todayContact, invitation.events, locale)) : undefined} />
 
-        <div className="itinerary-list">
+        <div className={`itinerary-list${motion ? ' itinerary-list--motion' : ''}`}>
           {/* Days that have landed move below the ones still to come. */}
           {[...invitation.events].sort((left, right) => Number(now >= eventWindow(left).end) - Number(now >= eventWindow(right).end)).map((event) => {
             const displayDate = localized(event.dateLabel, locale);
@@ -332,50 +363,62 @@ export default function InvitationExperience({
             return (
               <article className={`itinerary-card${eventToday ? ' itinerary-card--today' : ''}${eventLanded ? ' itinerary-card--landed' : ''}`} key={event.id}>
                 {eventToday || eventLanded ? <span className="itinerary-status">{eventToday ? dock.todayBadge : dock.landedBadge}</span> : null}
-                <p className="itinerary-flight"><span>{event.flightCode}</span><span>{dock.seat} {seatForEvent(event)}</span><span>{localized(invitation.cabinLabel, locale)}</span></p>
-                <h3 className="itinerary-date">
-                  <time dateTime={event.dateIso}>
-                    <span className="itinerary-weekday" aria-hidden="true">{date.weekday}</span>
-                    <span className="itinerary-date-core" aria-hidden="true">
-                      <strong>{date.day}</strong>
-                      <span>{date.monthAndYear}</span>
-                    </span>
-                    <span className="visually-hidden">{displayDate}</span>
-                  </time>
-                </h3>
-                <div className="itinerary-event-heading">
-                  <h4>{localized(event.title, locale)}</h4>
-                  <p>{event.time}</p>
-                </div>
-                <div className="event-programme-track">
-                  <span className="event-programme-line" aria-hidden="true" />
-                  <ol className="event-programme">
-                    {event.programme.map((item, index) => {
-                      const placeholder = item.time === '--:--';
-                      return (
-                        <li key={`${event.id}-programme-${index}`}>
-                          <span
-                            className={`programme-time${placeholder ? ' programme-time--placeholder' : ''}`}
-                            aria-label={placeholder ? t.programmeTimePlaceholder : undefined}
-                          >
-                            {item.time}
-                          </span>
-                          <span>{localized(item.title, locale)}</span>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </div>
-                <dl className="venue-fields">
-                  <div className="venue-hotel">
-                    <dt>{t.hotel}</dt>
-                    <dd>
-                      <span>{invitation.hotel}</span>
-                    </dd>
+                {/* One boarding pass per day. Every word on it comes from invitationEvents.ts and programme.ts. */}
+                <div className="itinerary-pass">
+                  <p className="itinerary-flight"><span>{event.flightCode}</span><span>{dock.seat} {seatForEvent(event)}</span><span>{localized(invitation.cabinLabel, locale)}</span></p>
+                  <div className="itinerary-pass-body">
+                    <h3 className="itinerary-date">
+                      <time dateTime={event.dateIso}>
+                        <span className="itinerary-weekday" aria-hidden="true">{date.weekday}</span>
+                        <span className="itinerary-date-core" aria-hidden="true">
+                          <strong>{date.day}</strong>
+                          <span>{date.monthAndYear}</span>
+                        </span>
+                        <span className="visually-hidden">{displayDate}</span>
+                      </time>
+                    </h3>
+                    <div className="itinerary-event-heading">
+                      <h4>{localized(event.title, locale)}</h4>
+                      <p>{event.time}</p>
+                    </div>
                   </div>
-                  <div><dt>{t.ballroom}</dt><dd>{invitation.ballroom}</dd></div>
-                  <div><dt>{t.terminal}</dt><dd>{invitation.terminal}</dd></div>
-                </dl>
+                  <div className="itinerary-plan">
+                    <p className="itinerary-plan-label" aria-hidden="true">{design.flightPlan}</p>
+                    <div className="event-programme-track">
+                      <span className="event-programme-line" aria-hidden="true" />
+                      <span className="event-programme-plane" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 22 4.5 3.5 12 7l7.5-3.5L12 22Z" /></svg></span>
+                      <ol className="event-programme">
+                        {event.programme.map((item, index) => {
+                          const placeholder = item.time === '--:--';
+                          return (
+                            <li key={`${event.id}-programme-${index}`}>
+                              <span
+                                className={`programme-time${placeholder ? ' programme-time--placeholder' : ''}`}
+                                aria-label={placeholder ? t.programmeTimePlaceholder : undefined}
+                              >
+                                {item.time}
+                              </span>
+                              <span>{localized(item.title, locale)}</span>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </div>
+                  </div>
+                  <div className="itinerary-stub">
+                    <dl className="venue-fields">
+                      <div className="venue-hotel">
+                        <dt>{t.hotel}</dt>
+                        <dd>
+                          <span>{invitation.hotel}</span>
+                        </dd>
+                      </div>
+                      <div><dt>{t.ballroom}</dt><dd>{invitation.ballroom}</dd></div>
+                      <div><dt>{t.terminal}</dt><dd>{invitation.terminal}</dd></div>
+                    </dl>
+                    <span className="itinerary-barcode" aria-hidden="true" />
+                  </div>
+                </div>
               </article>
             );
           })}
@@ -388,7 +431,7 @@ export default function InvitationExperience({
           <div className="travel-introduction" data-reveal>
             <h2 id="venue-title">{t.gettingHere}</h2>
             <div className="travel-destination" aria-hidden="true"><span>SIN</span><span>Singapore<br />Changi Airport</span></div>
-            <VenueMap motion={motion} art={!lowData} href={mapUrl} label={`${design.openMap} (${t.newTab})`} />
+            <VenueMap motion={motion} art={!lowData} living={entryMode === 'journey'} href={mapUrl} label={`${design.openMap} (${t.newTab})`} />
           </div>
           <div className="travel-venue" data-reveal>
             <img className="travel-venue-logo" src={crownePlazaLogo} width="140" height="85" loading="lazy" decoding="async" alt="" />

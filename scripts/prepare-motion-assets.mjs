@@ -8,6 +8,7 @@
 //   golden-arrival-portrait-master.mp4 -> public/flight/golden-arrival-portrait.mp4
 //       the same kind of loop, for the sky behind the monogram
 //   venue-map-loop-master.mp4       -> public/flight/venue-map-loop.mp4
+//   cruise-loop-master.mp4          -> public/flight/cruise-loop.mp4
 //       the living paper model in Getting here (first frame equals last)
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
@@ -56,8 +57,15 @@ const mapOutput = `${root}public/flight/venue-map-loop.mp4`;
 run(['-i', mapMaster, '-an', '-t', String(duration(mapMaster) - 1 / 24), '-vf', 'fps=24,scale=800:600:flags=lanczos,format=yuv420p',
   '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'veryslow', '-crf', '27', '-g', '48', '-movflags', '+faststart', mapOutput]);
 
+// The itinerary cruise was generated the same way: first frame equals last.
+const cruiseMaster = source('cruise-loop-master.mp4');
+const cruiseOutput = `${root}public/flight/cruise-loop.mp4`;
+run(['-i', cruiseMaster, '-an', '-t', String(duration(cruiseMaster) - 1 / 24), '-vf', 'fps=24,scale=640:480:flags=lanczos,format=yuv420p',
+  '-c:v', 'libx264', '-profile:v', 'high', '-preset', 'veryslow', '-crf', String(process.env.CRUISE_CRF ?? 22), '-g', '48', '-movflags', '+faststart', cruiseOutput]);
+
 const total = readdirSync(frames).reduce((sum, name) => sum + statSync(`${frames}${name}`).size, 0);
 console.log(`take-off film: ${readdirSync(frames).length} frames, ${total.toLocaleString()} bytes`);
 console.log(`window sky loop: ${skyBytes.toLocaleString()} bytes`);
 console.log(`golden arrival loop: ${goldenBytes.toLocaleString()} bytes`);
 console.log(`venue map loop: ${statSync(mapOutput).size.toLocaleString()} bytes`);
+console.log(`cruise loop: ${statSync(cruiseOutput).size.toLocaleString()} bytes`);

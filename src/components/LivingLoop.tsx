@@ -40,7 +40,8 @@ export function LivingLoop({ watch, src, className, enabled }: LivingLoopProps) 
     if (!show || !video) return undefined;
     if (!inView) { video.pause(); return undefined; }
     const played = video.play();
-    if (played && typeof played.catch === 'function') played.catch(() => setFailed(true));
+    // A play that is merely interrupted (the guest scrolled on) is not a refusal: try again next time.
+    if (played && typeof played.catch === 'function') played.catch((error: unknown) => { if ((error as { name?: string } | null)?.name !== 'AbortError') setFailed(true); });
     return undefined;
   }, [show, inView]);
 

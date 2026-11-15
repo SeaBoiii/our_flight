@@ -40,7 +40,7 @@ All tokens live in [`src/design/tokens.css`](src/design/tokens.css).
   - **Grain:** procedural grain (`--grain`) is kept for dark scenes.
   - **Songket:** the border and lattice are inline SVG data URIs, which the CSP already allows.
 - **Foil:** lettering on paper uses `--gold-foil-ink`, which rests in deep gold so every letter stays legible. The bright highlight only sweeps across once.
-- **Elevation:** declared once, as a tinted soft shadow (`--shadow-paper` or `--shadow-lift`). Cards stay at 12–16 px radii. Blur is used only on the fixed navigation, which is one liquid-glass material: a smoked navy pane (`--glass-fill`, `--glass-filter`, `--glass-border`, `--glass-edge` in `src/styles.css`) shared by the top controls, the bottom dock, the flight tracker and the skip control. It turns solid where blur is unsupported or reduced transparency is requested.
+- **Elevation:** declared once, as a tinted soft shadow (`--shadow-paper` or `--shadow-lift`). Cards stay at 12–16 px radii. Blur is used only on the fixed navigation, which is one liquid-glass material: a smoked navy pane (`--glass-fill`, `--glass-filter`, `--glass-border`, `--glass-edge` in `src/styles.css`) shared by the top controls, the bottom dock, the flight tracker and the skip control. The bottom dock is a small pill: icons for the shortcuts and a word only on the one gold action. It turns solid where blur is unsupported or reduced transparency is requested.
 
 ## Motion
 
@@ -62,7 +62,7 @@ All tokens live in [`src/design/tokens.css`](src/design/tokens.css).
 | 3 | Envelope | Styled after the printed boarding-pass invitation: arch-window light on linen, the navy wax seal lifts, the curved flap turns over on a night-sky liner and a small boarding-pass card with the arch window rises out of the golden horizon. A tap opens it too. It is decorative; the formal invitation that follows carries the words. |
 | 4 | Invitation | Bismillah, salam and the formal invitation, revealed line by line; names flip in letter by letter. |
 | 5 | Our story | Quote inks in word by word; the flight line draws itself; three postcards stack as you scroll. |
-| 6 | Itinerary | Departures board: heading letters flip in, and timeline dots light up as each item scrolls past. |
+| 6 | Itinerary | The cruise: the aircraft at blue hour above the heading, alive on good connections. Heading letters flip in like a departures board. Each day is a boarding pass on cotton paper that is laid down in 3D and tips with the scroll; its flight plan is a route that a small aircraft flies as the guest scrolls, lighting each stop. All words come from `src/programme.ts` and `src/invitationEvents.ts`. |
 | 7 | Getting here | A paper model of the airport (MRT → T3 → Crowne Plaza): the walk draws itself in gold, the three stops light in turn, a muted loop adds cloud shadows and a paper aeroplane, and tapping the model opens Google Maps. With **Get directions** and **Copy address**. |
 | 8 | RSVP | Large choice cards and a −/+ party-size stepper. Confirmation shows a **CONFIRMED** stamp and a short burst of paper planes and petals. |
 | 9 | Arrival | Golden-hour sky with "Thank you for flying with us", device controls and the music credit. |

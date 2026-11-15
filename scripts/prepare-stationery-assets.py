@@ -1,4 +1,4 @@
-"""Encode the envelope and venue-map masters for delivery; no retouching.
+"""Encode the envelope, venue-map and itinerary cruise masters for delivery; no retouching.
 
 Run with Python + Pillow (AVIF support): python scripts/prepare-stationery-assets.py
 The blank wax seal is encoded by scripts/prepare-flight-assets.py.
@@ -26,6 +26,8 @@ encode(STATIONERY / 'envelope-liner.png', 'envelope-liner-640', (640, 730), 76)
 encode(STATIONERY / 'arch-window.png', 'arch-window-336', (336, 600), 84, alpha=True)
 # Getting here: the paper model of the airport precinct.
 encode(ROOT / 'artwork' / 'flight' / 'venue-map.png', 'venue-map-1280', (1280, 958), 78, avif=True)
+# Itinerary: the aircraft at cruising altitude at blue hour.
+encode(ROOT / 'artwork' / 'flight' / 'cruise.png', 'cruise-960', (960, 717), 86, avif=True)
 
-for name in ['envelope-linen-720.webp', 'envelope-liner-640.webp', 'arch-window-336.webp', 'venue-map-1280.webp', 'venue-map-1280.avif']:
+for name in ['envelope-linen-720.webp', 'envelope-liner-640.webp', 'arch-window-336.webp', 'venue-map-1280.webp', 'venue-map-1280.avif', 'cruise-960.webp', 'cruise-960.avif']:
     print(f'{name}: {(TARGET / name).stat().st_size:,} bytes')
