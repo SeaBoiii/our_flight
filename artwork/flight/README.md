@@ -67,3 +67,10 @@ All generated with Higgsfield. The prompts and the reasoning are in `changes.md`
 - **../stationery/arch-window.png:** The arch window artwork of the printed boarding-pass invitation, unchanged.
 
 Encode with `python scripts/prepare-stationery-assets.py` and `node scripts/prepare-motion-assets.mjs`.
+
+## Round three additions (15 November 2026)
+
+- **cruise.png:** GPT Image 2.6, 4:3, with `public/flight/aircraft-960.webp` as the reference so the livery matches. The aircraft at cruising altitude at blue hour, seen from alongside, over dark clouds that fade to navy at the bottom so the picture melts into the itinerary.
+- **../video/cruise-loop-master.mp4:** Cinema Studio Video 3.0, 6 s, with `cruise.png` as both the first and the last frame: the aircraft holds its place, the clouds slide beneath it and the beacon blinks.
+
+Encoded by the same two scripts.

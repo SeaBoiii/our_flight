@@ -24,11 +24,13 @@ const percent = (value: number, size: number) => `${(value / size) * 100}%`;
  * Without `art` (data saver, slow network) the walk is drawn on plain paper
  * and no image is requested.
  */
-export function VenueMap({ motion, art, href, label }: { motion: boolean; art: boolean; href: string; label: string }) {
+export function VenueMap({ motion, art, living, href, label }: { motion: boolean; art: boolean; living: boolean; href: string; label: string }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const base = import.meta.env.BASE_URL;
   // The loop needs motion and a connection that can afford it.
-  const [loop] = useState(() => motion && fastConnection());
+  const [quickNetwork] = useState(() => fastConnection());
+  // `living` is false on return visits, which promise stills only.
+  const loop = motion && living && quickNetwork;
 
   useGsapScene(mapRef, () => {
     const map = mapRef.current!;

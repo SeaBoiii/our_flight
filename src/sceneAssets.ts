@@ -84,3 +84,12 @@ export const windowSkyVideo = 'flight/window-sky-portrait.mp4';
 
 /** Seamless loop of the golden-hour cloudscape behind the monogram. */
 export const goldenArrivalVideo = 'flight/golden-arrival-portrait.mp4';
+
+/** Itinerary header: the aircraft at cruising altitude at blue hour, with a small living loop. */
+export const cruiseArt = {
+  width: 960,
+  height: 717,
+  webp: 'flight/cruise-960.webp',
+  avif: 'flight/cruise-960.avif',
+  video: 'flight/cruise-loop.mp4',
+};
