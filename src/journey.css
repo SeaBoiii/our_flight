@@ -108,11 +108,11 @@
 /* Skip flight: offered once the journey is under way, gone by the arrival. */
 .journey--cinematic .journey-skip { position: absolute; z-index: 10; top: calc(var(--controls-clearance, 78px) - 6px); right: max(14px, env(safe-area-inset-right)); display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px 0 10px; color: var(--gold-soft); font: 500 .625rem/1 var(--font-mono); letter-spacing: .16em; text-decoration: none; text-transform: uppercase; opacity: 0; pointer-events: none; transition: opacity .5s var(--ease-out, ease-out); -webkit-tap-highlight-color: transparent; }
 .journey--cinematic .journey-skip > span { padding: 8px 4px 8px 12px; }
-.journey--cinematic .journey-skip::before { position: absolute; z-index: -1; inset: 7px 0; border: 1px solid rgba(217,180,114,.35); border-radius: 999px; background: rgba(4,18,27,.55); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); content: ''; }
+.journey--cinematic .journey-skip::before { position: absolute; z-index: -1; inset: 7px 0; border: 1px solid var(--glass-border); border-radius: 999px; background: var(--glass-fill); box-shadow: var(--glass-edge); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); content: ''; }
 .journey--cinematic .journey-skip svg { width: 14px; height: 14px; margin-right: 10px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .journey--cinematic.journey--started:not(.journey--arriving) .journey-skip { opacity: 1; pointer-events: auto; }
 .journey--cinematic .journey-skip:focus-visible { opacity: 1; pointer-events: auto; outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 999px; }
-.journey--cinematic .flight-hud { position: absolute; z-index: 10; left: 50%; bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px)); display: flex; align-items: center; gap: 10px; padding: 8px 14px; border: 1px solid rgba(217,180,114,.35); border-radius: 999px; color: var(--gold-soft); background: rgba(4,18,27,.62); transform: translateX(-50%); opacity: calc(1 - var(--daylight-opacity)); }
+.journey--cinematic .flight-hud { position: absolute; z-index: 10; left: 50%; bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px)); display: flex; align-items: center; gap: 10px; padding: 8px 14px; border: 1px solid var(--glass-border); border-radius: 999px; color: var(--gold-soft); background: var(--glass-fill); box-shadow: var(--glass-edge); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); transform: translateX(-50%); opacity: calc(1 - var(--daylight-opacity)); }
 .journey--cinematic .flight-hud-code { font: 500 .625rem/1 var(--font-mono); letter-spacing: .16em; }
 .journey--cinematic .flight-hud-track { position: relative; width: 150px; height: 30px; flex: 0 0 auto; }
 .journey--cinematic .flight-hud-track > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
@@ -152,6 +152,19 @@
   .journey--cinematic .ceremonial-ticket-band { padding: 11px 20px; }
   .journey--cinematic .ceremonial-ticket-stub { padding: 10px 22px; }
   .journey--cinematic .journey-scroll-cue { gap: 5px; font-size: .65rem; }
+}
+/* Short phones: the pass gives way so the scroll guidance stays in view below it. */
+@media (max-height: 700px) and (orientation: portrait) {
+  .journey--cinematic .journey-opening { padding-top: 84px; padding-bottom: 78px; gap: 8px; }
+  .journey--cinematic .journey-intro .eyebrow { margin-bottom: 8px; }
+  .journey--cinematic .journey-intro h1 { font-size: clamp(2.2rem, 9vw, 3.4rem); }
+  .journey--cinematic .journey-welcome-body { margin-top: 6px; line-height: 1.45; }
+  .journey--cinematic .journey-ticket-slot { max-width: 300px; }
+  .journey--cinematic .ceremonial-ticket-content { padding: 10px 20px; }
+  .journey--cinematic .ceremonial-ticket-names { margin-bottom: 7px; font-size: 1.8rem; }
+  .journey--cinematic .ceremonial-ticket-details { margin-top: 6px; }
+  .journey--cinematic .ceremonial-ticket-band { padding: 8px 18px; }
+  .journey--cinematic .ceremonial-ticket-stub { padding: 7px 20px; }
 }
 @media (max-height: 540px) and (orientation: landscape) {
   .journey--cinematic .journey-opening { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr auto; gap: 10px 30px; padding: 80px 7vw 78px; }

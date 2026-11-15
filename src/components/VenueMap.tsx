@@ -21,8 +21,10 @@ const percent = (value: number, size: number) => `${(value / size) * 100}%`;
  * Crowne Plaza, over a paper model of the airport. Illustrative: the written
  * directions remain the source of truth, and tapping the model opens the map. With motion, the route draws itself
  * as the guest scrolls and the model comes alive with a small muted loop.
+ * Without `art` (data saver, slow network) the walk is drawn on plain paper
+ * and no image is requested.
  */
-export function VenueMap({ motion, href, label }: { motion: boolean; href: string; label: string }) {
+export function VenueMap({ motion, art, href, label }: { motion: boolean; art: boolean; href: string; label: string }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const base = import.meta.env.BASE_URL;
   // The loop needs motion and a connection that can afford it.
@@ -65,13 +67,15 @@ export function VenueMap({ motion, href, label }: { motion: boolean; href: strin
   }, motion);
 
   return (
-    <div ref={mapRef} className={`venue-map${motion ? ' venue-map--motion' : ''}`}>
+    <div ref={mapRef} className={`venue-map${motion ? ' venue-map--motion' : ''}${art ? '' : ' venue-map--plain'}`}>
       {/* Tapping the model opens the real map. */}
       <a className="venue-map-scene" href={href} target="_blank" rel="noreferrer" aria-label={label}>
-        <picture>
-          <source type="image/avif" srcSet={`${base}${venueMapArt.avif}`} />
-          <img src={`${base}${venueMapArt.webp}`} width={venueMapArt.width} height={venueMapArt.height} alt="" loading="lazy" decoding="async" />
-        </picture>
+        {art ? (
+          <picture>
+            <source type="image/avif" srcSet={`${base}${venueMapArt.avif}`} />
+            <img src={`${base}${venueMapArt.webp}`} width={venueMapArt.width} height={venueMapArt.height} alt="" loading="lazy" decoding="async" />
+          </picture>
+        ) : null}
         <LivingLoop watch={mapRef} src={`${base}${venueMapArt.video}`} className="venue-map-loop" enabled={loop} />
         <svg className="venue-map-overlay" aria-hidden="true" viewBox={`0 0 ${venueMapArt.width} ${venueMapArt.height}`} preserveAspectRatio="none">
           <path d={ROUTE} className="venue-map-route" />

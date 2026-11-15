@@ -388,7 +388,7 @@ export default function InvitationExperience({
           <div className="travel-introduction" data-reveal>
             <h2 id="venue-title">{t.gettingHere}</h2>
             <div className="travel-destination" aria-hidden="true"><span>SIN</span><span>Singapore<br />Changi Airport</span></div>
-            <VenueMap motion={motion} href={mapUrl} label={`${design.openMap} (${t.newTab})`} />
+            <VenueMap motion={motion} art={!lowData} href={mapUrl} label={`${design.openMap} (${t.newTab})`} />
           </div>
           <div className="travel-venue" data-reveal>
             <img className="travel-venue-logo" src={crownePlazaLogo} width="140" height="85" loading="lazy" decoding="async" alt="" />

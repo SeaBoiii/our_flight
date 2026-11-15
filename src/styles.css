@@ -34,7 +34,17 @@
   --accent: var(--gold-deep); --accent-deep: var(--navy); --metal: var(--gold); --soft: var(--sand);
   --shadow: var(--shadow-paper);
   --controls-clearance: max(84px, calc(4rem + 24px + env(safe-area-inset-top)));
+  /* Liquid glass for the navigation: a smoked navy pane that blurs and deepens
+     whatever passes beneath it, with a bright rim where it catches the light. */
+  --glass-tint: rgba(6,26,38,.5);
+  --glass-fill: linear-gradient(140deg, rgba(255,255,255,.17), rgba(255,255,255,.02) 42%, rgba(255,255,255,.09)), var(--glass-tint);
+  --glass-filter: blur(20px) saturate(1.8) brightness(.54);
+  --glass-border: rgba(255,255,255,.26);
+  --glass-edge: inset 0 1px 0 rgba(255,255,255,.42), inset 0 -1px 0 rgba(255,255,255,.1), inset 0 0 14px rgba(255,255,255,.06);
 }
+/* Where the pane cannot blur, or the guest asks for less transparency, it turns solid. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { :root { --glass-tint: rgba(4,18,27,.9); } }
+@media (prefers-reduced-transparency: reduce) { :root { --glass-tint: rgba(4,18,27,.94); --glass-filter: none; } }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: 88px; }
 body { margin: 0; min-width: 0; min-height: 100svh; background: var(--ivory); }
@@ -76,7 +86,7 @@ time, .programme-time, .ticket-paper-events dd, .ticket-paper-code { font-varian
 .site-brand > span:last-child { font: 500 .6875rem/1.5 var(--font-mono); letter-spacing: .22em; }
 .site-brand small { display: block; margin-top: 2px; font: 400 .6875rem/1.5 var(--font-body); letter-spacing: .02em; opacity: .7; }
 .header-actions { display: flex; align-items: center; }
-.language-toggle { position: relative; display: inline-grid; min-width: 44px; min-height: 44px; place-items: center; padding: 8px; border: 1px solid #d9b47266; border-radius: 50%; color: inherit; background: #04121b59; font: 500 .75rem/1 var(--font-mono); }
+.language-toggle { position: relative; display: inline-grid; min-width: 44px; min-height: 44px; place-items: center; padding: 8px; border: 1px solid var(--glass-border); border-radius: 50%; color: inherit; background: var(--glass-fill); box-shadow: var(--glass-edge); -webkit-backdrop-filter: var(--glass-filter); backdrop-filter: var(--glass-filter); font: 500 .75rem/1 var(--font-mono); }
 .language-toggle::after { position: absolute; right: 15px; bottom: 9px; left: 15px; height: 1px; background: var(--gold); content: ""; }
 
 /* ── Check-in: a midnight departures hall ─────────────────────────────── */
