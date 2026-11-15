@@ -53,3 +53,17 @@ python scripts/prepare-display-monogram.py
 ```
 
 Keep the display PNG and original `public/monogram-a-and-n.png` unchanged. The shorter optional flight reuses the existing scene artwork; Simple view and the guest overview do not require those scenes.
+
+## Round two additions (14 November 2026)
+
+All generated with Higgsfield. The prompts and the reasoning are in `changes.md` at the repository root.
+
+- **../video/golden-arrival-portrait-master.mp4:** Cinema Studio Video 3.0, image-to-video, 10 s at 720 x 1280. A slow forward glide over golden-hour cloud tops; becomes the seamless loop behind the monogram and on the goodbye screen.
+- **venue-map.png:** GPT Image 2.6, 4:3. A photographed paper-craft model of the airport precinct: MRT entrance pavilion (lower left), terminal with a louvred roof (centre), link bridge and hotel around a courtyard pool (upper right). No text or people. The route, pins and labels are drawn in code.
+- **../video/venue-map-loop-master.mp4:** Cinema Studio Video 3.0, 6 s, with `venue-map.png` as both the first and the last frame, locked camera: cloud shadows drift and one paper aeroplane crosses.
+- **../stationery/wax-seal.png:** Replaced with a new blank navy seal (GPT Image 2.6, transparent background, alpha cleaned). The monogram is still composited in CSS.
+- **../stationery/envelope-linen.png:** GPT Image 2.6, 9:16. Ivory linen with a pointed-arch pool of late sunlight.
+- **../stationery/envelope-liner.png:** Cropped from the printed invitation's midnight-to-golden sky panorama, with small foil stars added in the navy.
+- **../stationery/arch-window.png:** The arch window artwork of the printed boarding-pass invitation, unchanged.
+
+Encode with `python scripts/prepare-stationery-assets.py` and `node scripts/prepare-motion-assets.mjs`.
